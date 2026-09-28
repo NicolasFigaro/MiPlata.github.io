@@ -165,6 +165,88 @@
         const cardPaid = (c, nm) => S.items.filter(x => x.t == "p" && x.pc == c.n && x.d.startsWith(nm)).reduce((s, x) => s + x.a, 0);
         const cardDue = (c, nm) => c.paid[nm] ? 0 : Math.max(0, S.items.filter(x => x.k == c.n).reduce((t, x) => t + cm(x, nm), 0) - cardPaid(c, nm));
 
+        // Cupo real de la tarjeta: lo que debes menos lo que ya pagaste (libera cupo al pagar desde cualquier lugar)
+        const cardUse = (c, nm) => {
+            const its = S.items.filter(x => x.k == c.n);
+            const cq = its.reduce((t, x) => t + cm(x, nm), 0), us = its.reduce((t, x) => t + pend(x, nm), 0), ab = cardPaid(c, nm);
+            const ok = !!c.paid[nm] || (cq > 0 && cq - ab <= 0);
+            const used = Math.max(0, us - (ok ? Math.max(ab, cq) : ab));
+            const raw = c.c ? used / c.c * 100 : 0;
+            return { cq, us, ab, ok, used, raw, pct: Math.min(100, raw), avail: Math.max(0, (c.c || 0) - used) };
+        };
+        const useTone = p => p < 30 ? { bar: "bg-emerald-500", txt: "text-emerald-500", lbl: "Uso saludable" } : p < 70 ? { bar: "bg-amber-500", txt: "text-amber-500", lbl: "Uso moderado" } : { bar: "bg-rose-500", txt: "text-rose-500", lbl: "Uso alto" };
+
+        // Sugerencias automáticas según tus números
+        function tipsList(by) {
+            const m = mon(), nm = ym(new Date()), T = [];
+            const ing = sum(m, x => x.t == "i"), aho = svm();
+            const gx = m.filter(x => x.t == "g" && !x.s);
+            const kind = k => gx.filter(x => ((G.find(g => g[0] == x.c) || [])[1]) == k).reduce((t, x) => t + x.a, 0);
+            const gas = gx.reduce((t, x) => t + x.a, 0), nec = kind("n"), gus = kind("g");
+            const add = (lv, ic, t, d) => T.push({ lv, ic, t, d });
+
+            let goodCard = false;
+            S.cards.filter(c => c.c && !(S.hide || {})[c.n]).forEach(c => {
+                const u = cardUse(c, nm), pc = Math.round(u.raw), d = nextPay(c.p);
+                if (!u.ok && u.cq - u.ab > 0 && d <= 5) add(0, "fa-calendar-day", c.n + " vence en " + d + (d == 1 ? " día" : " días"), "Te faltan " + fmt(u.cq - u.ab) + " de la cuota. Págala a tiempo y evita intereses de mora.");
+                if (u.raw >= 70) add(0, "fa-credit-card", c.n + " está al " + pc + "% del cupo", "Abona para liberar cupo. Lo ideal es mantener cada tarjeta por debajo del 30%.");
+                else if (u.raw >= 30) add(1, "fa-credit-card", c.n + " va en " + pc + "% del cupo", "Antes de otra compra a cuotas, abona un poco. Meta: menos del 30% utilizado.");
+                else if (!goodCard) { goodCard = true; add(3, "fa-circle-check", "Buen manejo de " + c.n, "Solo usas el " + pc + "% del cupo. Eso cuida tu historial crediticio."); }
+            });
+
+            if (ing <= 0 && gas > 0) add(2, "fa-arrow-trend-up", "Aún no registras ingresos este mes", "Anótalos para ver tu distribución real y recibir mejores sugerencias.");
+            if (ing > 0) {
+                if (gus / ing > 0.3) add(1, "fa-scale-balanced", "Gustos al " + Math.round(gus / ing * 100) + "% de tus ingresos", "La regla 50/30/20 sugiere máximo 30% en ocio, compras y otros. Recorta un poco esta semana.");
+                if (nec / ing > 0.5) add(1, "fa-house", "Necesidades al " + Math.round(nec / ing * 100) + "% de tus ingresos", "Supera el 50% ideal. Revisa gastos fijos y servicios que puedas ajustar.");
+                if (aho / ing < 0.1) add(2, "fa-piggy-bank", "Págate primero", "Separa entre 10% y 20% apenas recibas el ingreso, antes de gastar.");
+                else if (aho / ing >= 0.2) add(3, "fa-piggy-bank", "Estás ahorrando el " + Math.round(aho / ing * 100) + "%", "Vas por encima del 20% recomendado. ¡Sigue así!");
+            }
+            by.filter(([c, v]) => (S.bud || {})[c] && v > S.bud[c]).slice(0, 1).forEach(([c, v]) => add(1, "fa-bullseye", "Te pasaste en " + c, "Llevas " + fmt(v) + " de un presupuesto de " + fmt(S.bud[c]) + ". Frena esta categoría lo que queda del mes."));
+
+            const ah = S.acc.filter(a => !a.f).reduce((t, a) => t + svb(a.id) * (a.u ? S.trm : 1), 0);
+            if (gas > 0 && ah < gas * 3) add(2, "fa-shield-halved", "Arma tu fondo de emergencia", "Meta: 3 meses de gastos (≈ " + fmt(gas * 3) + "). Llevas " + Math.round(ah / (gas * 3) * 100) + "%.");
+            if (!T.length) add(3, "fa-wand-magic-sparkles", "Todo en orden", "Sigue registrando tus movimientos y aquí aparecerán sugerencias a tu medida.");
+            return { list: T.sort((a, b) => a.lv - b.lv).slice(0, 4), ing, nec, gus, aho };
+        }
+        const TIP_STY = [
+            ["bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400", "Urgente"],
+            ["bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400", "Ojo"],
+            ["bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400", "Idea"],
+            ["bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400", "Bien"]
+        ];
+        function tipsUI(by) {
+            const r = tipsList(by), pc = v => r.ing > 0 ? Math.min(100, v / r.ing * 100) : 0;
+            const bar = r.ing > 0 ? `
+                <div class="mb-4">
+                    <div class="flex w-full h-2 rounded-full overflow-hidden bg-slate-100 dark:bg-slate-800">
+                        <div class="bg-indigo-500" style="width:${pc(r.nec)}%"></div><div class="bg-amber-400" style="width:${pc(r.gus)}%"></div><div class="bg-emerald-500" style="width:${pc(r.aho)}%"></div>
+                    </div>
+                    <div class="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-[11px] text-slate-500 dark:text-slate-400">
+                        <span><i class="fa-solid fa-circle text-[7px] text-indigo-500 mr-1"></i>Necesidades ${Math.round(r.nec / r.ing * 100)}% <span class="text-slate-400">(ideal 50)</span></span>
+                        <span><i class="fa-solid fa-circle text-[7px] text-amber-400 mr-1"></i>Gustos ${Math.round(r.gus / r.ing * 100)}% <span class="text-slate-400">(30)</span></span>
+                        <span><i class="fa-solid fa-circle text-[7px] text-emerald-500 mr-1"></i>Ahorro ${Math.round(r.aho / r.ing * 100)}% <span class="text-slate-400">(20)</span></span>
+                    </div>
+                </div>` : "";
+            return `
+                <section class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-3xl shadow-sm">
+                    <div class="flex items-center justify-between mb-4">
+                        <div><h3 class="text-sm font-bold text-slate-800 dark:text-white"><i class="fa-solid fa-lightbulb text-amber-400 mr-1.5"></i>Consejos para tu plata</h3>
+                        <p class="text-xs text-slate-400 mt-0.5">Según tus números de este mes</p></div>
+                    </div>
+                    ${bar}
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        ${r.list.map(t => `
+                            <div class="flex items-start gap-3 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                                <div class="w-9 h-9 shrink-0 rounded-xl flex items-center justify-center text-sm ${TIP_STY[t.lv][0]}"><i class="fa-solid ${t.ic}"></i></div>
+                                <div class="min-w-0">
+                                    <p class="text-xs font-bold text-slate-800 dark:text-white leading-snug">${esc(t.t)}</p>
+                                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">${esc(t.d)}</p>
+                                </div>
+                            </div>`).join("")}
+                    </div>
+                </section>`;
+        }
+
         window.addEventListener('DOMContentLoaded', () => {
             genRec();
             applyTh();
@@ -346,6 +428,8 @@
                     </div>
                 </div>
 
+                ${tipsUI(by)}
+
                 <section class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-3xl shadow-sm">
                     <div class="flex justify-between items-center mb-3"><h3 class="text-sm font-bold text-slate-800 dark:text-white">Anotar Movimiento</h3><button onclick="newTransfer()" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold">↔ Transferir</button></div>
                     <div class="grid grid-cols-2 gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl mb-4">
@@ -487,32 +571,53 @@
 
         function vTar() {
             const m = monAll(), n = ym(new Date());
+            let tc = 0, tu = 0;
             const cardsList = S.cards.map(c => {
-                const u = sum(m, x => x.k == c.n), its = S.items.filter(x => x.k == c.n);
-                const cq = its.reduce((t, x) => t + cm(x, n), 0), us = its.reduce((t, x) => t + pend(x, n), 0);
-                const p = c.c ? Math.min(100, us / c.c * 100) : 0, ab = cardPaid(c, n), ok = c.paid[n] || (cq > 0 && cq - ab <= 0), d = nextPay(c.p);
+                const u = sum(m, x => x.k == c.n), cu = cardUse(c, n), d = nextPay(c.p), tn = useTone(cu.raw);
+                if (c.c) { tc += c.c; tu += cu.used; }
                 return `
                     <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-3xl shadow-sm mb-4">
                         <div class="flex justify-between items-center mb-2">
                             <b class="text-sm font-bold text-slate-800 dark:text-white">💳 ${esc(c.n)}</b>
-                            <span class="text-xs font-semibold ${ok ? "text-emerald-500" : d <= 5 ? "text-rose-500" : "text-slate-400"}">${ok ? "Pagada ✓" : "Vence en " + d + " d"}</span>
+                            <span class="text-xs font-semibold ${cu.ok ? "text-emerald-500" : d <= 5 ? "text-rose-500" : "text-slate-400"}">${cu.ok ? "Pagada ✓" : "Vence en " + d + " d"}</span>
                         </div>
-                        <div class="grid grid-cols-2 gap-2 text-xs mb-3">
+                        <div class="grid grid-cols-2 gap-2 text-xs mb-4">
                             <div><span class="text-slate-400 block">Compras este mes</span><b>${fmt(u)}</b></div>
-                            <div><span class="text-slate-400 block">Cuota a pagar</span><b class="text-indigo-600">${fmt(ok ? 0 : Math.max(0, cq - ab))}</b></div><div><span class="text-slate-400 block">Abonado este mes</span><b class="text-emerald-600">${fmt(ab)}</b></div>
+                            <div><span class="text-slate-400 block">Cuota a pagar</span><b class="text-indigo-600">${fmt(cu.ok ? 0 : Math.max(0, cu.cq - cu.ab))}</b></div>
+                            <div><span class="text-slate-400 block">Abonado este mes</span><b class="text-emerald-600">${fmt(cu.ab)}</b></div>
                         </div>
-                        <div class="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden mb-3"><div class="bg-indigo-600 h-full rounded-full" style="width:${p}%"></div></div>
+                        ${c.c ? `
+                        <div class="flex items-end justify-between mb-1.5">
+                            <div><span class="text-2xl font-extrabold ${tn.txt}">${Math.round(cu.raw)}%</span><span class="text-xs text-slate-400 ml-1.5">del cupo utilizado</span></div>
+                            <span class="text-[11px] font-semibold ${tn.txt}">${tn.lbl}</span>
+                        </div>
+                        <div class="w-full bg-slate-100 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden mb-2"><div class="${tn.bar} h-full rounded-full transition-all duration-500" style="width:${cu.pct}%"></div></div>
+                        <div class="flex justify-between text-[11px] text-slate-400 mb-3">
+                            <span>Usado ${fmt(cu.used)}</span><span>Disponible <b class="text-emerald-500">${fmt(cu.avail)}</b></span><span>Cupo ${fmt(c.c)}</span>
+                        </div>` : `<p class="text-[11px] text-slate-400 mb-3">Esta tarjeta no tiene cupo registrado.</p>`}
                         <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
                             <button onclick="payCard(${c.id})" class="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-xl text-xs font-semibold">Abonar</button>
-                            <button onclick="paidCard(${c.id})" class="px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-xl text-xs font-semibold">${ok ? "Desmarcar pago" : "Marcar pagada"}</button>
+                            <button onclick="paidCard(${c.id})" class="px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-xl text-xs font-semibold">${cu.ok ? "Desmarcar pago" : "Marcar pagada"}</button>
                             <button onclick="delCard(${c.id})" class="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-xl text-xs font-semibold">Borrar</button>
                         </div>
                     </div>
                 `;
             }).join("");
 
+            const gp = tc ? tu / tc * 100 : 0, gt = useTone(gp);
+            const summary = S.cards.length > 1 && tc ? `
+                <section class="bg-gradient-to-br from-indigo-600 to-violet-700 text-white p-5 rounded-3xl shadow-xl shadow-indigo-500/10 mb-4">
+                    <div class="flex items-end justify-between">
+                        <div><small class="text-[10px] text-indigo-200 uppercase tracking-wider block">Cupo total utilizado</small><span class="text-3xl font-extrabold">${Math.round(gp)}%</span></div>
+                        <div class="text-right text-xs"><span class="text-indigo-200 block">Disponible</span><b>${fmt(Math.max(0, tc - tu))}</b></div>
+                    </div>
+                    <div class="w-full bg-white/20 h-2 rounded-full overflow-hidden mt-3"><div class="bg-white h-full rounded-full transition-all duration-500" style="width:${Math.min(100, gp)}%"></div></div>
+                    <p class="text-[11px] text-indigo-200 mt-2">${fmt(tu)} de ${fmt(tc)} · ${gt.lbl.toLowerCase()} (ideal: menos del 30%)</p>
+                </section>` : "";
+
             return `
                 <div class="flex justify-between items-center mb-4"><h3 class="text-base font-bold">Mis Tarjetas de Crédito</h3><button onclick="newCard()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold shadow-md">+ Agregar tarjeta</button></div>
+                ${summary}
                 ${cardsList || '<p class="text-xs text-slate-400 text-center py-6">Aún no tienes tarjetas registradas.</p>'}
             `;
         }
