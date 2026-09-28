@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Mi Plata - Gestor Financiero Avanzado</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#4f46e5">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <link rel="stylesheet" href="styles.css">
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -111,13 +115,14 @@
         S.bud = S.bud || {};
         S.th = S.th || { m: "auto", p: 0, pv: false };
         S.hide = S.hide || {};
+        S.ini = S.ini || {};
         S.items.forEach(x => { if (x.t == "g") { if (WH.includes(x.k)) { x.w = x.k; x.k = ""; } else if (!x.k && !x.w) x.w = WH[0]; } });
 
         let tab = 0;
         let type = "g";
         let cur = new Date();
         cur.setDate(1);
-        let usd = false;
+        let usd = !!S.th.u;
         let sqry = "";
         let op = {};
 
@@ -135,7 +140,7 @@
 
         const svm = () => S.sv.filter(x => x.d.startsWith(ym(cur)) && !x.i).reduce((s, x) => s + (x.cp ?? x.v), 0);
         const svb = id => S.sv.filter(x => x.a == id).reduce((s, x) => s + x.v, 0);
-        const bal = w => S.items.reduce((s, x) => x.w != w ? s : x.t == "i" ? s + x.a : x.k ? s : s - x.a, 0) - S.sv.filter(x => x.w == w && !x.i).reduce((s, x) => s + (x.cp ?? x.v), 0);
+        const bal = w => (S.ini[w] || 0) + S.items.filter(x => x.t == "tr" && x.to == w).reduce((s, x) => s + x.a, 0) + S.items.reduce((s, x) => x.w != w ? s : x.t == "i" ? s + x.a : x.k ? s : s - x.a, 0) - S.sv.filter(x => x.w == w && !x.i).reduce((s, x) => s + (x.cp ?? x.v), 0);
         const me = (x, nm) => (+nm.slice(0, 4) * 12 + +nm.slice(5)) - (+x.d.slice(0, 4) * 12 + +x.d.slice(5, 7)) + 1;
         const cm = (x, nm) => { const q = x.q > 1 ? x.q : 1, e = me(x, nm); return e >= 1 && e <= q ? x.a / q : 0; };
         const pend = (x, nm) => { const q = x.q > 1 ? x.q : 1, e = me(x, nm); return e >= 1 && e <= q ? x.a - x.a / q * (e - 1) : 0; };
@@ -157,6 +162,8 @@
             }, 0);
         };
         const fm = (a, v) => a.u ? fu(v) : fmt(v);
+        const cardPaid = (c, nm) => S.items.filter(x => x.t == "p" && x.pc == c.n && x.d.startsWith(nm)).reduce((s, x) => s + x.a, 0);
+        const cardDue = (c, nm) => c.paid[nm] ? 0 : Math.max(0, S.items.filter(x => x.k == c.n).reduce((t, x) => t + cm(x, nm), 0) - cardPaid(c, nm));
 
         window.addEventListener('DOMContentLoaded', () => {
             genRec();
@@ -180,19 +187,20 @@
             draw();
         }
 
-        const N = ["Inicio", "Ahorro", "Inversión", "Gráficas", "Tarjetas", "Ajustes"];
-        const V = [vHome, vAho, vInv, vGra, vTar, vSet];
+        const N = ["Inicio", "Ahorro", "Inversión", "Gráficas", "Tarjetas", "Deudas", "Ajustes"];
+        const V = [vHome, vAho, vInv, vGra, vTar, vDeu, vSet];
 
         function draw() {
             const navContainer = document.getElementById("navTabs");
             navContainer.innerHTML = N.map((n, i) => `
-                <button onclick="tab=${i}; draw(); window.scrollTo(0,0);" class="px-4 py-2 rounded-xl text-sm font-semibold transition whitespace-nowrap ${i === tab ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/25' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}">
+                <button onclick="goTab(${i})" class="px-4 py-2 rounded-xl text-sm font-semibold transition whitespace-nowrap ${i === tab ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/25' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}">
                     ${n}
                 </button>
             `).join("");
 
             document.getElementById("appMain").innerHTML = V[tab]();
             if (tab == 3) drawCharts();
+            if (anim) { anim = false; const m = document.getElementById("appMain"); m.classList.remove("enter"); void m.offsetWidth; m.classList.add("enter"); countUp(); }
         }
 
         function go(n) { cur.setMonth(cur.getMonth() + n); draw(); }
@@ -282,19 +290,19 @@
                 <div class="flex items-center justify-between py-3 border-b border-slate-100 dark:border-slate-800 last:border-0">
                     <div class="min-w-0 flex-1 pr-2">
                         <strong class="text-sm font-semibold text-slate-800 dark:text-white block truncate">${esc(x.n || x.c)}</strong>
-                        <small class="text-xs text-slate-400">${x.n ? esc(x.c) + " · " : ""}${x.d.slice(8)}/${x.d.slice(5, 7)}${x.k ? " · 💳 " + esc(x.k) : ""}${x.w ? " · " + esc(x.w) : ""}${x.q > 1 ? " · " + x.q + " cuotas" : ""}</small>
+                        <small class="text-xs text-slate-400">${x.n ? esc(x.c) + " · " : ""}${x.d.slice(8)}/${x.d.slice(5, 7)}${x.k ? " · 💳 " + esc(x.k) : ""}${x.w ? " · " + esc(x.w) : ""}${x.q > 1 ? " · " + x.q + " cuotas" : ""}${x.s ? " · fuera del resumen" : ""}</small>
                     </div>
                     <div class="flex items-center space-x-2">
-                        <span class="text-sm font-bold ${x.t == "i" ? "text-emerald-500" : "text-slate-800 dark:text-white"}">${x.t == "i" ? "+" : "-"}${fmt(x.a)}</span>
+                        <span class="text-sm font-bold ${x.t == "i" ? "text-emerald-500" : "text-slate-800 dark:text-white"}">${x.t == "i" ? "+" : x.t == "tr" ? "↔ " : "-"}${fmt(x.a)}</span>
                         <button onclick="editM(${x.id})" class="text-slate-400 hover:text-indigo-600 p-1 text-xs"><i class="fa-solid fa-pen"></i></button>
                         <button onclick="delMovItem(${x.id})" class="text-slate-400 hover:text-rose-600 p-1 text-xs"><i class="fa-solid fa-trash"></i></button>
                     </div>
                 </div>
             `).join("") || '<p class="text-xs text-slate-400 text-center py-4">Anota tu primer movimiento abajo.</p>';
 
-            const hasW = S.items.some(x => x.w), nm = ym(new Date());
+            const hasW = S.items.some(x => x.w) || Object.keys(S.ini).length > 0, nm = ym(new Date());
             const have = hasW ? WH.filter(w => !(S.hide || {})[w]).reduce((s, w) => s + bal(w), 0) : sob;
-            const due = S.cards.filter(c => !c.paid[nm] && !(S.hide || {})[c.n]).reduce((s, c) => s + S.items.filter(x => x.k == c.n).reduce((t, x) => t + cm(x, nm), 0), 0);
+            const due = S.cards.filter(c => !(S.hide || {})[c.n]).reduce((s, c) => s + cardDue(c, nm), 0);
             const svt = S.acc.reduce((s, a) => s + svb(a.id) * (a.u ? S.trm : 1), 0), disp = have - due;
             const invT = S.inv.reduce((s, x) => s + cop(x.v, x.c), 0), invC = S.inv.reduce((s, x) => s + cop(x.i, x.c), 0);
             const totAcc = S.acc.filter(a => !a.f).reduce((s, a) => s + (svb(a.id) + Math.max(0, yieldOf(a.id, a.r))) * (a.u ? S.trm : 1), 0);
@@ -326,20 +334,20 @@
                 </section>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div onclick="tab=1; draw();" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-2xl cursor-pointer hover:border-indigo-500 transition shadow-sm">
+                    <div onclick="goTab(1)" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-2xl cursor-pointer hover:border-indigo-500 transition shadow-sm">
                         <div class="flex justify-between items-center mb-1"><span class="text-xs font-semibold text-slate-500">Ahorros y Metas</span><i class="fa-solid fa-piggy-bank text-indigo-500"></i></div>
                         <h4 class="text-lg font-bold text-slate-800 dark:text-white">${fmt(totAcc)}</h4>
                         ${MT}
                     </div>
-                    <div onclick="tab=2; draw();" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-2xl cursor-pointer hover:border-indigo-500 transition shadow-sm">
+                    <div onclick="goTab(2)" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-2xl cursor-pointer hover:border-indigo-500 transition shadow-sm">
                         <div class="flex justify-between items-center mb-1"><span class="text-xs font-semibold text-slate-500">Inversiones</span><i class="fa-solid fa-chart-line text-emerald-500"></i></div>
-                        <h4 class="text-lg font-bold text-slate-800 dark:text-white">${fmt(invT)}</h4>
+                        <h4 class="text-lg font-bold text-slate-800 dark:text-white">${show(invT)}</h4>
                         <p class="text-xs ${invT >= invC ? "text-emerald-500" : "text-rose-500"} mt-1 font-semibold">${invT >= invC ? "+" : ""}${fmt(invT - invC)} sobre lo invertido</p>
                     </div>
                 </div>
 
                 <section class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-3xl shadow-sm">
-                    <h3 class="text-sm font-bold text-slate-800 dark:text-white mb-3">Anotar Movimiento</h3>
+                    <div class="flex justify-between items-center mb-3"><h3 class="text-sm font-bold text-slate-800 dark:text-white">Anotar Movimiento</h3><button onclick="newTransfer()" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold">↔ Transferir</button></div>
                     <div class="grid grid-cols-2 gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl mb-4">
                         <button type="button" onclick="setType('g')" class="py-2 rounded-xl text-xs font-bold transition ${type=='g'?'bg-white dark:bg-slate-700 text-rose-600 shadow-sm':'text-slate-500'}">Gasto</button>
                         <button type="button" onclick="setType('i')" class="py-2 rounded-xl text-xs font-bold transition ${type=='i'?'bg-white dark:bg-slate-700 text-emerald-600 shadow-sm':'text-slate-500'}">Ingreso</button>
@@ -350,7 +358,7 @@
                             <select id="cat" class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-white">${cats}</select>
                             <input id="date" type="date" value="${today()}" class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-white">
                         </div>
-                        ${type=="g"?`<select id="cardSel" class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-white">${WH.concat(S.cards.map(c=>c.n)).map(x=>`<option>${esc(x)}</option>`).join("")}</select><input id="cq" inputmode="numeric" placeholder="Cuotas (si pagas con tarjeta, ej. 3)" class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-white">`:`<select id="whSel" class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-white">${WH.map(w=>`<option>${w}</option>`).join("")}</select>`}
+                        ${type=="g"?`<select id="cardSel" class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-white">${WH.concat(S.cards.map(c=>c.n)).map(x=>`<option>${esc(x)}</option>`).join("")}</select><input id="cq" inputmode="numeric" placeholder="Cuotas (si pagas con tarjeta, ej. 3)" class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-white">`:`<select id="whSel" class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-white">${WH.map(w=>`<option>${w}</option>`).join("")}</select>${destUI()}`}
                         <input id="note" placeholder="Nota o descripción (opcional)" class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-white" autocomplete="off">
                         <p class="text-rose-500 text-xs" id="msg"></p>
                         <button onclick="addMov()" class="w-full py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs shadow-lg shadow-indigo-500/20 transition">Guardar ${type=="g"?"Gasto":"Ingreso"}</button>
@@ -399,6 +407,7 @@
                             <button onclick="mov(${a.id}, 1)" class="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-xl text-xs font-semibold">＋ Meter</button>
                             <button onclick="mov(${a.id}, -1)" class="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-xl text-xs font-semibold">－ Sacar</button>
                             <button onclick="editAcc(${a.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold">Editar</button>
+                            <button onclick="archAcc(${a.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold">Archivar</button>
                             <button onclick="delAcc(${a.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-rose-500 rounded-xl text-xs font-semibold">Borrar</button>
                         </div>
                     </div>
@@ -411,7 +420,7 @@
                     <div class="text-3xl font-extrabold mt-1">${fmt(T + Y)}</div>
                 </section>
                 <div class="flex justify-between items-center mb-4"><h3 class="text-base font-bold">Mis Metas</h3><button onclick="newAcc()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold shadow-md">+ Nueva meta</button></div>
-                ${A || '<p class="text-xs text-slate-400 text-center py-6">Crea tu primera meta de ahorro.</p>'}
+                ${A || '<p class="text-xs text-slate-400 text-center py-6">Crea tu primera meta de ahorro.</p>'}${arcUI()}
             `;
         }
 
@@ -440,7 +449,7 @@
             return `
                 <section class="bg-gradient-to-br from-violet-600 to-purple-800 text-white p-6 rounded-3xl shadow-xl shadow-purple-500/10 mb-6">
                     <small class="text-xs text-purple-200 font-medium uppercase tracking-wider">Portafolio Total de Inversión</small>
-                    <div class="text-3xl font-extrabold mt-1">${show(T)}</div>
+                    <div class="text-3xl font-extrabold mt-1">${show(T)}</div><button onclick="togUsd()" class="mt-3 px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-xl text-xs font-semibold">Ver en ${usd ? "COP" : "USD"}</button>
                 </section>
                 <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-3xl shadow-sm mb-6">
                     <h3 class="text-sm font-bold mb-3">Tasa de Cambio (TRM) y Moneda</h3>
@@ -469,7 +478,7 @@
             charts.forEach(c => c.destroy()); charts = [];
             if (typeof Chart == "undefined") return;
             Chart.defaults.color = document.documentElement.classList.contains("dark") ? "#94a3b8" : "#64748b";
-            const m = mon(), by = G.map(([c]) => [c, sum(m, x => x.t == "g" && x.c == c)]).filter(x => x[1] > 0);
+            const m = mon(), by = G.map(([c]) => [c, sum(m, x => x.t == "g" && x.c == c && !x.s)]).filter(x => x[1] > 0);
             charts.push(new Chart(document.getElementById("chCat"), { type: "doughnut", data: { labels: by.map(x => x[0]), datasets: [{ data: by.map(x => x[1]), backgroundColor: ["#6366f1","#8b5cf6","#10b981","#f59e0b","#ef4444","#06b6d4","#ec4899","#64748b","#84cc16"] }] } }));
             const ms = [...Array(6)].map((_, i) => ym(new Date(cur.getFullYear(), cur.getMonth() - 5 + i, 1)));
             const tot = (k, t) => S.items.filter(x => x.d.startsWith(k) && x.t == t && vis(x)).reduce((s, x) => s + x.a, 0);
@@ -481,7 +490,7 @@
             const cardsList = S.cards.map(c => {
                 const u = sum(m, x => x.k == c.n), its = S.items.filter(x => x.k == c.n);
                 const cq = its.reduce((t, x) => t + cm(x, n), 0), us = its.reduce((t, x) => t + pend(x, n), 0);
-                const p = c.c ? Math.min(100, us / c.c * 100) : 0, ok = c.paid[n], d = nextPay(c.p);
+                const p = c.c ? Math.min(100, us / c.c * 100) : 0, ab = cardPaid(c, n), ok = c.paid[n] || (cq > 0 && cq - ab <= 0), d = nextPay(c.p);
                 return `
                     <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-3xl shadow-sm mb-4">
                         <div class="flex justify-between items-center mb-2">
@@ -490,10 +499,11 @@
                         </div>
                         <div class="grid grid-cols-2 gap-2 text-xs mb-3">
                             <div><span class="text-slate-400 block">Compras este mes</span><b>${fmt(u)}</b></div>
-                            <div><span class="text-slate-400 block">Cuota a pagar</span><b class="text-indigo-600">${fmt(cq)}</b></div>
+                            <div><span class="text-slate-400 block">Cuota a pagar</span><b class="text-indigo-600">${fmt(ok ? 0 : Math.max(0, cq - ab))}</b></div><div><span class="text-slate-400 block">Abonado este mes</span><b class="text-emerald-600">${fmt(ab)}</b></div>
                         </div>
                         <div class="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden mb-3"><div class="bg-indigo-600 h-full rounded-full" style="width:${p}%"></div></div>
                         <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                            <button onclick="payCard(${c.id})" class="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-xl text-xs font-semibold">Abonar</button>
                             <button onclick="paidCard(${c.id})" class="px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-xl text-xs font-semibold">${ok ? "Desmarcar pago" : "Marcar pagada"}</button>
                             <button onclick="delCard(${c.id})" class="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-xl text-xs font-semibold">Borrar</button>
                         </div>
@@ -511,18 +521,100 @@
             const card = "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-sm p-6 space-y-4";
             const inp = "w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono";
             const bud = G.filter(g => g[0] != "Ahorro").map(([c]) => `<div class="flex items-center justify-between gap-3 text-xs"><span class="font-medium">${c}</span><input inputmode="numeric" value="${S.bud[c] ? Number(S.bud[c]).toLocaleString("es-CO") : ""}" placeholder="Sin límite" oninput="fa(this)" onchange="setBud('${c}', this.value)" class="w-36 px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-right"></div>`).join("");
+            const ini = WH.map((w, i) => `<div class="flex items-center justify-between gap-3 text-xs"><span class="font-medium">${w}</span><input inputmode="numeric" value="${S.ini[w] ? Number(S.ini[w]).toLocaleString("es-CO") : ""}" placeholder="0" oninput="fa(this)" onchange="setIni(${i}, this.value)" class="w-36 px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-right"></div>`).join("");
             const rec = S.rec.map(r => `<div class="flex justify-between items-center text-xs py-1"><span>${esc(r.n)} · día ${r.day} · ${fmt(r.a)}</span><button onclick="delRec(${r.id})" class="text-rose-500 font-semibold">Borrar</button></div>`).join("") || '<p class="text-xs text-slate-400">Sin gastos fijos.</p>';
             return `
                 <section class="${card}"><h3 class="text-base font-bold">Presupuestos mensuales</h3>${bud}</section>
                 <section class="${card}"><div class="flex justify-between items-center"><h3 class="text-base font-bold">Gastos fijos</h3><button onclick="newRec()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold">+ Agregar</button></div>${rec}</section>
+                <section class="${card}"><h3 class="text-base font-bold">Saldos iniciales</h3><p class="text-xs text-slate-400">Lo que ya tenías en cada billetera antes de empezar a anotar.</p>${ini}</section>
+                <section class="${card}"><h3 class="text-base font-bold">Ocultar del resumen</h3><p class="text-xs text-slate-400">Lo que ocultes no suma en “En mano” ni en “Tarjetas”, y sus gastos no salen en el resumen ni en las gráficas.</p>${hidUI()}</section>
+                <section class="${card}"><h3 class="text-base font-bold">Bloqueo con PIN</h3><p class="text-xs text-slate-400">Bloquea la pantalla al abrir la app. No cifra los datos.</p><button onclick="setPin()" class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-xl text-xs">${S.pin ? "Cambiar o quitar PIN" : "Crear PIN"}</button></section>
                 <section class="${card}"><h3 class="text-base font-bold">Copia de seguridad</h3>
                     <textarea id="ex" readonly rows="4" class="${inp}">${esc(JSON.stringify(S))}</textarea>
                     <button onclick="copyBackup()" class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-xl text-xs">Copiar datos</button>
+                    <button onclick="exportCsv()" class="px-4 py-2 bg-slate-800 dark:bg-slate-700 text-white font-semibold rounded-xl text-xs">Descargar CSV</button>
                     <label class="block text-xs font-semibold text-slate-500 uppercase pt-2">Restaurar copia (pega el JSON)</label>
                     <textarea id="imp" rows="3" class="${inp}"></textarea>
                     <button onclick="importBackup()" class="px-4 py-2 bg-slate-800 dark:bg-slate-700 text-white font-semibold rounded-xl text-xs">Restaurar</button>
                 </section>`;
         }
+
+        const INP = "w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-white";
+        const CARD = "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-sm";
+        const dbtLeft = d => d.t - (d.p0 || 0) - S.items.filter(x => x.dbt == d.id).reduce((s, x) => s + x.a, 0);
+
+        function destUI() {
+            const act = S.acc.filter(a => !a.f), o = [["", "Solo ingreso: queda en la billetera"]];
+            if (S.cards.length) o.push(["card", "Pagar una tarjeta"]);
+            if (act.length) o.push(["save", "Meter a una meta de ahorro que ya tengo"]);
+            if (S.dbt.length) o.push(["debt", "Pagar una deuda"]);
+            if (o.length < 2) return "";
+            return `<label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Este ingreso va para</label>
+                <select id="dest" onchange="setDest(this.value)" class="${INP}">${o.map(([v, t]) => `<option value="${v}">${t}</option>`).join("")}</select>
+                <select id="payCard" class="${INP} hidden">${S.cards.map(c => `<option>${esc(c.n)}</option>`).join("")}</select>
+                <select id="saveAcc" class="${INP} hidden">${act.map(a => `<option value="${a.id}">${esc(a.n)}${a.u ? " (USD)" : ""}</option>`).join("")}</select>
+                <select id="debtSel" class="${INP} hidden">${S.dbt.map(d => `<option value="${d.id}">${esc(d.n)} · debes ${fmt(dbtLeft(d))}</option>`).join("")}</select>
+                <input id="destAmt" inputmode="numeric" placeholder="¿Cuánto de este ingreso? (vacío = todo o la cuota)" oninput="fa(this)" class="${INP} hidden" autocomplete="off">`;
+        }
+        function setDest(v) {
+            const g = id => document.getElementById(id);
+            g("payCard").classList.toggle("hidden", v != "card"); g("saveAcc").classList.toggle("hidden", v != "save");
+            g("debtSel").classList.toggle("hidden", v != "debt"); g("destAmt").classList.toggle("hidden", !v);
+        }
+
+        function togUsd() { usd = !usd; S.th.u = usd; save(); draw(); }
+
+        function archAcc(id) { const a = S.acc.find(x => x.id == id); a.f = a.f ? 0 : 1; save(); draw(); }
+        function arcUI() {
+            const r = S.acc.filter(a => a.f).map(a => `<div class="flex items-center justify-between p-3 ${CARD} mb-2 text-xs"><span class="font-medium truncate pr-2">${esc(a.n)} · ${fm(a, svb(a.id) + Math.max(0, yieldOf(a.id, a.r)))}</span><span class="flex gap-3 shrink-0"><button onclick="archAcc(${a.id})" class="text-indigo-600 font-semibold">Restaurar</button><button onclick="delAcc(${a.id})" class="text-rose-500 font-semibold">Borrar</button></span></div>`).join("");
+            return r ? '<h3 class="text-sm font-bold mt-6 mb-2 text-slate-500">Metas archivadas</h3>' + r : "";
+        }
+
+        const hideNames = () => WH.concat(S.cards.map(c => c.n));
+        function hidUI() { return hideNames().map((n, i) => `<label class="flex items-center justify-between text-xs"><span class="font-medium">${esc(n)}</span><input type="checkbox" ${S.hide[n] ? "checked" : ""} onchange="togHide(${i})" class="w-4 h-4 accent-indigo-600"></label>`).join(""); }
+        function togHide(i) { const n = hideNames()[i]; if (S.hide[n]) delete S.hide[n]; else S.hide[n] = true; save(); }
+
+        function vDeu() {
+            let T = 0;
+            const L = S.dbt.map(d => {
+                const left = dbtLeft(d), done = d.t - left, p = d.t ? Math.max(0, Math.min(100, done / d.t * 100)) : 0;
+                T += Math.max(0, left);
+                return `<div class="${CARD} p-5 mb-4">
+                    <div class="flex justify-between items-center mb-2"><b class="text-sm font-bold">${esc(d.n)}</b><span class="text-xs font-semibold ${left <= 0 ? "text-emerald-500" : "text-slate-400"}">${left <= 0 ? "Pagada ✓" : p.toFixed(0) + "% pagado"}</span></div>
+                    <div class="text-2xl font-extrabold mb-1">${fmt(Math.max(0, left))}</div>
+                    <div class="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden mb-1"><div class="bg-rose-500 h-full rounded-full" style="width:${p}%"></div></div>
+                    <div class="text-[11px] text-slate-400 mb-3">Pagado ${fmt(done)} de ${fmt(d.t)}</div>
+                    <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                        ${left > 0 ? `<button onclick="payDbt(${d.id})" class="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-xl text-xs font-semibold">Abonar</button>` : ""}
+                        <button onclick="editDbt(${d.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold">Editar</button>
+                        <button onclick="delDbt(${d.id})" class="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-xl text-xs font-semibold">Borrar</button>
+                    </div></div>`;
+            }).join("");
+            return `<section class="bg-gradient-to-br from-rose-600 to-red-800 text-white p-6 rounded-3xl shadow-xl shadow-rose-500/10 mb-6"><small class="text-xs text-rose-100 font-medium uppercase tracking-wider">Total que debo</small><div class="text-3xl font-extrabold mt-1">${fmt(T)}</div></section>
+                <div class="flex justify-between items-center mb-4"><h3 class="text-base font-bold">Mis Deudas</h3><button onclick="newDbt()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold shadow-md">+ Nueva deuda</button></div>
+                ${L || '<p class="text-xs text-slate-400 text-center py-6">Aquí anotas préstamos y deudas que no son de tarjeta.</p>'}`;
+        }
+        function newDbt() {
+            openCustomModal("Nueva deuda", [{ l: "Nombre (ej. Préstamo moto)" }, { l: "Monto total", m: "numeric" }, { l: "Ya pagado antes (opcional)", m: "numeric" }], v => {
+                const t = num(v[1]); if (!v[0] || !t) return "Escribe nombre y monto.";
+                S.dbt.push({ id: Date.now(), n: v[0], t, p0: num(v[2]) }); save();
+            });
+        }
+        function editDbt(id) {
+            const d = S.dbt.find(x => x.id == id);
+            openCustomModal("Editar deuda", [{ l: "Nombre", v: esc(d.n) }, { l: "Monto total", v: d.t, m: "numeric" }], v => {
+                const t = num(v[1]); if (!v[0] || !t) return "Escribe nombre y monto.";
+                d.n = v[0]; d.t = t; save();
+            });
+        }
+        function payDbt(id) {
+            const d = S.dbt.find(x => x.id == id);
+            openCustomModal("Abonar a " + esc(d.n), [{ l: "¿De dónde sale?", o: WH }, { l: "Monto", v: Math.round(dbtLeft(d)) || "", m: "numeric" }], v => {
+                const a = num(v[1]); if (!a) return "Escribe un monto válido.";
+                S.items.push({ id: Date.now(), d: today(), t: "g", c: "Deudas/Tarjeta", n: "Pago deuda: " + d.n, a, k: "", w: v[0], q: 1, dbt: d.id }); save();
+            });
+        }
+        function delDbt(id) { confirmAction("¿Borrar deuda? Los abonos ya hechos quedan como gastos.", () => { S.dbt = S.dbt.filter(x => x.id != id); save(); }); }
 
         function setBud(c, v) { const n = num(v); if (n) S.bud[c] = n; else delete S.bud[c]; save(); }
 
@@ -557,7 +649,22 @@
             const wh = type == "i" ? document.getElementById("whSel").value : (isW ? sel : "");
             const cq = type == "g" && document.getElementById("cq") && document.getElementById("cq").value ? Math.max(1, num(document.getElementById("cq").value)) : 1;
 
+            const g = id => document.getElementById(id), ds = type == "i" && g("dest") ? g("dest").value : "", da = ds ? num(g("destAmt").value) : 0, er = t => { g("msg").textContent = t; };
+            let pa = 0, pcSel = "", ac = null, db = null;
+            if (ds == "card") {
+                pcSel = g("payCard").value;
+                pa = Math.min(a, da || cardDue(S.cards.find(c => c.n == pcSel), ym(new Date())));
+                if (!(pa > 0)) return er("Esa tarjeta no tiene cuota pendiente este mes.");
+            } else if (ds == "save") {
+                ac = S.acc.find(x => x.id == g("saveAcc").value); pa = Math.min(a, da || a);
+            } else if (ds == "debt") {
+                db = S.dbt.find(x => x.id == g("debtSel").value); pa = Math.min(a, da || dbtLeft(db));
+                if (!(pa > 0)) return er("Esa deuda ya está pagada.");
+            }
             S.items.push({ id: Date.now(), d, t: type, c: cat, n: note, a, k: card, w: wh, q: cq });
+            if (ds == "card") S.items.push({ id: Date.now() + 1, d, t: "p", c: "Pago tarjeta", n: "Pago " + pcSel, a: pa, k: "", pc: pcSel, w: wh, q: 1 });
+            if (ds == "save") S.sv.push({ id: Date.now() + 1, a: ac.id, d, v: ac.u ? pa / S.trm : pa, cp: pa, w: wh });
+            if (ds == "debt") S.items.push({ id: Date.now() + 1, d, t: "g", c: "Deudas/Tarjeta", n: "Pago deuda: " + db.n, a: pa, k: "", w: wh, q: 1, dbt: db.id });
             save();
             cur = new Date(d + "T00:00:00"); cur.setDate(1);
             showToast("Movimiento guardado exitosamente");
@@ -576,13 +683,14 @@
             openCustomModal("Editar movimiento", [
                 { l: "Monto", v: x.a, m: "numeric" },
                 { l: "Nota", v: esc(x.n) },
-                { l: "Categoría", o: x.t == "g" ? G.filter(g => g[0] != "Ahorro").map(g => g[0]) : I, v: x.c },
-                { l: "Fecha (AAAA-MM-DD)", v: x.d }
+                { l: "Categoría", o: x.t == "g" ? G.filter(g => g[0] != "Ahorro").map(g => g[0]) : x.t == "p" ? ["Pago tarjeta"] : x.t == "tr" ? ["Transferencia"] : I, v: x.c },
+                { l: "Fecha (AAAA-MM-DD)", v: x.d },
+                { l: "¿Contar en el resumen de categorías?", o: ["Sí", "No"], v: x.s ? "No" : "Sí" }
             ], v => {
                 const a = num(v[0]);
                 if (!a) return "Escribe un monto mayor a cero.";
                 if (!/^\d{4}-\d{2}-\d{2}$/.test(v[3])) return "Fecha inválida (AAAA-MM-DD).";
-                Object.assign(x, { a, n: v[1], c: v[2], d: v[3] }); save();
+                Object.assign(x, { a, n: v[1], c: v[2], d: v[3], s: v[4] == "No" ? 1 : 0 }); save();
             });
         }
 
@@ -656,6 +764,19 @@
             });
         }
 
+        function payCard(id) {
+            const c = S.cards.find(x => x.id == id), nm = ym(new Date());
+            openCustomModal("Abonar a " + esc(c.n), [
+                { l: "¿De dónde sale?", o: WH },
+                { l: "Monto", v: Math.round(cardDue(c, nm)) || "", m: "numeric" }
+            ], v => {
+                const a = num(v[1]);
+                if (!a) return "Escribe un monto válido.";
+                S.items.push({ id: Date.now(), d: today(), t: "p", c: "Pago tarjeta", n: "Pago " + c.n, a, k: "", pc: c.n, w: v[0], q: 1 });
+                save();
+            });
+        }
+
         function paidCard(id) { const c = S.cards.find(x => x.id == id); c.paid[ym(new Date())] = !c.paid[ym(new Date())]; save(); draw(); }
         function delCard(id) { confirmAction("¿Borrar tarjeta?", () => { S.cards = S.cards.filter(x => x.id != id); save(); }); }
 
@@ -676,9 +797,68 @@
         }
 
         function openModalExport() {
-            tab = 5;
-            draw();
+            goTab(N.length - 1);
         }
+
+        let anim = true;
+        function goTab(i) { tab = i; anim = true; draw(); window.scrollTo(0, 0); }
+
+        function countUp() {
+            if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+            document.querySelectorAll("#appMain h2.text-3xl, #appMain div.text-3xl, #appMain h4.text-lg").forEach(el => {
+                const t = el.textContent.trim();
+                if (!/^-?\$/.test(t)) return;
+                const to = (t[0] == "-" ? -1 : 1) * Number(t.replace(/\D/g, "")), t0 = performance.now();
+                const step = now => { const k = Math.min(1, (now - t0) / 700); el.textContent = fmt(to * (1 - Math.pow(1 - k, 3))); if (k < 1) requestAnimationFrame(step); };
+                requestAnimationFrame(step);
+            });
+        }
+
+        function newTransfer() {
+            openCustomModal("Transferir entre billeteras", [{ l: "Desde", o: WH }, { l: "Hacia", o: WH, v: WH[1] }, { l: "Monto", m: "numeric" }], v => {
+                const a = num(v[2]);
+                if (v[0] == v[1]) return "Elige billeteras distintas.";
+                if (!a) return "Escribe un monto válido.";
+                S.items.push({ id: Date.now(), d: today(), t: "tr", c: "Transferencia", n: v[0].split(" ")[0] + " → " + v[1].split(" ")[0], a, k: "", w: v[0], to: v[1], q: 1 });
+                save();
+            });
+        }
+
+        function setIni(i, v) { const n = num(v); if (n) S.ini[WH[i]] = n; else delete S.ini[WH[i]]; save(); }
+
+        function exportCsv() {
+            const q = t => '"' + String(t ?? "").replace(/"/g, '""') + '"', tp = { i: "Ingreso", g: "Gasto", p: "Pago tarjeta", tr: "Transferencia" };
+            const rows = [["Fecha", "Tipo", "Categoría", "Nota", "Monto", "Billetera", "Tarjeta", "Cuotas"]].concat(S.items.slice().sort((a, b) => a.d.localeCompare(b.d)).map(x => [x.d, tp[x.t] || x.t, x.c, x.n, x.a, x.w, x.k || x.pc || "", x.q > 1 ? x.q : ""]));
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(new Blob(["\ufeff" + rows.map(r => r.map(q).join(";")).join("\n")], { type: "text/csv" }));
+            a.download = "mi-plata-" + today() + ".csv"; a.click();
+        }
+
+        const hashPin = async p => [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode("miplata" + p)))].map(b => b.toString(16).padStart(2, "0")).join("");
+
+        function setPin() {
+            if (!window.crypto || !crypto.subtle) return showToast("El PIN necesita abrir la app por https");
+            openCustomModal("PIN de 4 a 6 dígitos", [{ l: "Nuevo PIN (vacío = quitar)", m: "numeric" }], v => {
+                if (v[0] && !/^\d{4,6}$/.test(v[0])) return "Usa de 4 a 6 números.";
+                if (!v[0]) { delete S.pin; save(); return; }
+                hashPin(v[0]).then(h => { S.pin = h; save(); showToast("PIN guardado"); });
+            });
+        }
+
+        function lockScreen() {
+            if (!S.pin || !window.crypto || !crypto.subtle) return;
+            const d = document.createElement("div");
+            d.className = "fixed inset-0 z-[60] bg-slate-950 flex flex-col items-center justify-center gap-4 p-6";
+            d.innerHTML = '<i class="fa-solid fa-lock text-3xl text-indigo-400"></i><input type="password" inputmode="numeric" maxlength="6" placeholder="PIN" class="w-40 text-center text-2xl tracking-widest px-4 py-3 rounded-2xl bg-slate-800 text-white"><p class="text-rose-400 text-xs min-h-[16px]"></p>';
+            document.body.appendChild(d);
+            const i = d.querySelector("input"), e = d.querySelector("p"); i.focus();
+            i.oninput = async () => {
+                if (i.value.length >= 4 && await hashPin(i.value) == S.pin) d.remove();
+                else if (i.value.length >= 6) { e.textContent = "PIN incorrecto"; i.value = ""; }
+            };
+        }
+
+        window.addEventListener("DOMContentLoaded", () => { lockScreen(); if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {}); });
 
         function showToast(msg) {
             const t = document.getElementById("toast");
