@@ -36,3 +36,6 @@ button:active { transform: scale(.96); }
 /* Burbuja decorativa del resumen: flota lentamente */
 @keyframes floaty { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(-12px, -10px); } }
 .float-slow { animation: floaty 9s ease-in-out infinite; }
+
+/* Filtro de Inicio: la fila de tarjetas aparece deslizándose */
+.subchips { animation: fadeUp .3s cubic-bezier(.2,.7,.3,1) both; }

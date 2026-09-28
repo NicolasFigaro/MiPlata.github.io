@@ -247,6 +247,45 @@
                 </section>`;
         }
 
+        // ===== Filtro de Inicio: por billetera o por tarjeta =====
+        let flt = { k: "all", v: null };
+        const fltMatch = x => {
+            if (flt.k == "w") { const w = WH[flt.v]; return !x.k && (x.w == w || x.to == w); }
+            if (flt.k == "cards") return !!x.k || x.t == "p";
+            if (flt.k == "c") { const c = S.cards.find(c => c.id == flt.v); return !c || x.k == c.n || (x.t == "p" && x.pc == c.n); }
+            return true;
+        };
+        function setFlt(k, v) { flt = { k, v: v ?? null }; draw(); }
+        function fltSummary(m) {
+            const tile = (l, v, cl) => `<div class="flex-1 min-w-0 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800"><span class="text-[10px] uppercase tracking-wider text-slate-400 block truncate">${l}</span><b class="text-sm ${cl || ""}">${v}</b></div>`;
+            const nm = ym(new Date());
+            let t = "";
+            if (flt.k == "w") {
+                const w = WH[flt.v], ws = m.filter(x => !x.k && x.w == w);
+                t = tile("Saldo actual", fmt(bal(w))) + tile("Ingresos", "+" + fmt(sum(ws, x => x.t == "i")), "text-emerald-500") + tile("Salidas", fmt(sum(ws, x => x.t == "g" || x.t == "p")));
+            } else if (flt.k == "cards") {
+                const cs = S.cards.filter(c => !(S.hide || {})[c.n]);
+                if (!cs.length) return `<p class="text-xs text-slate-400 mb-3">Aún no tienes tarjetas registradas.</p>`;
+                let tc = 0, tu = 0;
+                cs.forEach(c => { if (c.c) { tc += c.c; tu += cardUse(c, nm).used; } });
+                const pc = tc ? tu / tc * 100 : 0;
+                t = tile("Compras del mes", fmt(sum(m, x => !!x.k))) + tile("Cuota por pagar", fmt(cs.reduce((a, c) => a + cardDue(c, nm), 0)), "text-indigo-500") + tile("Cupo utilizado", tc ? Math.round(pc) + "%" : "—", tc ? useTone(pc).txt : "");
+            } else if (flt.k == "c") {
+                const c = S.cards.find(c => c.id == flt.v); if (!c) return "";
+                const cu = cardUse(c, nm);
+                t = tile("Compras del mes", fmt(sum(m, x => x.k == c.n))) + tile("Cuota a pagar", fmt(cardDue(c, nm)), "text-indigo-500") + tile("Cupo utilizado", c.c ? Math.round(cu.raw) + "%" : "—", c.c ? useTone(cu.raw).txt : "");
+            }
+            return t ? `<div class="flex gap-2 mb-3">${t}</div>` : "";
+        }
+        function fltUI(m) {
+            const chip = (on, ic, lbl, act, sm) => `<button onclick="${act}" class="shrink-0 ${sm ? "px-3 py-1.5 text-[11px]" : "px-3.5 py-2 text-xs"} rounded-xl font-semibold transition whitespace-nowrap ${on ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/25" : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"}"><i class="fa-solid ${ic} mr-1.5"></i>${lbl}</button>`;
+            const nom = ["Efectivo", "Cuenta de ahorros", "Billetera digital"], ics = ["fa-money-bill-wave", "fa-building-columns", "fa-mobile-screen"];
+            const inCards = flt.k == "cards" || flt.k == "c";
+            const row1 = chip(flt.k == "all", "fa-layer-group", "Todos", "setFlt('all')") + WH.map((w, i) => chip(flt.k == "w" && flt.v == i, ics[i], nom[i], `setFlt('w',${i})`)).join("") + chip(inCards, "fa-credit-card", "Tarjetas", "setFlt('cards')");
+            const row2 = inCards && S.cards.length ? `<div class="subchips flex gap-2 overflow-x-auto no-scrollbar pb-1 mt-2">${chip(flt.k == "cards", "fa-layer-group", "Todas", "setFlt('cards')", 1)}${S.cards.map(c => chip(flt.k == "c" && flt.v == c.id, "fa-credit-card", esc(c.n), `setFlt('c',${c.id})`, 1)).join("")}</div>` : "";
+            return `<div class="mb-3"><div class="flex gap-2 overflow-x-auto no-scrollbar pb-1">${row1}</div>${row2}</div>${fltSummary(m)}`;
+        }
+
         window.addEventListener('DOMContentLoaded', () => {
             genRec();
             applyTh();
@@ -365,11 +404,12 @@
         }
 
         function vHome() {
+            if (flt.k == "c" && !S.cards.some(c => c.id == flt.v)) flt = { k: "cards", v: null };
             const m = mon(), ing = sum(m, x => x.t == "i"), aho = svm(), gas = sum(m, x => x.t == "g"), sob = ing - gas - aho;
             const cats = (type == "g" ? G.filter(x => x[0] != "Ahorro").map(x => x[0]) : I).map(c => `<option>${c}</option>`).join("");
             const by = G.map(([c]) => [c, sum(m, x => x.t == "g" && x.c == c && !x.s)]).filter(x => x[1] > 0 || (S.bud || {})[x[0]]).sort((a, b) => b[1] - a[1]), mx = (by[0] ? by[0][1] : 1) || 1;
             
-            const L = m.filter(x => !sqry || ((x.n || "") + " " + x.c).toLowerCase().includes(sqry.toLowerCase())).sort((a, b) => b.d.localeCompare(a.d) || b.id - a.id).map(x => `
+            const L = m.filter(fltMatch).filter(x => !sqry || ((x.n || "") + " " + x.c).toLowerCase().includes(sqry.toLowerCase())).sort((a, b) => b.d.localeCompare(a.d) || b.id - a.id).map(x => `
                 <div class="flex items-center justify-between py-3 border-b border-slate-100 dark:border-slate-800 last:border-0">
                     <div class="min-w-0 flex-1 pr-2">
                         <strong class="text-sm font-semibold text-slate-800 dark:text-white block truncate">${esc(x.n || x.c)}</strong>
@@ -381,7 +421,7 @@
                         <button onclick="delMovItem(${x.id})" class="text-slate-400 hover:text-rose-600 p-1 text-xs"><i class="fa-solid fa-trash"></i></button>
                     </div>
                 </div>
-            `).join("") || '<p class="text-xs text-slate-400 text-center py-4">Anota tu primer movimiento abajo.</p>';
+            `).join("") || ('<p class="text-xs text-slate-400 text-center py-4">' + (flt.k != "all" || sqry ? "No hay movimientos con este filtro." : "Anota tu primer movimiento abajo.") + '</p>');
 
             const hasW = S.items.some(x => x.w) || Object.keys(S.ini).length > 0, nm = ym(new Date());
             const have = hasW ? WH.filter(w => !(S.hide || {})[w]).reduce((s, w) => s + bal(w), 0) : sob;
@@ -467,6 +507,7 @@
                     <div class="flex justify-between items-center mb-3">
                         <h3 class="text-sm font-bold text-slate-800 dark:text-white">Movimientos del mes</h3>
                     </div>
+                    ${fltUI(m)}
                     <input placeholder="Buscar por nota o categoría y pulsa Enter" value="${esc(sqry)}" onchange="sqry=this.value; draw();" class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-white mb-3">
                     <div class="space-y-1">${L}</div>
                 </section>
