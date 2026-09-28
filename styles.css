@@ -1,41 +1,48 @@
-@keyframes fadeUp { from { opacity: 0; transform: translateY(14px); } }
-@keyframes grow { from { width: 0; } }
-#appMain.enter > * { animation: fadeUp .45s cubic-bezier(.2,.7,.3,1) both; }
-#appMain.enter > *:nth-child(2) { animation-delay: .06s; }
-#appMain.enter > *:nth-child(3) { animation-delay: .12s; }
-#appMain.enter > *:nth-child(4) { animation-delay: .18s; }
-#appMain.enter > *:nth-child(n+5) { animation-delay: .24s; }
-#appMain.enter .h-2 > .h-full { animation: grow .9s .2s ease-out both; }
-button { transition: transform .12s; }
-button:active { transform: scale(.96); }
-@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+/* ===== Mi Plata · styles.css ===== */
+body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { scrollbar-width: none; }
+input, select, textarea, button { font-family: inherit; }
 
-/* ===== Barra de cupo de tarjeta: se desliza al valor nuevo (sube o baja al pagar) ===== */
-.cupo-bar { transition: width .9s cubic-bezier(.2,.7,.3,1), background-color .5s ease; }
+/* Entrada de vista */
+@keyframes enter { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+#appMain.enter > * { animation: enter .4s cubic-bezier(.22, 1, .36, 1) both; }
+#appMain.enter > *:nth-child(2) { animation-delay: .05s; }
+#appMain.enter > *:nth-child(3) { animation-delay: .1s; }
+#appMain.enter > *:nth-child(4) { animation-delay: .15s; }
+#appMain.enter > *:nth-child(n+5) { animation-delay: .2s; }
 
-/* Segmentos de la barra 50/30/20 crecen al entrar */
-#appMain.enter .bar-seg { animation: grow .9s .3s ease-out both; transform-origin: left; }
+/* Tarjetas con elevación al pasar el mouse */
+.lift { transition: transform .2s ease, box-shadow .2s ease; }
+.lift:hover { transform: translateY(-2px); }
 
-/* Consejos: entran uno tras otro */
-#appMain.enter .tip { animation: fadeUp .5s cubic-bezier(.2,.7,.3,1) both; animation-delay: calc(var(--i, 0) * 70ms + 260ms); }
+/* Consejos */
+.tip { animation: enter .45s cubic-bezier(.22, 1, .36, 1) both; animation-delay: calc(var(--i, 0) * 70ms); }
+@keyframes pulseRing { 0% { box-shadow: 0 0 0 0 rgba(244, 63, 94, .45); } 70% { box-shadow: 0 0 0 9px rgba(244, 63, 94, 0); } 100% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0); } }
+.pulse-ring { animation: pulseRing 2s infinite; }
 
-/* Ícono de consejo urgente: pulso suave */
-@keyframes ring { 0% { box-shadow: 0 0 0 0 rgba(244,63,94,.45); } 70%, 100% { box-shadow: 0 0 0 9px rgba(244,63,94,0); } }
-.pulse-ring { animation: ring 2s ease-out infinite; }
+/* Barras */
+.bar-seg { transition: width .8s cubic-bezier(.22, 1, .36, 1); }
+.cupo-bar { transition: width .9s cubic-bezier(.22, 1, .36, 1), background-color .3s; }
 
-/* Sello "Pagada ✓": rebote al marcar pago */
-@keyframes pop { 0% { transform: scale(.6); opacity: 0; } 60% { transform: scale(1.18); opacity: 1; } 100% { transform: scale(1); } }
-.pop { display: inline-block; animation: pop .5s cubic-bezier(.3,1.6,.5,1) both; }
+/* Marcador "dónde deberías ir hoy" en las metas */
+.goal-marker { position: absolute; top: -2px; bottom: -2px; width: 2px; border-radius: 2px; background: #6366f1; box-shadow: 0 0 0 1px rgba(255, 255, 255, .6); }
 
-/* Tarjetas que se elevan al pasar el mouse (solo dispositivos con hover) */
-@media (hover: hover) {
-  .lift { transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease; }
-  .lift:hover { transform: translateY(-2px); box-shadow: 0 10px 24px -12px rgba(79,70,229,.35); }
+/* "Pagada ✓" */
+@keyframes pop { 0% { transform: scale(.6); opacity: 0; } 60% { transform: scale(1.25); } 100% { transform: scale(1); opacity: 1; } }
+.pop { display: inline-block; animation: pop .5s ease; }
+
+/* Círculo decorativo flotante */
+@keyframes floatSlow { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
+.float-slow { animation: floatSlow 6s ease-in-out infinite; }
+
+/* Chips de tarjetas */
+.subchips { padding-left: 2px; }
+
+/* Áreas seguras (iPhone) */
+header { padding-top: env(safe-area-inset-top, 0px); }
+
+/* Accesibilidad: sin animaciones si el usuario lo prefiere */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
 }
-
-/* Burbuja decorativa del resumen: flota lentamente */
-@keyframes floaty { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(-12px, -10px); } }
-.float-slow { animation: floaty 9s ease-in-out infinite; }
-
-/* Filtro de Inicio: la fila de tarjetas aparece deslizándose */
-.subchips { animation: fadeUp .3s cubic-bezier(.2,.7,.3,1) both; }

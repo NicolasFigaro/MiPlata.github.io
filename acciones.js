@@ -1,0 +1,460 @@
+// ===== Mi Plata · acciones.js =====
+// Todo lo que el usuario hace (botones, formularios, modales) y el arranque de la app.
+
+// ---------- Pintar la pantalla ----------
+function draw() {
+    document.getElementById("navTabs").innerHTML = N.map((n, i) => `
+        <button onclick="goTab(${i})" class="px-4 py-2 rounded-xl text-sm font-semibold transition whitespace-nowrap ${i === tab ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/25' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}">${n}</button>
+    `).join("");
+
+    document.getElementById("appMain").innerHTML = V[tab]();
+    if (tab == 3) drawCharts();
+    if (tab == 4) runCupoAnim();
+    if (anim) { anim = false; const m = document.getElementById("appMain"); m.classList.remove("enter"); void m.offsetWidth; m.classList.add("enter"); countUp(); }
+}
+function go(n) { cur.setMonth(cur.getMonth() + n); draw(); }
+function goTab(i) { tab = i; anim = true; draw(); window.scrollTo(0, 0); }
+function openModalExport() { goTab(N.length - 1); }
+
+function applyTh() {
+    const isDark = S.th.m == "dark" || (S.th.m == "auto" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    document.documentElement.classList.toggle("dark", isDark);
+}
+function toggleDarkMode() { S.th.m = S.th.m == "dark" ? "light" : "dark"; save(); applyTh(); draw(); }
+
+// Anima la barra y el % del cupo desde el valor anterior hasta el nuevo
+function runCupoAnim() {
+    const rm = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    document.querySelectorAll("#appMain .cupo-bar").forEach(el => { void el.offsetWidth; el.style.width = el.dataset.to + "%"; });
+    document.querySelectorAll("#appMain .cupo-pct").forEach(el => {
+        const a = +el.dataset.from, b = +el.dataset.to, t0 = performance.now();
+        if (rm || a === b) { el.textContent = Math.round(b) + "%"; return; }
+        const step = now => { const k = Math.min(1, (now - t0) / 900); el.textContent = Math.round(a + (b - a) * (1 - Math.pow(1 - k, 3))) + "%"; if (k < 1) requestAnimationFrame(step); };
+        requestAnimationFrame(step);
+    });
+}
+function countUp() {
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    document.querySelectorAll("#appMain h2.text-3xl, #appMain div.text-3xl, #appMain h4.text-lg").forEach(el => {
+        const t = el.textContent.trim();
+        if (!/^-?\$/.test(t)) return;
+        const to = (t[0] == "-" ? -1 : 1) * Number(t.replace(/\D/g, "")), t0 = performance.now();
+        const step = now => { const k = Math.min(1, (now - t0) / 700); el.textContent = fmt(to * (1 - Math.pow(1 - k, 3))); if (k < 1) requestAnimationFrame(step); };
+        requestAnimationFrame(step);
+    });
+}
+
+// ---------- Modales ----------
+function openCustomModal(title, fields, onSubmitCallback) {
+    const modal = document.getElementById("generalModal"), container = document.getElementById("modalContainer");
+    container.innerHTML = `
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-base font-bold text-slate-800 dark:text-white">${title}</h3>
+            <button onclick="closeModal()" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 flex items-center justify-center transition"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <form id="customForm" class="space-y-3">
+            ${fields.map((f, i) => `
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1 uppercase tracking-wider">${f.l}</label>
+                    ${f.o ? `
+                        <select name="f${i}" class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-800 dark:text-white focus:ring-2 focus:ring-indigo-500 text-sm">
+                            ${f.o.map(x => `<option ${x == f.v ? "selected" : ""}>${x}</option>`).join("")}
+                        </select>
+                    ` : `
+                        <input name="f${i}" type="${f.t || "text"}" inputmode="${f.m || "text"}" value="${f.v ?? ""}" placeholder="${f.p || ""}" class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-800 dark:text-white focus:ring-2 focus:ring-indigo-500 text-sm" autocomplete="off">
+                    `}
+                </div>
+            `).join("")}
+            <p class="text-rose-500 text-xs min-h-[16px]" id="modalError"></p>
+            <div class="grid grid-cols-2 gap-3 pt-2">
+                <button type="button" onclick="closeModal()" class="py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-semibold text-xs transition">Cancelar</button>
+                <button type="submit" class="py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs shadow-md shadow-indigo-500/20 transition">Aceptar</button>
+            </div>
+        </form>
+    `;
+    modal.classList.remove("hidden");
+    setTimeout(() => { modal.classList.remove("opacity-0"); container.classList.remove("scale-95"); container.classList.add("scale-100"); }, 10);
+
+    document.getElementById("customForm").onsubmit = e => {
+        e.preventDefault();
+        const form = document.getElementById("customForm");
+        const vals = fields.map((f, i) => form.elements["f" + i].value.trim());
+        const res = onSubmitCallback(vals);
+        if (typeof res === "string") document.getElementById("modalError").textContent = res;
+        else { closeModal(); draw(); }
+    };
+}
+function closeModal() {
+    const modal = document.getElementById("generalModal"), container = document.getElementById("modalContainer");
+    modal.classList.add("opacity-0");
+    container.classList.remove("scale-100"); container.classList.add("scale-95");
+    setTimeout(() => modal.classList.add("hidden"), 300);
+}
+function confirmAction(msg, cb) {
+    const modal = document.getElementById("generalModal"), container = document.getElementById("modalContainer");
+    container.innerHTML = `
+        <p class="text-sm text-slate-800 dark:text-white font-medium mb-5">${msg}</p>
+        <div class="grid grid-cols-2 gap-3">
+            <button onclick="closeModal()" class="py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-semibold text-xs">Cancelar</button>
+            <button id="okConfirmBtn" class="py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs shadow-md shadow-rose-500/20">Sí, borrar</button>
+        </div>
+    `;
+    modal.classList.remove("hidden");
+    setTimeout(() => { modal.classList.remove("opacity-0"); container.classList.remove("scale-95"); }, 10);
+    document.getElementById("okConfirmBtn").onclick = () => { closeModal(); cb(); draw(); };
+}
+function showToast(msg) {
+    const t = document.getElementById("toast");
+    document.getElementById("toastMessage").textContent = msg;
+    t.classList.remove("translate-y-20", "opacity-0");
+    setTimeout(() => t.classList.add("translate-y-20", "opacity-0"), 3000);
+}
+function fa(e) { const v = e.value.replace(/\D/g, ""); e.value = v ? Number(v).toLocaleString("es-CO") : ""; }
+
+// ---------- Buscador y filtros ----------
+function refreshList() { const el = document.getElementById("movList"); if (el) el.innerHTML = movListHTML(); }
+function setQ(v) { sqry = v; refreshList(); }
+function clearQ() { sqry = ""; draw(); }
+function togAll(v) { sall = v; draw(); }
+function setFlt(k, v) { flt = { k, v: v ?? null }; draw(); }
+function setCmp(v) { cmp = +v || 1; draw(); }
+
+// ---------- Movimientos ----------
+function setType(t) {
+    const g = id => document.getElementById(id), a = g("amt") ? g("amt").value : "", n = g("note") ? g("note").value : "";
+    type = t; draw();
+    g("amt").value = a; g("note").value = n;
+}
+function setDest(v) {
+    const g = id => document.getElementById(id);
+    g("payCard").classList.toggle("hidden", v != "card"); g("saveAcc").classList.toggle("hidden", v != "save");
+    g("debtSel").classList.toggle("hidden", v != "debt"); g("destAmt").classList.toggle("hidden", !v);
+}
+// Muestra cuotas/interés solo si el gasto es con tarjeta
+function togCardOpts() {
+    const s = document.getElementById("cardSel"), o = document.getElementById("cardOpts");
+    if (!s || !o) return;
+    o.classList.toggle("hidden", WH.includes(s.value));
+    cuotaPreview();
+}
+function cuotaPreview() {
+    const g = id => document.getElementById(id), p = g("cqPrev");
+    if (!p || !g("cardSel")) return;
+    const a = num(g("amt").value), q = Math.max(1, num(g("cq").value) || 1), sel = g("cardSel").value, c = S.cards.find(x => x.n == sel);
+    if (!c || !a || q < 2) { p.textContent = ""; return; }
+    const con = g("ci").value.startsWith("Con"), i = con && c.ir > 0 ? c.ir / 100 : 0, C = pmt(a, q, i);
+    p.textContent = q + " cuotas de " + fmt(C) + (i > 0 ? " · intereses totales " + fmt(C * q - a) : con && !c.ir ? " · esta tarjeta no tiene tasa registrada (Tarjetas → Editar)" : " · sin intereses");
+}
+
+function addMov() {
+    const g = id => document.getElementById(id), er = t => { g("msg").textContent = t; };
+    const a = num(g("amt").value);
+    if (!a) return er("Escribe un monto mayor a cero.");
+    const d = g("date").value || today(), note = g("note").value.trim(), cat = g("cat").value;
+    const sel = type == "g" ? g("cardSel").value : "", isW = WH.includes(sel);
+    const card = isW ? "" : sel;
+    const wh = type == "i" ? g("whSel").value : (isW ? sel : "");
+    const cq = card && g("cq") && g("cq").value ? Math.max(1, num(g("cq").value)) : 1;
+    const cObj = card ? S.cards.find(c => c.n == card) : null;
+    const ni = card && cq > 1 && g("ci") && g("ci").value == "Sin interés" ? 1 : 0;
+    const ir = cObj && cq > 1 && !ni ? (cObj.ir || 0) : 0; // la tasa queda guardada con la compra
+
+    const ds = type == "i" && g("dest") ? g("dest").value : "", da = ds ? num(g("destAmt").value) : 0;
+    let pa = 0, pcSel = "", ac = null, db = null;
+    if (ds == "card") {
+        pcSel = g("payCard").value;
+        pa = Math.min(a, da || cardDue(S.cards.find(c => c.n == pcSel), ym(new Date())));
+        if (!(pa > 0)) return er("Esa tarjeta no tiene cuota pendiente este mes.");
+    } else if (ds == "save") {
+        ac = S.acc.find(x => x.id == g("saveAcc").value); pa = Math.min(a, da || a);
+    } else if (ds == "debt") {
+        db = S.dbt.find(x => x.id == g("debtSel").value); pa = Math.min(a, da || dbtLeft(db));
+        if (!(pa > 0)) return er("Esa deuda ya está pagada.");
+    }
+    S.items.push({ id: Date.now(), d, t: type, c: cat, n: note, a, k: card, w: wh, q: cq, ni, ir });
+    if (ds == "card") S.items.push({ id: Date.now() + 1, d, t: "p", c: "Pago tarjeta", n: "Pago " + pcSel, a: pa, k: "", pc: pcSel, w: wh, q: 1 });
+    if (ds == "save") S.sv.push({ id: Date.now() + 1, a: ac.id, d, v: ac.u ? pa / S.trm : pa, cp: pa, w: wh });
+    if (ds == "debt") S.items.push({ id: Date.now() + 1, d, t: "g", c: "Deudas/Tarjeta", n: "Pago deuda: " + db.n, a: pa, k: "", w: wh, q: 1, dbt: db.id });
+    save();
+    cur = new Date(d + "T00:00:00"); cur.setDate(1);
+    showToast("Movimiento guardado exitosamente");
+    draw();
+}
+function delMovItem(id) { confirmAction("¿Borrar este movimiento?", () => { S.items = S.items.filter(y => y.id != id); save(); }); }
+function editM(id) {
+    const x = S.items.find(y => y.id == id); if (!x) return;
+    openCustomModal("Editar movimiento", [
+        { l: "Monto", v: x.a, m: "numeric" },
+        { l: "Nota", v: esc(x.n) },
+        { l: "Categoría", o: x.t == "g" ? G.filter(g => g[0] != "Ahorro").map(g => g[0]) : x.t == "p" ? ["Pago tarjeta"] : x.t == "tr" ? ["Transferencia"] : I, v: x.c },
+        { l: "Fecha", v: x.d, t: "date" },
+        { l: "¿Contar en el resumen de categorías?", o: ["Sí", "No"], v: x.s ? "No" : "Sí" }
+    ], v => {
+        const a = num(v[0]);
+        if (!a) return "Escribe un monto mayor a cero.";
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(v[3])) return "Fecha inválida.";
+        Object.assign(x, { a, n: v[1], c: v[2], d: v[3], s: v[4] == "No" ? 1 : 0 }); save();
+    });
+}
+function newTransfer() {
+    openCustomModal("Transferir entre billeteras", [{ l: "Desde", o: WH }, { l: "Hacia", o: WH, v: WH[1] }, { l: "Monto", m: "numeric" }], v => {
+        const a = num(v[2]);
+        if (v[0] == v[1]) return "Elige billeteras distintas.";
+        if (!a) return "Escribe un monto válido.";
+        S.items.push({ id: Date.now(), d: today(), t: "tr", c: "Transferencia", n: v[0].split(" ")[0] + " → " + v[1].split(" ")[0], a, k: "", w: v[0], to: v[1], q: 1 });
+        save();
+    });
+}
+
+// ---------- Metas de ahorro ----------
+function newAcc() {
+    openCustomModal("Nueva Meta de Ahorro", [
+        { l: "Nombre (ej. Viaje, Moto)" },
+        { l: "Moneda", o: ["COP (pesos)", "USD (dólares)"] },
+        { l: "Meta (monto)", m: "decimal" },
+        { l: "Fecha límite (opcional)", t: "date" },
+        { l: "Rendimiento anual E.A. % (0 si no gana)", v: "0", m: "decimal" },
+        { l: "Ya tengo ahorrado (opcional)", m: "decimal" }
+    ], v => {
+        if (!v[0]) return "Escribe un nombre.";
+        if (v[3] && v[3] <= today()) return "La fecha límite debe ser futura.";
+        const u = v[1].startsWith("USD"), P = s => u ? (pr(s) || 0) : num(s), id = Date.now();
+        S.acc.push({ id, n: v[0], g: P(v[2]), r: pr(v[4]) || 0, u: u ? 1 : 0, dl: v[3] || "", s0: today() });
+        if (P(v[5])) S.sv.push({ id: id + 1, a: id, d: today(), v: P(v[5]), i: 1 });
+        save();
+    });
+}
+function editAcc(id) {
+    const a = S.acc.find(x => x.id == id);
+    openCustomModal("Editar Meta", [
+        { l: "Nombre", v: esc(a.n) },
+        { l: "Meta", v: tf(a.g), m: "decimal" },
+        { l: "Fecha límite (opcional)", v: a.dl || "", t: "date" },
+        { l: "Rendimiento E.A. %", v: tf(a.r), m: "decimal" }
+    ], v => {
+        if (v[0]) a.n = v[0];
+        a.g = pr(v[1]); a.dl = v[2] || ""; a.r = pr(v[3]) || 0;
+        save();
+    });
+}
+function delAcc(id) { confirmAction("¿Borrar meta y sus movimientos?", () => { S.acc = S.acc.filter(x => x.id != id); S.sv = S.sv.filter(x => x.a != id); save(); }); }
+function archAcc(id) { const a = S.acc.find(x => x.id == id); a.f = a.f ? 0 : 1; save(); draw(); }
+function mov(id, s) {
+    const a = S.acc.find(x => x.id == id), U = a.u, K = U ? S.trm : 1;
+    openCustomModal(s > 0 ? "Meter a " + esc(a.n) : "Sacar de " + esc(a.n), [
+        { l: s > 0 ? "¿De dónde sale?" : "¿A dónde regresa?", o: WH.map(w => w) },
+        { l: U ? "Monto en USD" : "Monto", m: "decimal" }
+    ], v => {
+        const w = WH.find(p => v[0].startsWith(p)), n = U ? pr(v[1]) : num(v[1]);
+        if (!(n > 0)) return "Escribe un monto válido.";
+        S.sv.push({ id: Date.now(), a: id, d: today(), v: s * n, cp: s * n * K, w });
+        save();
+    });
+}
+
+// ---------- Recordatorios de metas ----------
+function notify(title, body) {
+    const fb = () => { try { new Notification(title, { body, icon: "icon-192.png" }); } catch (e) {} };
+    try {
+        if (navigator.serviceWorker && navigator.serviceWorker.getRegistration) {
+            navigator.serviceWorker.getRegistration().then(r => r ? r.showNotification(title, { body, icon: "icon-192.png" }) : fb()).catch(fb);
+        } else fb();
+    } catch (e) { fb(); }
+}
+function checkReminders() {
+    if (typeof Notification == "undefined" || Notification.permission != "granted") return;
+    const td = today(); let ch = false;
+    S.acc.filter(a => !a.f && a.dl && a.g).forEach(a => {
+        const gi = goalInfo(a);
+        if (!gi || gi.done || S.nt[a.id] == td) return;
+        if (!gi.late && gi.days > 7) return;
+        if (gi.late && gi.days < -7) return;
+        notify("Mi Plata · " + a.n, gi.late ? "La meta venció y faltan " + fm(a, gi.falta) + "." : "Vence " + (gi.days == 0 ? "hoy" : "en " + gi.days + (gi.days == 1 ? " día" : " días")) + ". Faltan " + fm(a, gi.falta) + ".");
+        S.nt[a.id] = td; ch = true;
+    });
+    if (ch) save();
+}
+function askNotif() {
+    if (typeof Notification == "undefined") return showToast("Este navegador no permite notificaciones");
+    Notification.requestPermission().then(p => { showToast(p == "granted" ? "Avisos activados" : "No se activaron los avisos"); checkReminders(); draw(); });
+}
+
+// ---------- Inversiones ----------
+function togUsd() { usd = !usd; S.th.u = usd; save(); draw(); }
+function newInv() {
+    openCustomModal("Nueva Inversión", [
+        { l: "Nombre (ej. ETF S&P 500)" },
+        { l: "Moneda", o: ["COP", "USD"] },
+        { l: "Monto invertido", m: "decimal" },
+        { l: "Fecha de inicio", v: today(), t: "date" }
+    ], v => {
+        const i = pr(v[2]);
+        if (!v[0] || !(i > 0)) return "Escribe nombre y monto.";
+        if (v[3] > today()) return "La fecha de inicio no puede ser futura.";
+        S.inv.push({ id: Date.now(), n: v[0], c: v[1], i, v: i, d: v[3] || today() }); save();
+    });
+}
+function editInv(id) {
+    const x = S.inv.find(y => y.id == id);
+    openCustomModal("Editar inversión", [
+        { l: "Nombre", v: esc(x.n) },
+        { l: "Monto invertido en " + x.c, v: tf(x.i), m: "decimal" },
+        { l: "Fecha de inicio", v: x.d, t: "date" }
+    ], v => {
+        const i = pr(v[1]);
+        if (!v[0] || !(i > 0)) return "Escribe nombre y monto.";
+        if (v[2] > today()) return "La fecha de inicio no puede ser futura.";
+        x.n = v[0]; x.i = i; x.d = v[2] || x.d; save();
+    });
+}
+function upInv(id) {
+    const x = S.inv.find(y => y.id == id);
+    openCustomModal("Actualizar valor", [{ l: "Valor actual en " + x.c, v: tf(x.v), m: "decimal" }], v => {
+        const n = pr(v[0]); if (n >= 0) { x.v = n; save(); }
+    });
+}
+function delInv(id) { confirmAction("¿Borrar inversión?", () => { S.inv = S.inv.filter(x => x.id != id); save(); }); }
+function setTrmVal() {
+    const v = pr(document.getElementById("trmInput").value);
+    if (v > 0) { S.trm = v; save(); showToast("TRM actualizada"); draw(); }
+}
+
+// ---------- Tarjetas ----------
+function newCard() {
+    openCustomModal("Nueva Tarjeta", [
+        { l: "Nombre" },
+        { l: "Cupo total", m: "numeric" },
+        { l: "Día de corte (1-31)", v: "15", m: "numeric" },
+        { l: "Día límite pago (1-31)", v: "30", m: "numeric" },
+        { l: "Tasa de interés mensual % (opcional, ej. 2,1)", m: "decimal" }
+    ], v => {
+        if (!v[0]) return "Escribe un nombre.";
+        S.cards.push({ id: Date.now(), n: v[0], c: num(v[1]), k: +v[2] || 15, p: +v[3] || 30, ir: pr(v[4]) || 0, paid: {} });
+        save();
+    });
+}
+function editCard(id) {
+    const c = S.cards.find(x => x.id == id);
+    openCustomModal("Editar " + esc(c.n), [
+        { l: "Cupo total", v: c.c || "", m: "numeric" },
+        { l: "Día de corte (1-31)", v: c.k, m: "numeric" },
+        { l: "Día límite pago (1-31)", v: c.p, m: "numeric" },
+        { l: "Tasa mensual % (aplica a compras nuevas)", v: c.ir ? tf(c.ir) : "", m: "decimal" }
+    ], v => {
+        c.c = num(v[0]); c.k = +v[1] || c.k; c.p = +v[2] || c.p; c.ir = pr(v[3]) || 0;
+        save();
+    });
+}
+function payCard(id) {
+    const c = S.cards.find(x => x.id == id), nm = ym(new Date());
+    openCustomModal("Abonar a " + esc(c.n), [
+        { l: "¿De dónde sale?", o: WH },
+        { l: "Monto", v: Math.round(cardDue(c, nm)) || "", m: "numeric" }
+    ], v => {
+        const a = num(v[1]);
+        if (!a) return "Escribe un monto válido.";
+        S.items.push({ id: Date.now(), d: today(), t: "p", c: "Pago tarjeta", n: "Pago " + c.n, a, k: "", pc: c.n, w: v[0], q: 1 });
+        save();
+    });
+}
+function paidCard(id) { const c = S.cards.find(x => x.id == id); c.paid[ym(new Date())] = !c.paid[ym(new Date())]; save(); draw(); }
+function delCard(id) { confirmAction("¿Borrar tarjeta?", () => { S.cards = S.cards.filter(x => x.id != id); save(); }); }
+
+// ---------- Deudas ----------
+function newDbt() {
+    openCustomModal("Nueva deuda", [{ l: "Nombre (ej. Préstamo moto)" }, { l: "Monto total", m: "numeric" }, { l: "Ya pagado antes (opcional)", m: "numeric" }], v => {
+        const t = num(v[1]); if (!v[0] || !t) return "Escribe nombre y monto.";
+        S.dbt.push({ id: Date.now(), n: v[0], t, p0: num(v[2]) }); save();
+    });
+}
+function editDbt(id) {
+    const d = S.dbt.find(x => x.id == id);
+    openCustomModal("Editar deuda", [{ l: "Nombre", v: esc(d.n) }, { l: "Monto total", v: d.t, m: "numeric" }], v => {
+        const t = num(v[1]); if (!v[0] || !t) return "Escribe nombre y monto.";
+        d.n = v[0]; d.t = t; save();
+    });
+}
+function payDbt(id) {
+    const d = S.dbt.find(x => x.id == id);
+    openCustomModal("Abonar a " + esc(d.n), [{ l: "¿De dónde sale?", o: WH }, { l: "Monto", v: Math.round(dbtLeft(d)) || "", m: "numeric" }], v => {
+        const a = num(v[1]); if (!a) return "Escribe un monto válido.";
+        S.items.push({ id: Date.now(), d: today(), t: "g", c: "Deudas/Tarjeta", n: "Pago deuda: " + d.n, a, k: "", w: v[0], q: 1, dbt: d.id }); save();
+    });
+}
+function delDbt(id) { confirmAction("¿Borrar deuda? Los abonos ya hechos quedan como gastos.", () => { S.dbt = S.dbt.filter(x => x.id != id); save(); }); }
+
+// ---------- Ajustes ----------
+function setBud(c, v) { const n = num(v); if (n) S.bud[c] = n; else delete S.bud[c]; save(); }
+function setIni(i, v) { const n = num(v); if (n) S.ini[WH[i]] = n; else delete S.ini[WH[i]]; save(); }
+function togHide(i) { const n = hideNames()[i]; if (S.hide[n]) delete S.hide[n]; else S.hide[n] = true; save(); }
+function newRec() {
+    const cs = G.filter(g => g[0] != "Ahorro").map(g => g[0]);
+    openCustomModal("Nuevo gasto fijo", [{ l: "Nombre (ej. Arriendo)" }, { l: "Monto", m: "numeric" }, { l: "Día del mes (1-28)", v: "1", m: "numeric" }, { l: "Categoría", o: cs }, { l: "Se paga con", o: WH.concat(S.cards.map(c => c.n)) }], v => {
+        const a = num(v[1]), day = Math.min(28, Math.max(1, num(v[2]) || 1)), isW = WH.includes(v[4]);
+        if (!v[0] || !a) return "Escribe nombre y monto.";
+        S.rec.push({ id: Date.now(), n: v[0], a, day, c: v[3], k: isW ? "" : v[4], w: isW ? v[4] : "", last: "" });
+        genRec();
+    });
+}
+function delRec(id) { confirmAction("¿Borrar gasto fijo?", () => { S.rec = S.rec.filter(r => r.id != id); save(); }); }
+function genRec() {
+    const nm = ym(new Date()), td = new Date().getDate();
+    (S.rec || []).forEach(r => {
+        if (r.last != nm && td >= r.day) {
+            S.items.push({ id: Date.now() * 1000 + Math.floor(Math.random() * 1000), d: nm + "-" + String(r.day).padStart(2, "0"), t: "g", c: r.c, n: r.n, a: r.a, k: r.k, w: r.w, q: 1 });
+            r.last = nm;
+        }
+    });
+    save();
+}
+
+// ---------- Copias de seguridad ----------
+function copyBackup() {
+    const e = document.getElementById("ex"); e.select();
+    try { navigator.clipboard.writeText(e.value); showToast("Datos copiados al portapapeles"); } catch (_) {}
+}
+function importBackup() {
+    let j; try { j = JSON.parse(document.getElementById("imp").value); } catch (e) { return showToast("JSON inválido"); }
+    if (!j || !Array.isArray(j.items)) return showToast("Ese JSON no parece una copia de Mi Plata");
+    confirmAction("Esto reemplaza todos tus datos actuales. ¿Continuar?", () => { localStorage.setItem(KEY, JSON.stringify(j)); location.reload(); });
+}
+function exportCsv() {
+    const q = t => '"' + String(t ?? "").replace(/"/g, '""') + '"', tp = { i: "Ingreso", g: "Gasto", p: "Pago tarjeta", tr: "Transferencia" };
+    const rows = [["Fecha", "Tipo", "Categoría", "Nota", "Monto", "Billetera", "Tarjeta", "Cuotas"]].concat(S.items.slice().sort((a, b) => a.d.localeCompare(b.d)).map(x => [x.d, tp[x.t] || x.t, x.c, x.n, x.a, x.w, x.k || x.pc || "", x.q > 1 ? x.q : ""]));
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob(["\ufeff" + rows.map(r => r.map(q).join(";")).join("\n")], { type: "text/csv" }));
+    a.download = "mi-plata-" + today() + ".csv"; a.click();
+}
+
+// ---------- PIN ----------
+const hashPin = async p => [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode("miplata" + p)))].map(b => b.toString(16).padStart(2, "0")).join("");
+function setPin() {
+    if (!window.crypto || !crypto.subtle) return showToast("El PIN necesita abrir la app por https");
+    openCustomModal("PIN de 4 a 6 dígitos", [{ l: "Nuevo PIN (vacío = quitar)", m: "numeric" }], v => {
+        if (v[0] && !/^\d{4,6}$/.test(v[0])) return "Usa de 4 a 6 números.";
+        if (!v[0]) { delete S.pin; save(); return; }
+        hashPin(v[0]).then(h => { S.pin = h; save(); showToast("PIN guardado"); });
+    });
+}
+function lockScreen() {
+    if (!S.pin || !window.crypto || !crypto.subtle) return;
+    const d = document.createElement("div");
+    d.className = "fixed inset-0 z-[60] bg-slate-950 flex flex-col items-center justify-center gap-4 p-6";
+    d.innerHTML = '<i class="fa-solid fa-lock text-3xl text-indigo-400"></i><input type="password" inputmode="numeric" maxlength="6" placeholder="PIN" class="w-40 text-center text-2xl tracking-widest px-4 py-3 rounded-2xl bg-slate-800 text-white"><p class="text-rose-400 text-xs min-h-[16px]"></p>';
+    document.body.appendChild(d);
+    const i = d.querySelector("input"), e = d.querySelector("p"); i.focus();
+    i.oninput = async () => {
+        if (i.value.length >= 4 && await hashPin(i.value) == S.pin) d.remove();
+        else if (i.value.length >= 6) { e.textContent = "PIN incorrecto"; i.value = ""; }
+    };
+}
+
+// ---------- Arranque ----------
+window.addEventListener("DOMContentLoaded", () => {
+    genRec();
+    applyTh();
+    draw();
+    lockScreen();
+    checkReminders();
+    if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+});

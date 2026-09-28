@@ -1,0 +1,545 @@
+// ===== Mi Plata · vistas.js =====
+// Solo genera HTML. Las acciones (guardar, borrar, modales) están en acciones.js.
+
+const N = ["Inicio", "Ahorro", "Inversión", "Gráficas", "Tarjetas", "Deudas", "Ajustes"];
+const V = [vHome, vAho, vInv, vGra, vTar, vDeu, vSet];
+
+// ---------- Piezas de Inicio ----------
+function tipsUI(by) {
+    const r = tipsList(by), pc = v => r.ing > 0 ? Math.min(100, v / r.ing * 100) : 0;
+    const bar = r.ing > 0 ? `
+        <div class="mb-4">
+            <div class="flex w-full h-2 rounded-full overflow-hidden bg-slate-100 dark:bg-slate-800">
+                <div class="bar-seg bg-indigo-500" style="width:${pc(r.nec)}%"></div><div class="bar-seg bg-amber-400" style="width:${pc(r.gus)}%"></div><div class="bar-seg bg-emerald-500" style="width:${pc(r.aho)}%"></div>
+            </div>
+            <div class="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-[11px] text-slate-500 dark:text-slate-400">
+                <span><i class="fa-solid fa-circle text-[7px] text-indigo-500 mr-1"></i>Necesidades ${Math.round(r.nec / r.ing * 100)}% <span class="text-slate-400">(ideal 50)</span></span>
+                <span><i class="fa-solid fa-circle text-[7px] text-amber-400 mr-1"></i>Gustos ${Math.round(r.gus / r.ing * 100)}% <span class="text-slate-400">(30)</span></span>
+                <span><i class="fa-solid fa-circle text-[7px] text-emerald-500 mr-1"></i>Ahorro ${Math.round(r.aho / r.ing * 100)}% <span class="text-slate-400">(20)</span></span>
+            </div>
+        </div>` : "";
+    return `
+        <section class="${CARD} p-5">
+            <div class="flex items-center justify-between mb-4">
+                <div><h3 class="text-sm font-bold text-slate-800 dark:text-white"><i class="fa-solid fa-lightbulb text-amber-400 mr-1.5"></i>Consejos para tu plata</h3>
+                <p class="text-xs text-slate-400 mt-0.5">Según tus números de este mes</p></div>
+            </div>
+            ${bar}
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                ${r.list.map((t, i) => `
+                    <div class="tip lift flex items-start gap-3 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800" style="--i:${i}">
+                        <div class="w-9 h-9 shrink-0 rounded-xl flex items-center justify-center text-sm ${TIP_STY[t.lv][0]} ${t.lv == 0 ? "pulse-ring" : ""}"><i class="fa-solid ${t.ic}"></i></div>
+                        <div class="min-w-0">
+                            <p class="text-xs font-bold text-slate-800 dark:text-white leading-snug">${esc(t.t)}</p>
+                            <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">${esc(t.d)}</p>
+                        </div>
+                    </div>`).join("")}
+            </div>
+        </section>`;
+}
+
+function nwUI() {
+    const n = netWorth();
+    const row = (ic, cl, l, v, neg) => `<div class="flex items-center justify-between text-xs py-1.5"><span class="text-slate-500 dark:text-slate-400"><i class="fa-solid ${ic} ${cl} w-4 mr-1.5"></i>${l}</span><b class="${neg ? "text-rose-500" : "text-slate-800 dark:text-white"}">${neg && v > 0 ? "-" : ""}${fmt(v)}</b></div>`;
+    return `
+        <section class="${CARD} p-5">
+            <div class="flex justify-between items-start mb-3">
+                <div>
+                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Patrimonio neto</p>
+                    <div class="text-3xl font-extrabold tracking-tight mt-1 ${n.tot < 0 ? "text-rose-500" : "text-slate-800 dark:text-white"}">${fmt(n.tot)}</div>
+                    <p class="text-[11px] text-slate-400 mt-0.5">Lo que tienes menos lo que debes, hoy (no depende del mes que estés viendo)</p>
+                </div>
+                <i class="fa-solid fa-scale-balanced text-indigo-500 text-lg"></i>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1 pt-3 border-t border-slate-100 dark:border-slate-800">
+                <div>
+                    <p class="text-[10px] uppercase tracking-wider text-emerald-500 font-bold mb-1">Tienes · ${fmt(n.act)}</p>
+                    ${row("fa-wallet", "text-indigo-500", "Billeteras y bancos", n.w)}
+                    ${row("fa-piggy-bank", "text-emerald-500", "Ahorros y metas", n.sv)}
+                    ${row("fa-chart-line", "text-violet-500", "Inversiones", n.iv)}
+                </div>
+                <div>
+                    <p class="text-[10px] uppercase tracking-wider text-rose-500 font-bold mb-1">Debes · ${fmt(n.pas)}</p>
+                    ${row("fa-credit-card", "text-amber-500", "Tarjetas (capital pendiente)", n.cd, 1)}
+                    ${row("fa-hand-holding-dollar", "text-rose-500", "Deudas", n.db, 1)}
+                </div>
+            </div>
+        </section>`;
+}
+
+function fltSummary(m) {
+    const tile = (l, v, cl) => `<div class="flex-1 min-w-0 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800"><span class="text-[10px] uppercase tracking-wider text-slate-400 block truncate">${l}</span><b class="text-sm ${cl || ""}">${v}</b></div>`;
+    const nm = ym(cur);
+    let t = "";
+    if (flt.k == "w") {
+        const w = WH[flt.v], ws = m.filter(x => !x.k && x.w == w);
+        t = tile("Saldo actual", fmt(bal(w, nm))) + tile("Ingresos", "+" + fmt(sum(ws, x => x.t == "i")), "text-emerald-500") + tile("Salidas", fmt(sum(ws, x => x.t == "g" || x.t == "p")));
+    } else if (flt.k == "cards") {
+        const cs = S.cards.filter(c => !(S.hide || {})[c.n]);
+        if (!cs.length) return `<p class="text-xs text-slate-400 mb-3">Aún no tienes tarjetas registradas.</p>`;
+        let tc = 0, tu = 0;
+        cs.forEach(c => { if (c.c) { tc += c.c; tu += cardUse(c, nm).used; } });
+        const pc = tc ? tu / tc * 100 : 0;
+        t = tile("Compras del mes", fmt(sum(m, x => !!x.k))) + tile("Cuota por pagar", fmt(cs.reduce((a, c) => a + cardDue(c, nm), 0)), "text-indigo-500") + tile("Cupo utilizado", tc ? Math.round(pc) + "%" : "—", tc ? useTone(pc).txt : "");
+    } else if (flt.k == "c") {
+        const c = S.cards.find(c => c.id == flt.v); if (!c) return "";
+        const cu = cardUse(c, nm);
+        t = tile("Compras del mes", fmt(sum(m, x => x.k == c.n))) + tile("Cuota a pagar", fmt(cardDue(c, nm)), "text-indigo-500") + tile("Cupo utilizado", c.c ? Math.round(cu.raw) + "%" : "—", c.c ? useTone(cu.raw).txt : "");
+    }
+    return t ? `<div class="flex gap-2 mb-3">${t}</div>` : "";
+}
+
+function fltUI(m) {
+    const chip = (on, ic, lbl, act, sm) => `<button onclick="${act}" class="shrink-0 ${sm ? "px-3 py-1.5 text-[11px]" : "px-3.5 py-2 text-xs"} rounded-xl font-semibold transition whitespace-nowrap ${on ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/25" : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"}"><i class="fa-solid ${ic} mr-1.5"></i>${lbl}</button>`;
+    const nom = ["Efectivo", "Cuenta de ahorros", "Billetera digital"], ics = ["fa-money-bill-wave", "fa-building-columns", "fa-mobile-screen"];
+    const inCards = flt.k == "cards" || flt.k == "c";
+    const row1 = chip(flt.k == "all", "fa-layer-group", "Todos", "setFlt('all')") + WH.map((w, i) => chip(flt.k == "w" && flt.v == i, ics[i], nom[i], `setFlt('w',${i})`)).join("") + chip(inCards, "fa-credit-card", "Tarjetas", "setFlt('cards')");
+    const row2 = inCards && S.cards.length ? `<div class="subchips flex gap-2 overflow-x-auto no-scrollbar pb-1 mt-2">${chip(flt.k == "cards", "fa-layer-group", "Todas", "setFlt('cards')", 1)}${S.cards.map(c => chip(flt.k == "c" && flt.v == c.id, "fa-credit-card", esc(c.n), `setFlt('c',${c.id})`, 1)).join("")}</div>` : "";
+    return `<div class="mb-3"><div class="flex gap-2 overflow-x-auto no-scrollbar pb-1">${row1}</div>${row2}</div>${fltSummary(m)}`;
+}
+
+// Lista de movimientos (se redibuja sola mientras escribes en el buscador)
+function movListHTML() {
+    const rows = baseItems().filter(fltMatch).filter(matchQ).sort((a, b) => b.d.localeCompare(a.d) || b.id - a.id);
+    if (!rows.length) return '<p class="text-xs text-slate-400 text-center py-4">' + (flt.k != "all" || sqry ? "No hay movimientos con este filtro." : "Anota tu primer movimiento abajo.") + '</p>';
+    const head = sqry || sall ? (() => {
+        const g = rows.filter(x => x.t == "g").reduce((s, x) => s + x.a, 0), i = rows.filter(x => x.t == "i").reduce((s, x) => s + x.a, 0);
+        return `<p class="text-[11px] text-slate-400 pb-2">${rows.length} resultado${rows.length == 1 ? "" : "s"} · gastos ${fmt(g)} · ingresos ${fmt(i)}</p>`;
+    })() : "";
+    return head + rows.map(x => {
+        const r = rate(x);
+        return `
+        <div class="flex items-center justify-between py-3 border-b border-slate-100 dark:border-slate-800 last:border-0">
+            <div class="min-w-0 flex-1 pr-2">
+                <strong class="text-sm font-semibold text-slate-800 dark:text-white block truncate">${esc(x.n || x.c)}</strong>
+                <small class="text-xs text-slate-400">${x.n ? esc(x.c) + " · " : ""}${x.d.slice(8)}/${x.d.slice(5, 7)}${sall ? "/" + x.d.slice(2, 4) : ""}${x.k ? " · 💳 " + esc(x.k) : ""}${x.w ? " · " + esc(x.w) : ""}${x.q > 1 ? " · " + x.q + " cuotas de " + fmt(pmt(x.a, x.q, r)) + (r > 0 ? " (con interés)" : "") : ""}${x.s ? " · fuera del resumen" : ""}</small>
+            </div>
+            <div class="flex items-center space-x-2">
+                <span class="text-sm font-bold ${x.t == "i" ? "text-emerald-500" : "text-slate-800 dark:text-white"}">${x.t == "i" ? "+" : x.t == "tr" ? "↔ " : "-"}${fmt(x.a)}</span>
+                <button onclick="editM(${x.id})" class="text-slate-400 hover:text-indigo-600 p-1 text-xs"><i class="fa-solid fa-pen"></i></button>
+                <button onclick="delMovItem(${x.id})" class="text-slate-400 hover:text-rose-600 p-1 text-xs"><i class="fa-solid fa-trash"></i></button>
+            </div>
+        </div>`;
+    }).join("");
+}
+
+function destUI() {
+    const act = S.acc.filter(a => !a.f), o = [["", "Solo ingreso: queda en la billetera"]];
+    if (S.cards.length) o.push(["card", "Pagar una tarjeta"]);
+    if (act.length) o.push(["save", "Meter a una meta de ahorro que ya tengo"]);
+    if (S.dbt.length) o.push(["debt", "Pagar una deuda"]);
+    if (o.length < 2) return "";
+    return `<label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Este ingreso va para</label>
+        <select id="dest" onchange="setDest(this.value)" class="${INP}">${o.map(([v, t]) => `<option value="${v}">${t}</option>`).join("")}</select>
+        <select id="payCard" class="${INP} hidden">${S.cards.map(c => `<option>${esc(c.n)}</option>`).join("")}</select>
+        <select id="saveAcc" class="${INP} hidden">${act.map(a => `<option value="${a.id}">${esc(a.n)}${a.u ? " (USD)" : ""}</option>`).join("")}</select>
+        <select id="debtSel" class="${INP} hidden">${S.dbt.map(d => `<option value="${d.id}">${esc(d.n)} · debes ${fmt(dbtLeft(d))}</option>`).join("")}</select>
+        <input id="destAmt" inputmode="numeric" placeholder="¿Cuánto de este ingreso? (vacío = todo o la cuota)" oninput="fa(this)" class="${INP} hidden" autocomplete="off">`;
+}
+
+// ---------- Inicio ----------
+function vHome() {
+    if (flt.k == "c" && !S.cards.some(c => c.id == flt.v)) flt = { k: "cards", v: null };
+    const m = mon(), ing = sum(m, x => x.t == "i"), aho = svm(), gas = sum(m, x => x.t == "g"), sob = ing - gas - aho;
+    const cats = (type == "g" ? G.filter(x => x[0] != "Ahorro").map(x => x[0]) : I).map(c => `<option>${c}</option>`).join("");
+    const by = G.map(([c]) => [c, sum(m, x => x.t == "g" && x.c == c && !x.s)]).filter(x => x[1] > 0 || (S.bud || {})[x[0]]).sort((a, b) => b[1] - a[1]), mx = (by[0] ? by[0][1] : 1) || 1;
+
+    const hasW = S.items.some(x => x.w) || Object.keys(S.ini).length > 0, nm = ym(cur);
+    const have = hasW ? WH.filter(w => !(S.hide || {})[w]).reduce((s, w) => s + bal(w, nm), 0) : sob;
+    const due = S.cards.filter(c => !(S.hide || {})[c.n]).reduce((s, c) => s + cardDue(c, nm), 0);
+    const svt = S.acc.reduce((s, a) => s + svb(a.id, nm) * (a.u ? S.trm : 1), 0), disp = have - due;
+    const P = invPortfolio(), invT = P.T, invC = P.C;
+    const totAcc = S.acc.filter(a => !a.f).reduce((s, a) => s + goalTotal(a) * (a.u ? S.trm : 1), 0);
+
+    const MT = S.acc.filter(a => !a.f).map(a => {
+        const t = goalTotal(a), p = a.g ? Math.min(100, t / a.g * 100) : 0, gi = goalInfo(a);
+        const tag = gi && !gi.done ? `<span class="${gi.late ? "text-rose-500" : gi.days <= 30 || !gi.ok ? "text-amber-500" : "text-slate-400"} ml-1">· ${gi.late ? "venció" : gi.days + " d"}</span>` : "";
+        return `<div class="mb-3 last:mb-0"><div class="flex justify-between text-xs mb-1 font-medium"><span>${esc(a.n)}${tag}</span><span>${fm(a, t)}${a.g ? " de " + fm(a, a.g) : ""}</span></div>${a.g ? `<div class="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden"><div class="bg-emerald-500 h-full rounded-full" style="width:${p}%"></div></div>` : ""}</div>`;
+    }).join("") || '<p class="text-xs text-slate-400 text-center py-2">Crea metas en la pestaña Ahorro.</p>';
+
+    const sel = "w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-white";
+    return `
+        <section class="relative overflow-hidden bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-800 text-white p-6 rounded-3xl shadow-xl shadow-indigo-500/10 flex flex-col justify-between">
+            <div class="absolute -right-10 -bottom-10 w-40 h-40 bg-white/10 rounded-full blur-2xl pointer-events-none float-slow"></div>
+            <div class="flex justify-between items-start">
+                <div>
+                    <p class="text-xs font-medium uppercase tracking-wider text-indigo-200">Disponible para gastar</p>
+                    <h2 class="text-3xl font-extrabold mt-1 tracking-tight ${disp < 0 ? "text-rose-300" : ""}">${fmt(disp)}</h2>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <button onclick="go(-1)" class="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-sm font-bold transition">‹</button>
+                    <span class="text-xs font-semibold capitalize">${cur.toLocaleDateString("es-CO", { month: "long", year: "numeric" })}</span>
+                    <button onclick="go(1)" class="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-sm font-bold transition">›</button>
+                </div>
+            </div>
+            <div class="grid grid-cols-3 gap-2 mt-6 pt-4 border-t border-white/10">
+                <div><small class="text-[10px] text-indigo-200 block uppercase">En mano</small><b class="text-xs sm:text-sm font-bold">${fmt(have)}</b></div>
+                <div><small class="text-[10px] text-indigo-200 block uppercase">Tarjetas</small><b class="text-xs sm:text-sm font-bold">${fmt(due)}</b></div>
+                <div><small class="text-[10px] text-indigo-200 block uppercase">Apartado</small><b class="text-xs sm:text-sm font-bold">${fmt(svt)}</b></div>
+            </div>
+        </section>
+
+        ${nwUI()}
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div onclick="goTab(1)" class="${CARD} p-4 cursor-pointer hover:border-indigo-500 transition lift">
+                <div class="flex justify-between items-center mb-1"><span class="text-xs font-semibold text-slate-500">Ahorros y Metas</span><i class="fa-solid fa-piggy-bank text-indigo-500"></i></div>
+                <h4 class="text-lg font-bold text-slate-800 dark:text-white mb-2">${fmt(totAcc)}</h4>
+                ${MT}
+            </div>
+            <div onclick="goTab(2)" class="${CARD} p-4 cursor-pointer hover:border-indigo-500 transition lift">
+                <div class="flex justify-between items-center mb-1"><span class="text-xs font-semibold text-slate-500">Inversiones</span><i class="fa-solid fa-chart-line text-emerald-500"></i></div>
+                <h4 class="text-lg font-bold text-slate-800 dark:text-white">${show(invT)}</h4>
+                <p class="text-xs ${invT >= invC ? "text-emerald-500" : "text-rose-500"} mt-1 font-semibold">${invT >= invC ? "+" : ""}${fmt(invT - invC)} sobre lo invertido${P.ann !== null ? " · " + pct1(P.ann) + " anual" : ""}</p>
+            </div>
+        </div>
+
+        ${tipsUI(by)}
+
+        <section class="${CARD} p-5">
+            <div class="flex justify-between items-center mb-3"><h3 class="text-sm font-bold text-slate-800 dark:text-white">Anotar Movimiento</h3><button onclick="newTransfer()" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold">↔ Transferir</button></div>
+            <div class="grid grid-cols-2 gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl mb-4">
+                <button type="button" onclick="setType('g')" class="py-2 rounded-xl text-xs font-bold transition ${type == 'g' ? 'bg-white dark:bg-slate-700 text-rose-600 shadow-sm' : 'text-slate-500'}">Gasto</button>
+                <button type="button" onclick="setType('i')" class="py-2 rounded-xl text-xs font-bold transition ${type == 'i' ? 'bg-white dark:bg-slate-700 text-emerald-600 shadow-sm' : 'text-slate-500'}">Ingreso</button>
+            </div>
+            <div class="space-y-3">
+                <input id="amt" inputmode="numeric" placeholder="Monto en pesos" oninput="fa(this);cuotaPreview()" class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-lg font-bold text-slate-800 dark:text-white focus:ring-2 focus:ring-indigo-500" autocomplete="off">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <select id="cat" class="${sel}">${cats}</select>
+                    <input id="date" type="date" value="${today()}" class="${sel}">
+                </div>
+                ${type == "g" ? `
+                    <select id="cardSel" onchange="togCardOpts()" class="${sel}">${WH.concat(S.cards.map(c => c.n)).map(x => `<option>${esc(x)}</option>`).join("")}</select>
+                    <div id="cardOpts" class="space-y-3 hidden">
+                        <input id="cq" inputmode="numeric" placeholder="Cuotas (ej. 3)" oninput="cuotaPreview()" class="${sel}">
+                        <select id="ci" onchange="cuotaPreview()" class="${sel}"><option>Con la tasa de la tarjeta</option><option>Sin interés</option></select>
+                        <p id="cqPrev" class="text-[11px] text-indigo-500 font-semibold min-h-[14px]"></p>
+                    </div>` : `
+                    <select id="whSel" class="${sel}">${WH.map(w => `<option>${w}</option>`).join("")}</select>${destUI()}`}
+                <input id="note" placeholder="Nota o descripción (opcional)" class="${sel}" autocomplete="off">
+                <p class="text-rose-500 text-xs" id="msg"></p>
+                <button onclick="addMov()" class="w-full py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs shadow-lg shadow-indigo-500/20 transition">Guardar ${type == "g" ? "Gasto" : "Ingreso"}</button>
+            </div>
+        </section>
+
+        <section class="${CARD} p-5">
+            <h3 class="text-sm font-bold text-slate-800 dark:text-white mb-3">En qué se va la plata</h3>
+            <div class="space-y-3">
+                ${by.map(([c, v]) => {
+                    const b = (S.bud || {})[c], r = b ? v / b : v / mx;
+                    return `<div class="text-xs">
+                        <div class="flex justify-between mb-1 font-medium"><span>${c}</span><span>${fmt(v)}${b ? " de " + fmt(b) : ""}</span></div>
+                        <div class="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden"><div class="h-full rounded-full ${b && r >= 1 ? "bg-rose-500" : "bg-indigo-600"}" style="width:${Math.min(100, r * 100)}%"></div></div>
+                    </div>`;
+                }).join("") || '<p class="text-xs text-slate-400 text-center py-4">Aún no hay gastos este mes.</p>'}
+            </div>
+        </section>
+
+        <section class="${CARD} p-5">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="text-sm font-bold text-slate-800 dark:text-white">Movimientos ${sall ? "de todos los meses" : "del mes"}</h3>
+            </div>
+            ${fltUI(m)}
+            <div class="relative mb-2">
+                <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                <input id="q" placeholder="Buscar por nota, categoría, monto, tarjeta…" value="${esc(sqry)}" oninput="setQ(this.value)" class="w-full pl-9 pr-9 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-white" autocomplete="off">
+                ${sqry ? `<button onclick="clearQ()" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"><i class="fa-solid fa-xmark"></i></button>` : ""}
+            </div>
+            <label class="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400 mb-3"><input type="checkbox" ${sall ? "checked" : ""} onchange="togAll(this.checked)" class="w-3.5 h-3.5 accent-indigo-600">Buscar en todos los meses</label>
+            <div id="movList" class="space-y-1">${movListHTML()}</div>
+        </section>
+    `;
+}
+
+// ---------- Ahorro ----------
+function arcUI() {
+    const r = S.acc.filter(a => a.f).map(a => `<div class="flex items-center justify-between p-3 ${CARD} mb-2 text-xs"><span class="font-medium truncate pr-2">${esc(a.n)} · ${fm(a, goalTotal(a))}</span><span class="flex gap-3 shrink-0"><button onclick="archAcc(${a.id})" class="text-indigo-600 font-semibold">Restaurar</button><button onclick="delAcc(${a.id})" class="text-rose-500 font-semibold">Borrar</button></span></div>`).join("");
+    return r ? '<h3 class="text-sm font-bold mt-6 mb-2 text-slate-500">Metas archivadas</h3>' + r : "";
+}
+
+function goalBlock(a, p) {
+    const gi = goalInfo(a);
+    const bar = `<div class="relative w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full mb-1"><div class="bg-emerald-500 h-full rounded-full" style="width:${p}%"></div>${gi && !gi.done && !gi.late && gi.pexp > 0 ? `<div class="goal-marker" style="left:calc(${gi.pexp * 100}% - 1px)" title="Dónde deberías ir hoy"></div>` : ""}</div>`;
+    const t = gi ? gi.t : goalTotal(a);
+    let info = "";
+    if (gi && !gi.done) {
+        info = `<div class="mb-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 text-[11px] space-y-1">
+            <div class="flex justify-between"><span class="text-slate-400"><i class="fa-regular fa-calendar mr-1"></i>Fecha límite</span><b>${dmy(a.dl)} · ${gi.late ? `<span class="text-rose-500">venció hace ${-gi.days} d</span>` : gi.days == 0 ? "hoy" : "en " + gi.days + " d"}</b></div>
+            <div class="flex justify-between"><span class="text-slate-400">Para llegar a tiempo</span><b>${fm(a, gi.perMonth)} al mes</b></div>
+            <div class="flex justify-between"><span class="text-slate-400">Ritmo</span>${gi.late ? `<b class="text-rose-500">Faltan ${fm(a, gi.falta)}</b>` : gi.ok ? `<b class="text-emerald-500">Vas al día ✓</b>` : `<b class="text-amber-500">Atrasado por ${fm(a, gi.gap)}</b>`}</div>
+        </div>`;
+    }
+    return { bar, info };
+}
+
+function vAho() {
+    let T = 0, Y = 0;
+    const A = S.acc.filter(a => !a.f).map(a => {
+        const s = svb(a.id), y = Math.max(0, yieldOf(a.id, a.r));
+        T += a.u ? s * S.trm : s; Y += a.u ? y * S.trm : y;
+        const t = s + y, p = a.g ? Math.min(100, t / a.g * 100) : 0, gb = goalBlock(a, p);
+        return `
+            <div class="${CARD} p-5 mb-4">
+                <div class="flex justify-between items-center mb-2">
+                    <b class="text-sm font-bold text-slate-800 dark:text-white">${esc(a.n)}</b>
+                    <span class="text-xs text-slate-400">${a.u ? "USD · " : ""}${a.r ? a.r + "% E.A." : "sin rendimiento"}</span>
+                </div>
+                <div class="text-2xl font-extrabold text-slate-800 dark:text-white mb-1">${fm(a, t)}</div>
+                ${a.u ? `<small class="text-xs text-slate-400 block mb-2">≈ ${fmt(t * S.trm)} (TRM ${fmt(S.trm)})</small>` : ""}
+                ${a.g ? `${gb.bar}<div class="flex justify-between text-[11px] text-slate-400 mb-3"><span>${p.toFixed(0)}% de ${fm(a, a.g)}</span><span>${t >= a.g ? "¡Meta lograda!" : "Faltan " + fm(a, a.g - t)}</span></div>${gb.info}` : ""}
+                <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                    <button onclick="mov(${a.id}, 1)" class="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-xl text-xs font-semibold">＋ Meter</button>
+                    <button onclick="mov(${a.id}, -1)" class="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-xl text-xs font-semibold">－ Sacar</button>
+                    <button onclick="editAcc(${a.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold">Editar</button>
+                    <button onclick="archAcc(${a.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold">Archivar</button>
+                    <button onclick="delAcc(${a.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-rose-500 rounded-xl text-xs font-semibold">Borrar</button>
+                </div>
+            </div>`;
+    }).join("");
+
+    return `
+        <section class="bg-gradient-to-br from-emerald-600 to-teal-700 text-white p-6 rounded-3xl shadow-xl shadow-emerald-500/10 mb-6">
+            <small class="text-xs text-emerald-100 font-medium uppercase tracking-wider">Total Ahorrado</small>
+            <div class="text-3xl font-extrabold mt-1">${fmt(T + Y)}</div>
+        </section>
+        <div class="flex justify-between items-center mb-4"><h3 class="text-base font-bold">Mis Metas</h3><button onclick="newAcc()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold shadow-md">+ Nueva meta</button></div>
+        ${A || '<p class="text-xs text-slate-400 text-center py-6">Crea tu primera meta de ahorro.</p>'}${arcUI()}
+    `;
+}
+
+// ---------- Inversión ----------
+function vInv() {
+    const P = invPortfolio();
+    const R = S.inv.map(x => {
+        const g = x.v - x.i, tot = x.i ? g / x.i : 0, ann = annOf(x.v, x.i, x.d), days = daysOf(x.d);
+        const annTxt = ann !== null
+            ? `<span class="${ann >= 0 ? "text-emerald-500" : "text-rose-500"} font-semibold">${pct1(ann)} anual</span>`
+            : `<span class="text-slate-400">${days < 30 ? "anual: muy pronto (" + days + " d)" : "sin datos"}</span>`;
+        return `
+            <div class="p-4 ${CARD} mb-3">
+                <div class="flex items-center justify-between">
+                    <div class="min-w-0 pr-2">
+                        <strong class="text-sm font-semibold text-slate-800 dark:text-white block truncate">${esc(x.n)}</strong>
+                        <small class="text-xs text-slate-400">${x.c} · Invertido ${x.c == "USD" ? fu(x.i) : fmt(x.i)}</small>
+                    </div>
+                    <div class="text-right shrink-0">
+                        <b class="text-sm font-bold text-slate-800 dark:text-white block">${x.c == "USD" ? fu(x.v) : fmt(x.v)}</b>
+                        <small class="text-xs ${g >= 0 ? "text-emerald-500" : "text-rose-500"}">${pct1(tot)} total</small>
+                    </div>
+                </div>
+                <div class="flex items-center justify-between mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                    <div class="text-[11px] text-slate-400">Desde ${dmy(x.d)} · ${days} d · ${annTxt}</div>
+                    <div class="flex space-x-2 shrink-0">
+                        <button onclick="upInv(${x.id})" class="p-2 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs" title="Actualizar valor"><i class="fa-solid fa-rotate"></i></button>
+                        <button onclick="editInv(${x.id})" class="p-2 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs" title="Editar"><i class="fa-solid fa-pen"></i></button>
+                        <button onclick="delInv(${x.id})" class="p-2 bg-rose-50 text-rose-600 rounded-xl text-xs" title="Borrar"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                </div>
+            </div>`;
+    }).join("");
+
+    return `
+        <section class="bg-gradient-to-br from-violet-600 to-purple-800 text-white p-6 rounded-3xl shadow-xl shadow-purple-500/10 mb-6">
+            <small class="text-xs text-purple-200 font-medium uppercase tracking-wider">Portafolio Total de Inversión</small>
+            <div class="text-3xl font-extrabold mt-1">${show(P.T)}</div>
+            <p class="text-xs text-purple-100 mt-1">${P.T >= P.C ? "+" : ""}${fmt(P.T - P.C)} sobre lo invertido${P.ann !== null ? ` · ≈ ${pct1(P.ann)} anual (estimado)` : ""}</p>
+            <button onclick="togUsd()" class="mt-3 px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-xl text-xs font-semibold">Ver en ${usd ? "COP" : "USD"}</button>
+        </section>
+        <div class="${CARD} p-5 mb-6">
+            <h3 class="text-sm font-bold mb-3">Tasa de Cambio (TRM) y Moneda</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2">
+                <input id="trmInput" inputmode="decimal" value="${tf(S.trm)}" class="px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs">
+                <button onclick="setTrmVal()" class="py-2.5 bg-indigo-600 text-white font-semibold rounded-xl text-xs shadow-md">Actualizar TRM</button>
+            </div>
+        </div>
+        <div class="flex justify-between items-center mb-4"><h3 class="text-base font-bold">Mis Inversiones</h3><button onclick="newInv()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold shadow-md">+ Nueva Inversión</button></div>
+        ${R || '<p class="text-xs text-slate-400 text-center py-6">Agrega tu primera inversión.</p>'}
+        <p class="text-[11px] text-slate-400 mt-2">El rendimiento anual se calcula con la fecha de inicio y el valor actual, y solo aparece después de 30 días (antes exagera). Es una estimación: no descuenta comisiones ni impuestos.</p>
+    `;
+}
+
+// ---------- Gráficas ----------
+function vGra() {
+    const mk = ym(cur), ok = monthKey(cmp);
+    const A = catTotals(mk), B = catTotals(ok);
+    const rows = G.map(([c], i) => ({ c, a: A[i][1], b: B[i][1] })).filter(r => r.a > 0 || r.b > 0);
+    const ta = rows.reduce((s, r) => s + r.a, 0), tb = rows.reduce((s, r) => s + r.b, 0);
+    const delta = (a, b) => {
+        const d = a - b, cl = d > 0 ? "text-rose-500" : d < 0 ? "text-emerald-500" : "text-slate-400";
+        const p = b > 0 ? " (" + (d >= 0 ? "+" : "") + Math.round(d / b * 100) + "%)" : a > 0 ? " (nuevo)" : "";
+        return `<span class="${cl} font-semibold">${d > 0 ? "+" : ""}${fmt(d)}${p}</span>`;
+    };
+    const opts = [[1, "Mes anterior"], [2, "Hace 2 meses"], [3, "Hace 3 meses"], [6, "Hace 6 meses"], [12, "Hace 1 año"]];
+    const hasNW = Object.keys(S.nwh).length >= 2;
+    return `
+        <section class="${CARD} p-5">
+            <div class="flex justify-between items-center mb-4"><h3 class="text-sm font-bold">Gastos por categoría</h3>
+            <div class="flex items-center space-x-2"><button onclick="go(-1)" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800">‹</button><span class="text-xs font-semibold capitalize">${cur.toLocaleDateString("es-CO", { month: "long", year: "numeric" })}</span><button onclick="go(1)" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800">›</button></div></div>
+            <div class="max-w-xs mx-auto"><canvas id="chCat"></canvas></div>
+        </section>
+
+        <section class="${CARD} p-5">
+            <div class="flex flex-wrap justify-between items-center gap-2 mb-4">
+                <h3 class="text-sm font-bold">Comparar gastos entre meses</h3>
+                <select onchange="setCmp(this.value)" class="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs">${opts.map(([v, l]) => `<option value="${v}" ${v == cmp ? "selected" : ""}>${l}</option>`).join("")}</select>
+            </div>
+            ${rows.length ? `
+            <canvas id="chCmp"></canvas>
+            <div class="mt-4 text-xs">
+                <div class="grid grid-cols-4 gap-2 pb-2 border-b border-slate-100 dark:border-slate-800 text-[10px] uppercase tracking-wider text-slate-400 font-bold"><span>Categoría</span><span class="text-right capitalize">${monLabel(ok)}</span><span class="text-right capitalize">${monLabel(mk)}</span><span class="text-right">Cambio</span></div>
+                ${rows.map(r => `<div class="grid grid-cols-4 gap-2 py-2 border-b border-slate-100 dark:border-slate-800 items-center"><span class="font-medium truncate">${r.c}</span><span class="text-right">${fmt(r.b)}</span><span class="text-right">${fmt(r.a)}</span><span class="text-right text-[11px]">${delta(r.a, r.b)}</span></div>`).join("")}
+                <div class="grid grid-cols-4 gap-2 pt-2 font-bold items-center"><span>Total</span><span class="text-right">${fmt(tb)}</span><span class="text-right">${fmt(ta)}</span><span class="text-right text-[11px]">${delta(ta, tb)}</span></div>
+            </div>` : '<p class="text-xs text-slate-400 text-center py-6">No hay gastos en esos dos meses para comparar.</p>'}
+        </section>
+
+        <section class="${CARD} p-5"><h3 class="text-sm font-bold mb-4">Ingresos vs gastos (6 meses)</h3><canvas id="chMon"></canvas></section>
+
+        <section class="${CARD} p-5"><h3 class="text-sm font-bold mb-1">Patrimonio neto mes a mes</h3>
+            <p class="text-[11px] text-slate-400 mb-4">Se guarda una foto cada vez que usas la app.</p>
+            ${hasNW ? '<canvas id="chNW"></canvas>' : '<p class="text-xs text-slate-400 text-center py-6">Aparecerá cuando tengas al menos dos meses de datos.</p>'}
+        </section>`;
+}
+
+function drawCharts() {
+    charts.forEach(c => c.destroy()); charts = [];
+    if (typeof Chart == "undefined") return;
+    const dark = document.documentElement.classList.contains("dark");
+    Chart.defaults.color = dark ? "#94a3b8" : "#64748b";
+    const m = mon(), by = G.map(([c]) => [c, sum(m, x => x.t == "g" && x.c == c && !x.s)]).filter(x => x[1] > 0);
+    charts.push(new Chart(document.getElementById("chCat"), { type: "doughnut", data: { labels: by.map(x => x[0]), datasets: [{ data: by.map(x => x[1]), backgroundColor: ["#6366f1","#8b5cf6","#10b981","#f59e0b","#ef4444","#06b6d4","#ec4899","#64748b","#84cc16"] }] } }));
+
+    const cc = document.getElementById("chCmp");
+    if (cc) {
+        const mk = ym(cur), ok = monthKey(cmp), A = catTotals(mk), B = catTotals(ok);
+        const idx = G.map((_, i) => i).filter(i => A[i][1] > 0 || B[i][1] > 0);
+        charts.push(new Chart(cc, { type: "bar", data: { labels: idx.map(i => G[i][0]), datasets: [{ label: monLabel(ok), data: idx.map(i => B[i][1]), backgroundColor: "#94a3b8" }, { label: monLabel(mk), data: idx.map(i => A[i][1]), backgroundColor: "#6366f1" }] } }));
+    }
+
+    const ms = [...Array(6)].map((_, i) => ym(new Date(cur.getFullYear(), cur.getMonth() - 5 + i, 1)));
+    const tot = (k, t) => S.items.filter(x => x.d.startsWith(k) && x.t == t && vis(x)).reduce((s, x) => s + x.a, 0);
+    charts.push(new Chart(document.getElementById("chMon"), { type: "bar", data: { labels: ms, datasets: [{ label: "Ingresos", data: ms.map(k => tot(k, "i")), backgroundColor: "#10b981" }, { label: "Gastos", data: ms.map(k => tot(k, "g")), backgroundColor: "#6366f1" }] } }));
+
+    const nw = document.getElementById("chNW");
+    if (nw) {
+        const ks = Object.keys(S.nwh).sort().slice(-12);
+        charts.push(new Chart(nw, { type: "line", data: { labels: ks, datasets: [{ label: "Patrimonio neto", data: ks.map(k => S.nwh[k]), borderColor: "#6366f1", backgroundColor: "rgba(99,102,241,.15)", fill: true, tension: .3 }] } }));
+    }
+}
+
+// ---------- Tarjetas ----------
+function vTar() {
+    const m = monAll(), n = ym(new Date());
+    let tc = 0, tu = 0;
+    const cardsList = S.cards.map(c => {
+        const u = sum(m, x => x.k == c.n), cu = cardUse(c, n), d = nextPay(c.p), tn = useTone(cu.raw), it = cardInt(c, n);
+        const pv = lastPct[c.id], ch = pv && (pv.b !== cu.pct || pv.n !== cu.raw);
+        const fb = pv && (!anim || ch) ? pv.b : 0, fn = pv && (!anim || ch) ? pv.n : 0;
+        lastPct[c.id] = { b: cu.pct, n: cu.raw };
+        const pop = cu.ok && lastOk[c.id] === false; lastOk[c.id] = cu.ok;
+        if (c.c) { tc += c.c; tu += cu.used; }
+        return `
+            <div class="lift ${CARD} p-5 mb-4">
+                <div class="flex justify-between items-center mb-2">
+                    <div><b class="text-sm font-bold text-slate-800 dark:text-white">💳 ${esc(c.n)}</b>${c.ir > 0 ? `<span class="text-[11px] text-slate-400 ml-2">${tf(c.ir)}% mensual</span>` : ""}</div>
+                    <span class="text-xs font-semibold ${cu.ok ? "text-emerald-500" : d <= 5 ? "text-rose-500" : "text-slate-400"}">${cu.ok ? `<span class="${pop ? "pop" : ""}">Pagada ✓</span>` : "Vence en " + d + " d"}</span>
+                </div>
+                <div class="grid grid-cols-2 gap-2 text-xs mb-4">
+                    <div><span class="text-slate-400 block">Compras este mes</span><b>${fmt(u)}</b></div>
+                    <div><span class="text-slate-400 block">Cuota a pagar</span><b class="text-indigo-600">${fmt(cu.ok ? 0 : Math.max(0, cu.cq - cu.ab))}</b></div>
+                    <div><span class="text-slate-400 block">Abonado este mes</span><b class="text-emerald-600">${fmt(cu.ab)}</b></div>
+                    <div><span class="text-slate-400 block">Intereses en la cuota</span><b class="${it > 0 ? "text-amber-500" : ""}">${fmt(it)}</b></div>
+                </div>
+                ${c.c ? `
+                <div class="flex items-end justify-between mb-1.5">
+                    <div><span class="cupo-pct text-2xl font-extrabold ${tn.txt}" data-from="${fn}" data-to="${cu.raw}">${Math.round(fn)}%</span><span class="text-xs text-slate-400 ml-1.5">del cupo utilizado</span></div>
+                    <span class="text-[11px] font-semibold ${tn.txt}">${tn.lbl}</span>
+                </div>
+                <div class="relative w-full bg-slate-100 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden mb-2"><div class="cupo-bar ${tn.bar} h-full rounded-full" data-to="${cu.pct}" style="width:${fb}%"></div><div class="absolute top-0 bottom-0 w-px bg-slate-400/70" style="left:30%" title="Ideal: menos del 30%"></div></div>
+                <div class="flex justify-between text-[11px] text-slate-400 mb-3">
+                    <span>Usado ${fmt(cu.used)}</span><span>Disponible <b class="text-emerald-500">${fmt(cu.avail)}</b></span><span>Cupo ${fmt(c.c)}</span>
+                </div>` : `<p class="text-[11px] text-slate-400 mb-3">Esta tarjeta no tiene cupo registrado.</p>`}
+                <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                    <button onclick="payCard(${c.id})" class="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-xl text-xs font-semibold">Abonar</button>
+                    <button onclick="paidCard(${c.id})" class="px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-xl text-xs font-semibold">${cu.ok ? "Desmarcar pago" : "Marcar pagada"}</button>
+                    <button onclick="editCard(${c.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold">Editar</button>
+                    <button onclick="delCard(${c.id})" class="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-xl text-xs font-semibold">Borrar</button>
+                </div>
+            </div>`;
+    }).join("");
+
+    const gp = tc ? tu / tc * 100 : 0, gt = useTone(gp);
+    const pg = lastPct.all, chg = pg && (pg.b !== Math.min(100, gp) || pg.n !== gp);
+    const gfb = pg && (!anim || chg) ? pg.b : 0, gfn = pg && (!anim || chg) ? pg.n : 0;
+    lastPct.all = { b: Math.min(100, gp), n: gp };
+    const summary = S.cards.length > 1 && tc ? `
+        <section class="bg-gradient-to-br from-indigo-600 to-violet-700 text-white p-5 rounded-3xl shadow-xl shadow-indigo-500/10 mb-4">
+            <div class="flex items-end justify-between">
+                <div><small class="text-[10px] text-indigo-200 uppercase tracking-wider block">Cupo total utilizado</small><span class="cupo-pct text-3xl font-extrabold" data-from="${gfn}" data-to="${gp}">${Math.round(gfn)}%</span></div>
+                <div class="text-right text-xs"><span class="text-indigo-200 block">Disponible</span><b>${fmt(Math.max(0, tc - tu))}</b></div>
+            </div>
+            <div class="w-full bg-white/20 h-2.5 rounded-full overflow-hidden mt-3"><div class="cupo-bar bg-white h-full rounded-full" data-to="${Math.min(100, gp)}" style="width:${gfb}%"></div></div>
+            <p class="text-[11px] text-indigo-200 mt-2">${fmt(tu)} de ${fmt(tc)} · ${gt.lbl.toLowerCase()} (ideal: menos del 30%)</p>
+        </section>` : "";
+
+    return `
+        <div class="flex justify-between items-center mb-4"><h3 class="text-base font-bold">Mis Tarjetas de Crédito</h3><button onclick="newCard()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold shadow-md">+ Agregar tarjeta</button></div>
+        ${summary}
+        ${cardsList || '<p class="text-xs text-slate-400 text-center py-6">Aún no tienes tarjetas registradas.</p>'}
+    `;
+}
+
+// ---------- Deudas ----------
+function vDeu() {
+    let T = 0;
+    const L = S.dbt.map(d => {
+        const left = dbtLeft(d), done = d.t - left, p = d.t ? Math.max(0, Math.min(100, done / d.t * 100)) : 0;
+        T += Math.max(0, left);
+        return `<div class="${CARD} p-5 mb-4">
+            <div class="flex justify-between items-center mb-2"><b class="text-sm font-bold">${esc(d.n)}</b><span class="text-xs font-semibold ${left <= 0 ? "text-emerald-500" : "text-slate-400"}">${left <= 0 ? "Pagada ✓" : p.toFixed(0) + "% pagado"}</span></div>
+            <div class="text-2xl font-extrabold mb-1">${fmt(Math.max(0, left))}</div>
+            <div class="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden mb-1"><div class="bg-rose-500 h-full rounded-full" style="width:${p}%"></div></div>
+            <div class="text-[11px] text-slate-400 mb-3">Pagado ${fmt(done)} de ${fmt(d.t)}</div>
+            <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                ${left > 0 ? `<button onclick="payDbt(${d.id})" class="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-xl text-xs font-semibold">Abonar</button>` : ""}
+                <button onclick="editDbt(${d.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold">Editar</button>
+                <button onclick="delDbt(${d.id})" class="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-xl text-xs font-semibold">Borrar</button>
+            </div></div>`;
+    }).join("");
+    return `<section class="bg-gradient-to-br from-rose-600 to-red-800 text-white p-6 rounded-3xl shadow-xl shadow-rose-500/10 mb-6"><small class="text-xs text-rose-100 font-medium uppercase tracking-wider">Total que debo</small><div class="text-3xl font-extrabold mt-1">${fmt(T)}</div></section>
+        <div class="flex justify-between items-center mb-4"><h3 class="text-base font-bold">Mis Deudas</h3><button onclick="newDbt()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold shadow-md">+ Nueva deuda</button></div>
+        ${L || '<p class="text-xs text-slate-400 text-center py-6">Aquí anotas préstamos y deudas que no son de tarjeta.</p>'}`;
+}
+
+// ---------- Ajustes ----------
+const hideNames = () => WH.concat(S.cards.map(c => c.n));
+function hidUI() { return hideNames().map((n, i) => `<label class="flex items-center justify-between text-xs"><span class="font-medium">${esc(n)}</span><input type="checkbox" ${S.hide[n] ? "checked" : ""} onchange="togHide(${i})" class="w-4 h-4 accent-indigo-600"></label>`).join(""); }
+
+function vSet() {
+    const card = CARD + " p-6 space-y-4";
+    const inp = "w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono";
+    const bud = G.filter(g => g[0] != "Ahorro").map(([c]) => `<div class="flex items-center justify-between gap-3 text-xs"><span class="font-medium">${c}</span><input inputmode="numeric" value="${S.bud[c] ? Number(S.bud[c]).toLocaleString("es-CO") : ""}" placeholder="Sin límite" oninput="fa(this)" onchange="setBud('${c}', this.value)" class="w-36 px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-right"></div>`).join("");
+    const ini = WH.map((w, i) => `<div class="flex items-center justify-between gap-3 text-xs"><span class="font-medium">${w}</span><input inputmode="numeric" value="${S.ini[w] ? Number(S.ini[w]).toLocaleString("es-CO") : ""}" placeholder="0" oninput="fa(this)" onchange="setIni(${i}, this.value)" class="w-36 px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-right"></div>`).join("");
+    const rec = S.rec.map(r => `<div class="flex justify-between items-center text-xs py-1"><span>${esc(r.n)} · día ${r.day} · ${fmt(r.a)}</span><button onclick="delRec(${r.id})" class="text-rose-500 font-semibold">Borrar</button></div>`).join("") || '<p class="text-xs text-slate-400">Sin gastos fijos.</p>';
+    const np = typeof Notification == "undefined" ? "no" : Notification.permission;
+    return `
+        <section class="${card}"><h3 class="text-base font-bold">Presupuestos mensuales</h3>${bud}</section>
+        <section class="${card}"><div class="flex justify-between items-center"><h3 class="text-base font-bold">Gastos fijos</h3><button onclick="newRec()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold">+ Agregar</button></div>${rec}</section>
+        <section class="${card}"><h3 class="text-base font-bold">Saldos iniciales</h3><p class="text-xs text-slate-400">Lo que ya tenías en cada billetera antes de empezar a anotar.</p>${ini}</section>
+        <section class="${card}"><h3 class="text-base font-bold">Ocultar del resumen</h3><p class="text-xs text-slate-400">Lo que ocultes no suma en “En mano” ni en “Tarjetas”, y sus gastos no salen en el resumen ni en las gráficas.</p>${hidUI()}</section>
+        <section class="${card}"><h3 class="text-base font-bold">Avisos de metas</h3>
+            <p class="text-xs text-slate-400">Cuando abras la app te avisa de las metas que vencen en 7 días o ya vencieron. Siempre las ves también en los Consejos de Inicio.</p>
+            ${np == "no" ? '<p class="text-xs text-slate-400">Este navegador no permite notificaciones.</p>'
+              : np == "granted" ? '<p class="text-xs text-emerald-500 font-semibold">Avisos activados ✓</p>'
+              : np == "denied" ? '<p class="text-xs text-rose-500">Los bloqueaste en el navegador. Actívalos desde los permisos del sitio.</p>'
+              : '<button onclick="askNotif()" class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-xl text-xs">Activar avisos</button>'}
+        </section>
+        <section class="${card}"><h3 class="text-base font-bold">Bloqueo con PIN</h3><p class="text-xs text-slate-400">Bloquea la pantalla al abrir la app. No cifra los datos.</p><button onclick="setPin()" class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-xl text-xs">${S.pin ? "Cambiar o quitar PIN" : "Crear PIN"}</button></section>
+        <section class="${card}"><h3 class="text-base font-bold">Copia de seguridad</h3>
+            <textarea id="ex" readonly rows="4" class="${inp}">${esc(JSON.stringify(S))}</textarea>
+            <button onclick="copyBackup()" class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-xl text-xs">Copiar datos</button>
+            <button onclick="exportCsv()" class="px-4 py-2 bg-slate-800 dark:bg-slate-700 text-white font-semibold rounded-xl text-xs">Descargar CSV</button>
+            <label class="block text-xs font-semibold text-slate-500 uppercase pt-2">Restaurar copia (pega el JSON)</label>
+            <textarea id="imp" rows="3" class="${inp}"></textarea>
+            <button onclick="importBackup()" class="px-4 py-2 bg-slate-800 dark:bg-slate-700 text-white font-semibold rounded-xl text-xs">Restaurar</button>
+        </section>`;
+}
