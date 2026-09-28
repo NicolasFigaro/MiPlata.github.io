@@ -1,1 +1,630 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Mi Plata - Gestor Financiero Avanzado</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#eef2ff',
+                            100: '#e0e7ff',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 min-h-full flex flex-col transition-colors duration-300 pb-20 sm:pb-6">
 
+    <header class="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="bg-gradient-to-tr from-indigo-600 to-violet-500 text-white p-2.5 rounded-2xl shadow-md shadow-indigo-500/20">
+                    <i class="fa-solid fa-wallet text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold tracking-tight bg-gradient-to-r from-indigo-600 to-violet-500 bg-clip-text text-transparent">Mi Plata</h1>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Finanzas Personales Inteligentes</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center space-x-2 sm:space-x-3">
+                <button onclick="openModalExport()" title="Copia de Seguridad" class="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition">
+                    <i class="fa-solid fa-cloud-arrow-down"></i>
+                </button>
+                <button onclick="toggleDarkMode()" title="Cambiar Tema" class="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition">
+                    <i class="fa-solid fa-moon dark:hidden"></i>
+                    <i class="fa-solid fa-sun hidden dark:inline text-amber-400"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <nav class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-sm sticky top-16 z-20">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex overflow-x-auto space-x-2 sm:space-x-4 py-2.5 no-scrollbar" id="navTabs">
+            <!-- Rendered by JS -->
+        </div>
+    </nav>
+
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6" id="appMain">
+        <!-- Dynamic view content -->
+    </main>
+
+    <!-- General Modal Container -->
+    <div id="generalModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300 p-4">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-md p-6 shadow-2xl transform scale-95 transition-transform duration-300 max-h-[90vh] overflow-y-auto" id="modalContainer">
+            <!-- Dynamic Form or Content -->
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-20 right-5 sm:bottom-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-5 py-3 rounded-2xl shadow-xl flex items-center space-x-3 text-sm font-medium">
+        <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400"></i>
+        <span id="toastMessage">Operación exitosa</span>
+    </div>
+
+    <footer class="mt-auto py-6 text-center text-xs text-slate-400 border-t border-slate-200 dark:border-slate-800 hidden sm:block">
+        <p>Mi Plata &bull; Control Financiero Personal Avanzado</p>
+    </footer>
+
+    <script>
+        const G = [["Vivienda","n"],["Comida","n"],["Transporte","n"],["Servicios","n"],["Deudas/Tarjeta","n"],["Ocio","g"],["Compras","g"],["Otros","g"],["Ahorro","a"]];
+        const I = ["Sueldo","Extra","Otro ingreso"];
+        const WH = ["Efectivo","Cuenta de ahorros","Billetera digital (Nequi, Daviplata)"];
+        const KEY = "miplata_advanced_v2";
+
+        let S = {};
+        try {
+            const j = JSON.parse(localStorage.getItem(KEY) || "{}");
+            S = Array.isArray(j) ? { items: j } : j;
+        } catch(e) { S = {}; }
+
+        S.items = S.items || [];
+        S.acc = S.acc || [];
+        S.inv = S.inv || [];
+        S.cards = S.cards || [];
+        S.trm = S.trm || 4000;
+        S.sv = S.sv || [];
+        S.rec = S.rec || [];
+        S.dbt = S.dbt || [];
+        S.bud = S.bud || {};
+        S.th = S.th || { m: "auto", p: 0, pv: false };
+        S.hide = S.hide || {};
+
+        let tab = 0;
+        let type = "g";
+        let cur = new Date();
+        cur.setDate(1);
+        let usd = false;
+        let sqry = "";
+        let op = {};
+
+        const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e){} };
+        const esc = s => String(s || "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+        const fmt = n => (n < 0 ? "-" : "") + "$" + Math.abs(Math.round(n || 0)).toLocaleString("es-CO");
+        const fu = n => "US$" + (n || 0).toLocaleString("es-CO", { maximumFractionDigits: 2 });
+        const ym = d => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
+        const today = () => ym(new Date()) + "-" + String(new Date().getDate()).padStart(2, "0");
+        const num = s => Number(String(s || "").replace(/\D/g, ""));
+        const pr = s => parseFloat(String(s || "").replace(/\./g, "").replace(",", ".")) || 0;
+        const cop = (v, c) => c == "USD" ? v * S.trm : v;
+        const show = c => usd ? fu(c / S.trm) : fmt(c);
+
+        const svm = () => S.sv.filter(x => x.d.startsWith(ym(cur)) && !x.i).reduce((s, x) => s + (x.cp ?? x.v), 0);
+        const svb = id => S.sv.filter(x => x.a == id).reduce((s, x) => s + x.v, 0);
+        const bal = w => S.items.reduce((s, x) => x.w != w ? s : x.t == "i" ? s + x.a : x.k ? s : s - x.a, 0) - S.sv.filter(x => x.w == w && !x.i).reduce((s, x) => s + (x.cp ?? x.v), 0);
+        const me = (x, nm) => (+nm.slice(0, 4) * 12 + +nm.slice(5)) - (+x.d.slice(0, 4) * 12 + +x.d.slice(5, 7)) + 1;
+        const cm = (x, nm) => { const q = x.q > 1 ? x.q : 1, e = me(x, nm); return e >= 1 && e <= q ? x.a / q : 0; };
+        const pend = (x, nm) => { const q = x.q > 1 ? x.q : 1, e = me(x, nm); return e >= 1 && e <= q ? x.a - x.a / q * (e - 1) : 0; };
+        const sum = (m, f) => m.filter(f).reduce((s, x) => s + x.a, 0);
+        const vis = x => x.t != "g" || !(S.hide || {})[x.k || x.w || ""];
+        const monAll = () => S.items.filter(x => x.d.startsWith(ym(cur)));
+        const mon = () => monAll().filter(vis);
+        const nextPay = p => {
+            const n = new Date(), d = new Date(n.getFullYear(), n.getMonth(), Math.min(p, 28));
+            if (p > 28) d.setDate(p);
+            if (d < new Date(n.getFullYear(), n.getMonth(), n.getDate())) d.setMonth(d.getMonth() + 1);
+            return Math.round((d - new Date(n.getFullYear(), n.getMonth(), n.getDate())) / 864e5);
+        };
+        const yieldOf = (id, r) => {
+            const now = Date.now();
+            return S.sv.filter(x => x.a == id).reduce((s, x) => {
+                const dd = Math.max(0, Math.floor((now - new Date(x.d + "T00:00:00")) / 864e5));
+                return s + x.v * (Math.pow(1 + r / 100, dd / 365) - 1);
+            }, 0);
+        };
+        const fm = (a, v) => a.u ? fu(v) : fmt(v);
+
+        window.addEventListener('DOMContentLoaded', () => {
+            genRec();
+            applyTh();
+            draw();
+        });
+
+        function applyTh() {
+            const isDark = S.th.m == "dark" || (S.th.m == "auto" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+            if (isDark) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        }
+
+        function toggleDarkMode() {
+            S.th.m = S.th.m == "dark" ? "light" : "dark";
+            save();
+            applyTh();
+            draw();
+        }
+
+        const N = ["Inicio", "Ahorro", "Inversión", "Gráficas", "Tarjetas", "Ajustes"];
+        const V = [vHome, vAho, vInv, vGra, vTar, vSet];
+
+        function draw() {
+            const navContainer = document.getElementById("navTabs");
+            navContainer.innerHTML = N.map((n, i) => `
+                <button onclick="tab=${i}; draw(); window.scrollTo(0,0);" class="px-4 py-2 rounded-xl text-sm font-semibold transition whitespace-nowrap ${i === tab ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/25' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}">
+                    ${n}
+                </button>
+            `).join("");
+
+            document.getElementById("appMain").innerHTML = V[tab]();
+        }
+
+        function go(n) { cur.setMonth(cur.getMonth() + n); draw(); }
+
+        function openCustomModal(title, fields, onSubmitCallback) {
+            const modal = document.getElementById("generalModal");
+            const container = document.getElementById("modalContainer");
+            
+            container.innerHTML = `
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-base font-bold text-slate-800 dark:text-white">${title}</h3>
+                    <button onclick="closeModal()" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 flex items-center justify-center transition">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+                <form id="customForm" class="space-y-3">
+                    ${fields.map((f, i) => `
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1 uppercase tracking-wider">${f.l}</label>
+                            ${f.o ? `
+                                <select name="f${i}" class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-800 dark:text-white focus:ring-2 focus:ring-indigo-500 text-sm">
+                                    ${f.o.map(x => `<option ${x == f.v ? "selected" : ""}>${x}</option>`).join("")}
+                                </select>
+                            ` : `
+                                <input name="f${i}" inputmode="${f.m || "text"}" value="${f.v ?? ""}" placeholder="${f.p || ""}" class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-800 dark:text-white focus:ring-2 focus:ring-indigo-500 text-sm" autocomplete="off">
+                            `}
+                        </div>
+                    `).join("")}
+                    <p class="text-rose-500 text-xs min-h-[16px]" id="modalError"></p>
+                    <div class="grid grid-cols-2 gap-3 pt-2">
+                        <button type="button" onclick="closeModal()" class="py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-semibold text-xs transition">Cancelar</button>
+                        <button type="submit" class="py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs shadow-md shadow-indigo-500/20 transition">Aceptar</button>
+                    </div>
+                </form>
+            `;
+
+            modal.classList.remove("hidden");
+            setTimeout(() => {
+                modal.classList.remove("opacity-0");
+                container.classList.remove("scale-95");
+                container.classList.add("scale-100");
+            }, 10);
+
+            document.getElementById("customForm").onsubmit = e => {
+                e.preventDefault();
+                const formVals = fields.map((f, i) => document.getElementById("customForm").elements["f" + i].value.trim());
+                const res = onSubmitCallback(formVals);
+                if (typeof res === "string") {
+                    document.getElementById("modalError").textContent = res;
+                } else {
+                    closeModal();
+                    draw();
+                }
+            };
+        }
+
+        function closeModal() {
+            const modal = document.getElementById("generalModal");
+            const container = document.getElementById("modalContainer");
+            modal.classList.add("opacity-0");
+            container.classList.remove("scale-100");
+            container.classList.add("scale-95");
+            setTimeout(() => modal.classList.add("hidden"), 300);
+        }
+
+        function confirmAction(msg, cb) {
+            const modal = document.getElementById("generalModal");
+            const container = document.getElementById("modalContainer");
+            container.innerHTML = `
+                <p class="text-sm text-slate-800 dark:text-white font-medium mb-5">${msg}</p>
+                <div class="grid grid-cols-2 gap-3">
+                    <button onclick="closeModal()" class="py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-semibold text-xs">Cancelar</button>
+                    <button id="okConfirmBtn" class="py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs shadow-md shadow-rose-500/20">Sí, borrar</button>
+                </div>
+            `;
+            modal.classList.remove("hidden");
+            setTimeout(() => { modal.classList.remove("opacity-0"); container.classList.remove("scale-95"); }, 10);
+            document.getElementById("okConfirmBtn").onclick = () => { closeModal(); cb(); draw(); };
+        }
+
+        function vHome() {
+            const m = mon(), ing = sum(m, x => x.t == "i"), aho = svm(), gas = sum(m, x => x.t == "g"), sob = ing - gas - aho;
+            const cats = (type == "g" ? G.filter(x => x[0] != "Ahorro").map(x => x[0]) : I).map(c => `<option>${c}</option>`).join("");
+            const by = G.map(([c]) => [c, sum(m, x => x.t == "g" && x.c == c && !x.s)]).filter(x => x[1] > 0 || (S.bud || {})[x[0]]).sort((a, b) => b[1] - a[1]), mx = (by[0] ? by[0][1] : 1) || 1;
+            
+            const L = m.filter(x => !sqry || ((x.n || "") + " " + x.c).toLowerCase().includes(sqry.toLowerCase())).sort((a, b) => b.d.localeCompare(a.d) || b.id - a.id).map(x => `
+                <div class="flex items-center justify-between py-3 border-b border-slate-100 dark:border-slate-800 last:border-0">
+                    <div class="min-w-0 flex-1 pr-2">
+                        <strong class="text-sm font-semibold text-slate-800 dark:text-white block truncate">${esc(x.n || x.c)}</strong>
+                        <small class="text-xs text-slate-400">${x.n ? esc(x.c) + " · " : ""}${x.d.slice(8)}/${x.d.slice(5, 7)}${x.k ? " · 💳 " + esc(x.k) : ""}${x.w ? " · " + esc(x.w) : ""}${x.q > 1 ? " · " + x.q + " cuotas" : ""}</small>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <span class="text-sm font-bold ${x.t == "i" ? "text-emerald-500" : "text-slate-800 dark:text-white"}">${x.t == "i" ? "+" : "-"}${fmt(x.a)}</span>
+                        <button onclick="editM(${x.id})" class="text-slate-400 hover:text-indigo-600 p-1 text-xs"><i class="fa-solid fa-pen"></i></button>
+                        <button onclick="delMovItem(${x.id})" class="text-slate-400 hover:text-rose-600 p-1 text-xs"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                </div>
+            `).join("") || '<p class="text-xs text-slate-400 text-center py-4">Anota tu primer movimiento abajo.</p>';
+
+            const hasW = S.items.some(x => x.w), nm = ym(new Date());
+            const have = hasW ? WH.filter(w => !(S.hide || {})[w]).reduce((s, w) => s + bal(w), 0) : sob;
+            const due = S.cards.filter(c => !c.paid[nm] && !(S.hide || {})[c.n]).reduce((s, c) => s + S.items.filter(x => x.k == c.n).reduce((t, x) => t + cm(x, nm), 0), 0);
+            const svt = S.acc.reduce((s, a) => s + svb(a.id) * (a.u ? S.trm : 1), 0), disp = have - due;
+            const invT = S.inv.reduce((s, x) => s + cop(x.v, x.c), 0), invC = S.inv.reduce((s, x) => s + cop(x.i, x.c), 0);
+            const totAcc = S.acc.filter(a => !a.f).reduce((s, a) => s + (svb(a.id) + Math.max(0, yieldOf(a.id, a.r))) * (a.u ? S.trm : 1), 0);
+
+            const MT = S.acc.filter(a => !a.f).map(a => {
+                const t = svb(a.id) + Math.max(0, yieldOf(a.id, a.r)), p = a.g ? Math.min(100, t / a.g * 100) : 0;
+                return `<div class="mb-3 last:mb-0"><div class="flex justify-between text-xs mb-1 font-medium"><span>${esc(a.n)}</span><span>${fm(a, t)}${a.g ? " de " + fm(a, a.g) : ""}</span></div>${a.g ? `<div class="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden"><div class="bg-emerald-500 h-full rounded-full" style="width:${p}%"></div></div>` : ""}</div>`;
+            }).join("") || '<p class="text-xs text-slate-400 text-center py-2">Crea metas en la pestaña Ahorro.</p>';
+
+            return `
+                <section class="relative overflow-hidden bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-800 text-white p-6 rounded-3xl shadow-xl shadow-indigo-500/10 flex flex-col justify-between">
+                    <div class="absolute -right-10 -bottom-10 w-40 h-40 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-xs font-medium uppercase tracking-wider text-indigo-200">Disponible para gastar</p>
+                            <h2 class="text-3xl font-extrabold mt-1 tracking-tight ${disp < 0 ? "text-rose-300" : ""}">${fmt(disp)}</h2>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <button onclick="go(-1)" class="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-sm font-bold transition">‹</button>
+                            <span class="text-xs font-semibold capitalize">${cur.toLocaleDateString("es-CO", { month: "long", year: "numeric" })}</span>
+                            <button onclick="go(1)" class="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-sm font-bold transition">›</button>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2 mt-6 pt-4 border-t border-white/10">
+                        <div><small class="text-[10px] text-indigo-200 block uppercase">En mano</small><b class="text-xs sm:text-sm font-bold">${fmt(have)}</b></div>
+                        <div><small class="text-[10px] text-indigo-200 block uppercase">Tarjetas</small><b class="text-xs sm:text-sm font-bold">${fmt(due)}</b></div>
+                        <div><small class="text-[10px] text-indigo-200 block uppercase">Apartado</small><b class="text-xs sm:text-sm font-bold">${fmt(svt)}</b></div>
+                    </div>
+                </section>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div onclick="tab=1; draw();" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-2xl cursor-pointer hover:border-indigo-500 transition shadow-sm">
+                        <div class="flex justify-between items-center mb-1"><span class="text-xs font-semibold text-slate-500">Ahorros y Metas</span><i class="fa-solid fa-piggy-bank text-indigo-500"></i></div>
+                        <h4 class="text-lg font-bold text-slate-800 dark:text-white">${fmt(totAcc)}</h4>
+                        ${MT}
+                    </div>
+                    <div onclick="tab=2; draw();" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-2xl cursor-pointer hover:border-indigo-500 transition shadow-sm">
+                        <div class="flex justify-between items-center mb-1"><span class="text-xs font-semibold text-slate-500">Inversiones</span><i class="fa-solid fa-chart-line text-emerald-500"></i></div>
+                        <h4 class="text-lg font-bold text-slate-800 dark:text-white">${fmt(invT)}</h4>
+                        <p class="text-xs ${invT >= invC ? "text-emerald-500" : "text-rose-500"} mt-1 font-semibold">${invT >= invC ? "+" : ""}${fmt(invT - invC)} sobre lo invertido</p>
+                    </div>
+                </div>
+
+                <section class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-3xl shadow-sm">
+                    <h3 class="text-sm font-bold text-slate-800 dark:text-white mb-3">Anotar Movimiento</h3>
+                    <div class="grid grid-cols-2 gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl mb-4">
+                        <button type="button" onclick="type='g'; draw();" class="py-2 rounded-xl text-xs font-bold transition ${type=='g'?'bg-white dark:bg-slate-700 text-rose-600 shadow-sm':'text-slate-500'}">Gasto</button>
+                        <button type="button" onclick="type='i'; draw();" class="py-2 rounded-xl text-xs font-bold transition ${type=='i'?'bg-white dark:bg-slate-700 text-emerald-600 shadow-sm':'text-slate-500'}">Ingreso</button>
+                    </div>
+                    <div class="space-y-3">
+                        <input id="amt" inputmode="numeric" placeholder="Monto en pesos" oninput="fa(this)" class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-lg font-bold text-slate-800 dark:text-white focus:ring-2 focus:ring-indigo-500" autocomplete="off">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <select id="cat" class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-white">${cats}</select>
+                            <input id="date" type="date" value="${today()}" class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-white">
+                        </div>
+                        ${type=="g"?`<select id="cardSel" class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-white"><option value="">Pago en efectivo / cuenta</option>${WH.concat(S.cards.map(c=>c.n)).map(x=>`<option>${esc(x)}</option>`).join("")}</select><input id="cq" inputmode="numeric" placeholder="Cuotas (si pagas con tarjeta, ej. 3)" class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-white">`:`<select id="whSel" class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-white">${WH.map(w=>`<option>${w}</option>`).join("")}</select>`}
+                        <input id="note" placeholder="Nota o descripción (opcional)" class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-white" autocomplete="off">
+                        <p class="text-rose-500 text-xs" id="msg"></p>
+                        <button onclick="addMov()" class="w-full py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs shadow-lg shadow-indigo-500/20 transition">Guardar ${type=="g"?"Gasto":"Ingreso"}</button>
+                    </div>
+                </section>
+
+                <section class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-3xl shadow-sm">
+                    <h3 class="text-sm font-bold text-slate-800 dark:text-white mb-3">En qué se va la plata</h3>
+                    <div class="space-y-3">
+                        ${by.map(([c, v]) => {
+                            const b = (S.bud || {})[c], r = b ? v / b : v / mx;
+                            return `<div class="text-xs">
+                                <div class="flex justify-between mb-1 font-medium"><span>${c}</span><span>${fmt(v)}${b ? " de " + fmt(b) : ""}</span></div>
+                                <div class="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden"><div class="h-full rounded-full ${b && r >= 1 ? "bg-rose-500" : "bg-indigo-600"}" style="width:${Math.min(100, r * 100)}%"></div></div>
+                            </div>`;
+                        }).join("") || '<p class="text-xs text-slate-400 text-center py-4">Aún no hay gastos este mes.</p>'}
+                    </div>
+                </section>
+
+                <section class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-3xl shadow-sm">
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="text-sm font-bold text-slate-800 dark:text-white">Movimientos del mes</h3>
+                    </div>
+                    <input placeholder="Buscar por nota o categoría y pulsa Enter" value="${esc(sqry)}" onchange="sqry=this.value; draw();" class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-white mb-3">
+                    <div class="space-y-1">${L}</div>
+                </section>
+            `;
+        }
+
+        function vAho() {
+            let T = 0, Y = 0;
+            const A = S.acc.filter(a => !a.f).map(a => {
+                const s = svb(a.id), y = Math.max(0, yieldOf(a.id, a.r));
+                T += a.u ? s * S.trm : s; Y += a.u ? y * S.trm : y;
+                const t = s + y, p = a.g ? Math.min(100, t / a.g * 100) : 0;
+                return `
+                    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-3xl shadow-sm mb-4">
+                        <div class="flex justify-between items-center mb-2">
+                            <b class="text-sm font-bold text-slate-800 dark:text-white">${esc(a.n)}</b>
+                            <span class="text-xs text-slate-400">${a.u ? "USD · " : ""}${a.r ? a.r + "% E.A." : "sin rendimiento"}</span>
+                        </div>
+                        <div class="text-2xl font-extrabold text-slate-800 dark:text-white mb-1">${fm(a, t)}</div>
+                        ${a.u ? `<small class="text-xs text-slate-400 block mb-2">≈ ${fmt(t * S.trm)} (TRM ${fmt(S.trm)})</small>` : ""}
+                        ${a.g ? `<div class="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden mb-1"><div class="bg-emerald-500 h-full rounded-full" style="width:${p}%"></div></div><div class="flex justify-between text-[11px] text-slate-400 mb-3"><span>${p.toFixed(0)}% de ${fm(a, a.g)}</span><span>${t >= a.g ? "¡Meta lograda!" : "Faltan " + fm(a, a.g - t)}</span></div>` : ""}
+                        <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                            <button onclick="mov(${a.id}, 1)" class="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-xl text-xs font-semibold">＋ Meter</button>
+                            <button onclick="mov(${a.id}, -1)" class="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-xl text-xs font-semibold">－ Sacar</button>
+                            <button onclick="editAcc(${a.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold">Editar</button>
+                            <button onclick="delAcc(${a.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-rose-500 rounded-xl text-xs font-semibold">Borrar</button>
+                        </div>
+                    </div>
+                `;
+            }).join("");
+
+            return `
+                <section class="bg-gradient-to-br from-emerald-600 to-teal-700 text-white p-6 rounded-3xl shadow-xl shadow-emerald-500/10 mb-6">
+                    <small class="text-xs text-emerald-100 font-medium uppercase tracking-wider">Total Ahorrado</small>
+                    <div class="text-3xl font-extrabold mt-1">${fmt(T + Y)}</div>
+                </section>
+                <div class="flex justify-between items-center mb-4"><h3 class="text-base font-bold">Mis Metas</h3><button onclick="newAcc()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold shadow-md">+ Nueva meta</button></div>
+                ${A || '<p class="text-xs text-slate-400 text-center py-6">Crea tu primera meta de ahorro.</p>'}
+            `;
+        }
+
+        function vInv() {
+            let T = 0, C = 0;
+            const R = S.inv.map(x => {
+                const v = cop(x.v, x.c), i = cop(x.i, x.c); T += v; C += i; const g = x.v - x.i;
+                return `
+                    <div class="flex items-center justify-between p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl mb-3 shadow-sm">
+                        <div>
+                            <strong class="text-sm font-semibold text-slate-800 dark:text-white block">${esc(x.n)}</strong>
+                            <small class="text-xs text-slate-400">${x.c} · Invertido ${x.c == "USD" ? fu(x.i) : fmt(x.i)}</small>
+                        </div>
+                        <div class="text-right">
+                            <b class="text-sm font-bold text-slate-800 dark:text-white block">${x.c == "USD" ? fu(x.v) : fmt(x.v)}</b>
+                            <small class="text-xs ${g >= 0 ? "text-emerald-500" : "text-rose-500"}">${g >= 0 ? "+" : ""}${(g / (x.i || 1) * 100).toFixed(1)}%</small>
+                        </div>
+                        <div class="flex space-x-2 ml-3">
+                            <button onclick="upInv(${x.id})" class="p-2 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs" title="Actualizar valor"><i class="fa-solid fa-rotate"></i></button>
+                            <button onclick="delInv(${x.id})" class="p-2 bg-rose-50 text-rose-600 rounded-xl text-xs" title="Borrar"><i class="fa-solid fa-trash"></i></button>
+                        </div>
+                    </div>
+                `;
+            }).join("");
+
+            return `
+                <section class="bg-gradient-to-br from-violet-600 to-purple-800 text-white p-6 rounded-3xl shadow-xl shadow-purple-500/10 mb-6">
+                    <small class="text-xs text-purple-200 font-medium uppercase tracking-wider">Portafolio Total de Inversión</small>
+                    <div class="text-3xl font-extrabold mt-1">${show(T)}</div>
+                </section>
+                <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-3xl shadow-sm mb-6">
+                    <h3 class="text-sm font-bold mb-3">Tasa de Cambio (TRM) y Moneda</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2">
+                        <input id="trmInput" inputmode="decimal" value="${S.trm}" class="px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs">
+                        <button onclick="setTrmVal()" class="py-2.5 bg-indigo-600 text-white font-semibold rounded-xl text-xs shadow-md">Actualizar TRM</button>
+                    </div>
+                </div>
+                <div class="flex justify-between items-center mb-4"><h3 class="text-base font-bold">Mis Inversiones</h3><button onclick="newInv()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold shadow-md">+ Nueva Inversión</button></div>
+                ${R || '<p class="text-xs text-slate-400 text-center py-6">Agrega tu primera inversión.</p>'}
+            `;
+        }
+
+        function vGra() {
+            return `
+                <section class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-3xl shadow-sm space-y-4">
+                    <h3 class="text-base font-bold">Resumen y Estadísticas</h3>
+                    <p class="text-xs text-slate-500">Aquí puedes analizar la salud de tus finanzas personales, presupuestos e historial mensual.</p>
+                </section>
+            `;
+        }
+
+        function vTar() {
+            const m = monAll(), n = ym(new Date());
+            const cardsList = S.cards.map(c => {
+                const u = sum(m, x => x.k == c.n), its = S.items.filter(x => x.k == c.n);
+                const cq = its.reduce((t, x) => t + cm(x, n), 0), us = its.reduce((t, x) => t + pend(x, n), 0);
+                const p = c.c ? Math.min(100, us / c.c * 100) : 0, ok = c.paid[n], d = nextPay(c.p);
+                return `
+                    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-3xl shadow-sm mb-4">
+                        <div class="flex justify-between items-center mb-2">
+                            <b class="text-sm font-bold text-slate-800 dark:text-white">💳 ${esc(c.n)}</b>
+                            <span class="text-xs font-semibold ${ok ? "text-emerald-500" : d <= 5 ? "text-rose-500" : "text-slate-400"}">${ok ? "Pagada ✓" : "Vence en " + d + " d"}</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 text-xs mb-3">
+                            <div><span class="text-slate-400 block">Compras este mes</span><b>${fmt(u)}</b></div>
+                            <div><span class="text-slate-400 block">Cuota a pagar</span><b class="text-indigo-600">${fmt(cq)}</b></div>
+                        </div>
+                        <div class="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden mb-3"><div class="bg-indigo-600 h-full rounded-full" style="width:${p}%"></div></div>
+                        <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                            <button onclick="paidCard(${c.id})" class="px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-xl text-xs font-semibold">${ok ? "Desmarcar pago" : "Marcar pagada"}</button>
+                            <button onclick="delCard(${c.id})" class="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-xl text-xs font-semibold">Borrar</button>
+                        </div>
+                    </div>
+                `;
+            }).join("");
+
+            return `
+                <div class="flex justify-between items-center mb-4"><h3 class="text-base font-bold">Mis Tarjetas de Crédito</h3><button onclick="newCard()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold shadow-md">+ Agregar tarjeta</button></div>
+                ${cardsList || '<p class="text-xs text-slate-400 text-center py-6">Aún no tienes tarjetas registradas.</p>'}
+            `;
+        }
+
+        function vSet() {
+            return `
+                <section class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-3xl shadow-sm space-y-4">
+                    <h3 class="text-base font-bold">Ajustes y Datos</h3>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 mb-1 uppercase">Copia de Seguridad (JSON)</label>
+                        <textarea id="ex" readonly rows="4" class="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono">${esc(JSON.stringify(S))}</textarea>
+                        <button onclick="copyBackup()" class="mt-2 px-4 py-2 bg-indigo-600 text-white font-semibold rounded-xl text-xs">Copiar datos</button>
+                    </div>
+                </section>
+            `;
+        }
+
+        function fa(e) { const v = e.value.replace(/\D/g, ""); e.value = v ? Number(v).toLocaleString("es-CO") : ""; }
+
+        function addMov() {
+            const a = num(document.getElementById("amt").value);
+            if (!a) { document.getElementById("msg").textContent = "Escribe un monto mayor a cero."; return; }
+            const d = document.getElementById("date").value || today();
+            const note = document.getElementById("note").value.trim();
+            const cat = document.getElementById("cat").value;
+            const card = type == "g" ? document.getElementById("cardSel").value : "";
+            const wh = type == "i" ? document.getElementById("whSel").value : "";
+            const cq = type == "g" && document.getElementById("cq") && document.getElementById("cq").value ? Math.max(1, num(document.getElementById("cq").value)) : 1;
+
+            S.items.push({ id: Date.now(), d, t: type, c: cat, n: note, a, k: card, w: wh, q: cq });
+            save();
+            cur = new Date(d + "T00:00:00"); cur.setDate(1);
+            showToast("Movimiento guardado exitosamente");
+            draw();
+        }
+
+        function delMovItem(id) { confirmAction("¿Borrar este movimiento?", () => { S.items = S.items.filter(y => y.id != id); save(); }); }
+        function editM(id) {}
+
+        function newAcc() {
+            openCustomModal("Nueva Meta de Ahorro", [
+                { l: "Nombre (ej. Viaje, Moto)" },
+                { l: "Moneda", o: ["COP (pesos)", "USD (dólares)"] },
+                { l: "Meta (monto)", m: "decimal" },
+                { l: "Rendimiento anual E.A. % (0 si no gana)", v: "0", m: "decimal" },
+                { l: "Ya tengo ahorrado (opcional)", m: "decimal" }
+            ], v => {
+                if (!v[0]) return "Escribe un nombre.";
+                const u = v[1].startsWith("USD"), P = s => u ? (pr(s) || 0) : num(s), id = Date.now();
+                S.acc.push({ id, n: v[0], g: P(v[2]), r: pr(v[3]) || 0, u: u ? 1 : 0 });
+                if (P(v[4])) S.sv.push({ id: id + 1, a: id, d: today(), v: P(v[4]), i: 1 });
+                save();
+            });
+        }
+
+        function editAcc(id) {
+            const a = S.acc.find(x => x.id == id);
+            openCustomModal("Editar Meta", [
+                { l: "Nombre", v: esc(a.n) },
+                { l: "Meta", v: a.g, m: "numeric" },
+                { l: "Rendimiento E.A. %", v: a.r, m: "decimal" }
+            ], v => {
+                if (v[0]) a.n = v[0]; a.g = num(v[1]); a.r = pr(v[2]) || 0; save();
+            });
+        }
+
+        function delAcc(id) { confirmAction("¿Borrar meta y sus movimientos?", () => { S.acc = S.acc.filter(x => x.id != id); S.sv = S.sv.filter(x => x.a != id); save(); }); }
+
+        function mov(id, s) {
+            const a = S.acc.find(x => x.id == id), U = a.u, K = U ? S.trm : 1;
+            openCustomModal(s > 0 ? "Meter a " + esc(a.n) : "Sacar de " + esc(a.n), [
+                { l: s > 0 ? "¿De dónde sale?" : "¿A dónde regresa?", o: WH.map(w => w) },
+                { l: U ? "Monto en USD" : "Monto", m: "decimal" }
+            ], v => {
+                const w = WH.find(p => v[0].startsWith(p)), n = U ? pr(v[1]) : num(v[1]);
+                if (!(n > 0)) return "Escribe un monto válido.";
+                S.sv.push({ id: Date.now(), a: id, d: today(), v: s * n, cp: s * n * K, w });
+                save();
+            });
+        }
+
+        function newInv() {
+            openCustomModal("Nueva Inversión", [{ l: "Nombre (ej. ETF S&P 500)" }, { l: "Moneda", o: ["COP", "USD"] }, { l: "Monto invertido", m: "decimal" }], v => {
+                const i = pr(v[2]); if (v[0] && i > 0) { S.inv.push({ id: Date.now(), n: v[0], c: v[1], i, v: i }); save(); }
+            });
+        }
+
+        function upInv(id) {
+            const x = S.inv.find(y => y.id == id);
+            openCustomModal("Actualizar valor", [{ l: "Valor actual en " + x.c, v: x.v, m: "decimal" }], v => {
+                const n = pr(v[0]); if (n >= 0) { x.v = n; save(); }
+            });
+        }
+
+        function delInv(id) { confirmAction("¿Borrar inversión?", () => { S.inv = S.inv.filter(x => x.id != id); save(); }); }
+
+        function setTrmVal() {
+            const v = pr(document.getElementById("trmInput").value);
+            if (v > 0) { S.trm = v; save(); showToast("TRM actualizada"); draw(); }
+        }
+
+        function newCard() {
+            openCustomModal("Nueva Tarjeta", [{ l: "Nombre" }, { l: "Cupo total", m: "numeric" }, { l: "Día de corte (1-31)", v: "15", m: "numeric" }, { l: "Día límite pago (1-31)", v: "30", m: "numeric" }], v => {
+                if (!v[0]) return "Escribe un nombre.";
+                S.cards.push({ id: Date.now(), n: v[0], c: num(v[1]), k: +v[2] || 15, p: +v[3] || 30, paid: {} });
+                save();
+            });
+        }
+
+        function paidCard(id) { const c = S.cards.find(x => x.id == id); c.paid[ym(new Date())] = !c.paid[ym(new Date())]; save(); draw(); }
+        function delCard(id) { confirmAction("¿Borrar tarjeta?", () => { S.cards = S.cards.filter(x => x.id != id); save(); }); }
+
+        function genRec() {
+            const nm = ym(new Date()), td = new Date().getDate();
+            (S.rec || []).forEach(r => {
+                if (r.last != nm && td >= r.day) {
+                    S.items.push({ id: Date.now() * 1000 + Math.floor(Math.random() * 1000), d: nm + "-" + String(r.day).padStart(2, "0"), t: "g", c: r.c, n: r.n, a: r.a, k: r.k, w: r.w, q: 1 });
+                    r.last = nm;
+                }
+            });
+            save();
+        }
+
+        function copyBackup() {
+            const e = document.getElementById("ex"); e.select();
+            try { navigator.clipboard.writeText(e.value); showToast("Datos copiados al portapapeles"); } catch(_) {}
+        }
+
+        function openModalExport() {
+            tab = 5;
+            draw();
+        }
+
+        function showToast(msg) {
+            const t = document.getElementById("toast");
+            document.getElementById("toastMessage").textContent = msg;
+            t.classList.remove("translate-y-20", "opacity-0");
+            setTimeout(() => t.classList.add("translate-y-20", "opacity-0"), 3000);
+        }
+    </script>
+</body>
+</html>
