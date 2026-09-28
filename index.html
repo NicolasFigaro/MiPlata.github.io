@@ -219,7 +219,7 @@
             const bar = r.ing > 0 ? `
                 <div class="mb-4">
                     <div class="flex w-full h-2 rounded-full overflow-hidden bg-slate-100 dark:bg-slate-800">
-                        <div class="bg-indigo-500" style="width:${pc(r.nec)}%"></div><div class="bg-amber-400" style="width:${pc(r.gus)}%"></div><div class="bg-emerald-500" style="width:${pc(r.aho)}%"></div>
+                        <div class="bar-seg bg-indigo-500" style="width:${pc(r.nec)}%"></div><div class="bar-seg bg-amber-400" style="width:${pc(r.gus)}%"></div><div class="bar-seg bg-emerald-500" style="width:${pc(r.aho)}%"></div>
                     </div>
                     <div class="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-[11px] text-slate-500 dark:text-slate-400">
                         <span><i class="fa-solid fa-circle text-[7px] text-indigo-500 mr-1"></i>Necesidades ${Math.round(r.nec / r.ing * 100)}% <span class="text-slate-400">(ideal 50)</span></span>
@@ -235,9 +235,9 @@
                     </div>
                     ${bar}
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        ${r.list.map(t => `
-                            <div class="flex items-start gap-3 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
-                                <div class="w-9 h-9 shrink-0 rounded-xl flex items-center justify-center text-sm ${TIP_STY[t.lv][0]}"><i class="fa-solid ${t.ic}"></i></div>
+                        ${r.list.map((t, i) => `
+                            <div class="tip lift flex items-start gap-3 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800" style="--i:${i}">
+                                <div class="w-9 h-9 shrink-0 rounded-xl flex items-center justify-center text-sm ${TIP_STY[t.lv][0]} ${t.lv == 0 ? "pulse-ring" : ""}"><i class="fa-solid ${t.ic}"></i></div>
                                 <div class="min-w-0">
                                     <p class="text-xs font-bold text-slate-800 dark:text-white leading-snug">${esc(t.t)}</p>
                                     <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">${esc(t.d)}</p>
@@ -282,6 +282,7 @@
 
             document.getElementById("appMain").innerHTML = V[tab]();
             if (tab == 3) drawCharts();
+            if (tab == 4) runCupoAnim();
             if (anim) { anim = false; const m = document.getElementById("appMain"); m.classList.remove("enter"); void m.offsetWidth; m.classList.add("enter"); countUp(); }
         }
 
@@ -396,7 +397,7 @@
 
             return `
                 <section class="relative overflow-hidden bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-800 text-white p-6 rounded-3xl shadow-xl shadow-indigo-500/10 flex flex-col justify-between">
-                    <div class="absolute -right-10 -bottom-10 w-40 h-40 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
+                    <div class="absolute -right-10 -bottom-10 w-40 h-40 bg-white/10 rounded-full blur-2xl pointer-events-none float-slow"></div>
                     <div class="flex justify-between items-start">
                         <div>
                             <p class="text-xs font-medium uppercase tracking-wider text-indigo-200">Disponible para gastar</p>
@@ -416,12 +417,12 @@
                 </section>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div onclick="goTab(1)" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-2xl cursor-pointer hover:border-indigo-500 transition shadow-sm">
+                    <div onclick="goTab(1)" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-2xl cursor-pointer hover:border-indigo-500 transition shadow-sm lift">
                         <div class="flex justify-between items-center mb-1"><span class="text-xs font-semibold text-slate-500">Ahorros y Metas</span><i class="fa-solid fa-piggy-bank text-indigo-500"></i></div>
                         <h4 class="text-lg font-bold text-slate-800 dark:text-white">${fmt(totAcc)}</h4>
                         ${MT}
                     </div>
-                    <div onclick="goTab(2)" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-2xl cursor-pointer hover:border-indigo-500 transition shadow-sm">
+                    <div onclick="goTab(2)" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-2xl cursor-pointer hover:border-indigo-500 transition shadow-sm lift">
                         <div class="flex justify-between items-center mb-1"><span class="text-xs font-semibold text-slate-500">Inversiones</span><i class="fa-solid fa-chart-line text-emerald-500"></i></div>
                         <h4 class="text-lg font-bold text-slate-800 dark:text-white">${show(invT)}</h4>
                         <p class="text-xs ${invT >= invC ? "text-emerald-500" : "text-rose-500"} mt-1 font-semibold">${invT >= invC ? "+" : ""}${fmt(invT - invC)} sobre lo invertido</p>
@@ -574,12 +575,16 @@
             let tc = 0, tu = 0;
             const cardsList = S.cards.map(c => {
                 const u = sum(m, x => x.k == c.n), cu = cardUse(c, n), d = nextPay(c.p), tn = useTone(cu.raw);
+                const pv = lastPct[c.id], ch = pv && (pv.b !== cu.pct || pv.n !== cu.raw);
+                const fb = pv && (!anim || ch) ? pv.b : 0, fn = pv && (!anim || ch) ? pv.n : 0;
+                lastPct[c.id] = { b: cu.pct, n: cu.raw };
+                const pop = cu.ok && lastOk[c.id] === false; lastOk[c.id] = cu.ok;
                 if (c.c) { tc += c.c; tu += cu.used; }
                 return `
-                    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-3xl shadow-sm mb-4">
+                    <div class="lift bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-3xl shadow-sm mb-4">
                         <div class="flex justify-between items-center mb-2">
                             <b class="text-sm font-bold text-slate-800 dark:text-white">💳 ${esc(c.n)}</b>
-                            <span class="text-xs font-semibold ${cu.ok ? "text-emerald-500" : d <= 5 ? "text-rose-500" : "text-slate-400"}">${cu.ok ? "Pagada ✓" : "Vence en " + d + " d"}</span>
+                            <span class="text-xs font-semibold ${cu.ok ? "text-emerald-500" : d <= 5 ? "text-rose-500" : "text-slate-400"}">${cu.ok ? `<span class="${pop ? "pop" : ""}">Pagada ✓</span>` : "Vence en " + d + " d"}</span>
                         </div>
                         <div class="grid grid-cols-2 gap-2 text-xs mb-4">
                             <div><span class="text-slate-400 block">Compras este mes</span><b>${fmt(u)}</b></div>
@@ -588,10 +593,10 @@
                         </div>
                         ${c.c ? `
                         <div class="flex items-end justify-between mb-1.5">
-                            <div><span class="text-2xl font-extrabold ${tn.txt}">${Math.round(cu.raw)}%</span><span class="text-xs text-slate-400 ml-1.5">del cupo utilizado</span></div>
+                            <div><span class="cupo-pct text-2xl font-extrabold ${tn.txt}" data-from="${fn}" data-to="${cu.raw}">${Math.round(fn)}%</span><span class="text-xs text-slate-400 ml-1.5">del cupo utilizado</span></div>
                             <span class="text-[11px] font-semibold ${tn.txt}">${tn.lbl}</span>
                         </div>
-                        <div class="w-full bg-slate-100 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden mb-2"><div class="${tn.bar} h-full rounded-full transition-all duration-500" style="width:${cu.pct}%"></div></div>
+                        <div class="relative w-full bg-slate-100 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden mb-2"><div class="cupo-bar ${tn.bar} h-full rounded-full" data-to="${cu.pct}" style="width:${fb}%"></div><div class="absolute top-0 bottom-0 w-px bg-slate-400/70" style="left:30%" title="Ideal: menos del 30%"></div></div>
                         <div class="flex justify-between text-[11px] text-slate-400 mb-3">
                             <span>Usado ${fmt(cu.used)}</span><span>Disponible <b class="text-emerald-500">${fmt(cu.avail)}</b></span><span>Cupo ${fmt(c.c)}</span>
                         </div>` : `<p class="text-[11px] text-slate-400 mb-3">Esta tarjeta no tiene cupo registrado.</p>`}
@@ -605,13 +610,16 @@
             }).join("");
 
             const gp = tc ? tu / tc * 100 : 0, gt = useTone(gp);
+            const pg = lastPct.all, chg = pg && (pg.b !== Math.min(100, gp) || pg.n !== gp);
+            const gfb = pg && (!anim || chg) ? pg.b : 0, gfn = pg && (!anim || chg) ? pg.n : 0;
+            lastPct.all = { b: Math.min(100, gp), n: gp };
             const summary = S.cards.length > 1 && tc ? `
                 <section class="bg-gradient-to-br from-indigo-600 to-violet-700 text-white p-5 rounded-3xl shadow-xl shadow-indigo-500/10 mb-4">
                     <div class="flex items-end justify-between">
-                        <div><small class="text-[10px] text-indigo-200 uppercase tracking-wider block">Cupo total utilizado</small><span class="text-3xl font-extrabold">${Math.round(gp)}%</span></div>
+                        <div><small class="text-[10px] text-indigo-200 uppercase tracking-wider block">Cupo total utilizado</small><span class="cupo-pct text-3xl font-extrabold" data-from="${gfn}" data-to="${gp}">${Math.round(gfn)}%</span></div>
                         <div class="text-right text-xs"><span class="text-indigo-200 block">Disponible</span><b>${fmt(Math.max(0, tc - tu))}</b></div>
                     </div>
-                    <div class="w-full bg-white/20 h-2 rounded-full overflow-hidden mt-3"><div class="bg-white h-full rounded-full transition-all duration-500" style="width:${Math.min(100, gp)}%"></div></div>
+                    <div class="w-full bg-white/20 h-2.5 rounded-full overflow-hidden mt-3"><div class="cupo-bar bg-white h-full rounded-full" data-to="${Math.min(100, gp)}" style="width:${gfb}%"></div></div>
                     <p class="text-[11px] text-indigo-200 mt-2">${fmt(tu)} de ${fmt(tc)} · ${gt.lbl.toLowerCase()} (ideal: menos del 30%)</p>
                 </section>` : "";
 
@@ -906,6 +914,18 @@
         }
 
         let anim = true;
+        const lastPct = {}, lastOk = {};
+        // Anima la barra y el % del cupo desde el valor anterior hasta el nuevo
+        function runCupoAnim() {
+            const rm = matchMedia("(prefers-reduced-motion: reduce)").matches;
+            document.querySelectorAll("#appMain .cupo-bar").forEach(el => { void el.offsetWidth; el.style.width = el.dataset.to + "%"; });
+            document.querySelectorAll("#appMain .cupo-pct").forEach(el => {
+                const a = +el.dataset.from, b = +el.dataset.to, t0 = performance.now();
+                if (rm || a === b) { el.textContent = Math.round(b) + "%"; return; }
+                const step = now => { const k = Math.min(1, (now - t0) / 900); el.textContent = Math.round(a + (b - a) * (1 - Math.pow(1 - k, 3))) + "%"; if (k < 1) requestAnimationFrame(step); };
+                requestAnimationFrame(step);
+            });
+        }
         function goTab(i) { tab = i; anim = true; draw(); window.scrollTo(0, 0); }
 
         function countUp() {
