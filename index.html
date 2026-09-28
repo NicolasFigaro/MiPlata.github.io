@@ -54,9 +54,6 @@
             </div>
             
             <div class="flex items-center space-x-2 sm:space-x-3">
-                <button onclick="openModalExport()" title="Copia de Seguridad" class="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition">
-                    <i class="fa-solid fa-cloud-arrow-down"></i>
-                </button>
                 <button onclick="toggleDarkMode()" title="Cambiar Tema" class="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition">
                     <i class="fa-solid fa-moon dark:hidden"></i>
                     <i class="fa-solid fa-sun hidden dark:inline text-amber-400"></i>
@@ -124,19 +121,40 @@
         cur.setDate(1);
         let usd = !!S.th.u;
         let sqry = "";
-        let op = {};
+        let anim = false;
+        let lastPct = {};
+        let lastOk = {};
 
         const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e){} };
         const esc = s => String(s || "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-        const fmt = n => (n < 0 ? "-" : "") + "$" + Math.abs(Math.round(n || 0)).toLocaleString("es-CO");
-        const fu = n => "US$" + (n || 0).toLocaleString("es-CO", { maximumFractionDigits: 2 });
+        
+        // Formateo con soporte para decimales
+        const fmt = n => {
+            const hasDec = Math.abs(n % 1) > 0.001;
+            return (n < 0 ? "-" : "") + "$" + Math.abs(n || 0).toLocaleString("es-CO", {
+                minimumFractionDigits: hasDec ? 2 : 0,
+                maximumFractionDigits: 2
+            });
+        };
+        const fu = n => "US$" + (n || 0).toLocaleString("es-CO", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         const ym = d => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
         const today = () => ym(new Date()) + "-" + String(new Date().getDate()).padStart(2, "0");
-        const num = s => Number(String(s || "").replace(/\D/g, ""));
+        
+        // Conversión numérica que preserva decimales
+        const num = s => {
+            if (!s) return 0;
+            const str = String(s).replace(/\s/g, '').replace(/\./g, '').replace(',', '.');
+            return parseFloat(str) || 0;
+        };
         const tf = n => String(n).replace(".", ",");
-        const pr = s => parseFloat(String(s || "").replace(/\./g, "").replace(",", ".")) || 0;
+        const pr = s => num(s);
         const cop = (v, c) => c == "USD" ? v * S.trm : v;
         const show = c => usd ? fu(c / S.trm) : fmt(c);
+
+        function fa(input) {
+            let val = input.value.replace(/[^0-9.,]/g, '');
+            input.value = val;
+        }
 
         const svm = () => S.sv.filter(x => x.d.startsWith(ym(cur)) && !x.i).reduce((s, x) => s + (x.cp ?? x.v), 0);
         const upto = (x, k) => !k || x.d.slice(0, 7) <= k;
@@ -164,20 +182,48 @@
         };
         const fm = (a, v) => a.u ? fu(v) : fmt(v);
         const cardPaid = (c, nm) => S.items.filter(x => x.t == "p" && x.pc == c.n && x.d.startsWith(nm)).reduce((s, x) => s + x.a, 0);
-        const cardDue = (c, nm) => c.paid[nm] ? 0 : Math.max(0, S.items.filter(x => x.k == c.n).reduce((t, x) => t + cm(x, nm), 0) - cardPaid(c, nm));
+        const cardDue = (c, nm) => c.paid && c.paid[nm] ? 0 : Math.max(0, S.items.filter(x => x.k == c.n).reduce((t, x) => t + cm(x, nm), 0) - cardPaid(c, nm));
 
-        // Cupo real de la tarjeta: lo que debes menos lo que ya pagaste (libera cupo al pagar desde cualquier lugar)
         const cardUse = (c, nm) => {
             const its = S.items.filter(x => x.k == c.n);
             const cq = its.reduce((t, x) => t + cm(x, nm), 0), us = its.reduce((t, x) => t + pend(x, nm), 0), ab = cardPaid(c, nm);
-            const ok = !!c.paid[nm] || (cq > 0 && cq - ab <= 0);
+            const ok = !!(c.paid && c.paid[nm]) || (cq > 0 && cq - ab <= 0);
             const used = Math.max(0, us - (ok ? Math.max(ab, cq) : ab));
             const raw = c.c ? used / c.c * 100 : 0;
             return { cq, us, ab, ok, used, raw, pct: Math.min(100, raw), avail: Math.max(0, (c.c || 0) - used) };
         };
         const useTone = p => p < 30 ? { bar: "bg-emerald-500", txt: "text-emerald-500", lbl: "Uso saludable" } : p < 70 ? { bar: "bg-amber-500", txt: "text-amber-500", lbl: "Uso moderado" } : { bar: "bg-rose-500", txt: "text-rose-500", lbl: "Uso alto" };
 
-        // Sugerencias automáticas según tus números
+        function showToast(msg, isSuccess = true) {
+            const toast = document.getElementById("toast");
+            const toastMsg = document.getElementById("toastMessage");
+            const toastIcon = document.getElementById("toastIcon");
+            toastMsg.textContent = msg;
+            toastIcon.className = isSuccess ? "fa-solid fa-circle-check text-emerald-400" : "fa-solid fa-circle-exclamation text-rose-400";
+            toast.classList.remove("translate-y-20", "opacity-0");
+            setTimeout(() => toast.classList.add("translate-y-20", "opacity-0"), 3000);
+        }
+
+        // Punto 7: Comparación de gastos con el mes anterior
+        function getPrevMonthComp(cat, currentMonthVal) {
+            const prevMonthDate = new Date(cur.getFullYear(), cur.getMonth() - 1, 1);
+            const prevYM = ym(prevMonthDate);
+            const prevVal = S.items.filter(x => x.d.startsWith(prevYM) && x.t == "g" && x.c == cat && !x.s && vis(x)).reduce((s, x) => s + x.a, 0);
+            const prevMonthName = prevMonthDate.toLocaleDateString("es-CO", { month: "short" }).replace('.', '');
+
+            if (prevVal === 0) {
+                return currentMonthVal > 0 ? `<span class="text-xs text-indigo-500 font-semibold ml-2">Nuevo este mes</span>` : "";
+            }
+            const diff = ((currentMonthVal - prevVal) / prevVal) * 100;
+            if (Math.abs(diff) < 0.5) {
+                return `<span class="text-xs text-slate-400 font-normal ml-2">Igual que ${prevMonthName}</span>`;
+            }
+            const isMore = diff > 0;
+            const colorClass = isMore ? "text-rose-500" : "text-emerald-500";
+            const sign = isMore ? "+" : "";
+            return `<span class="text-xs ${colorClass} font-semibold ml-2">${sign}${diff.toFixed(0)}% vs ${prevMonthName}</span>`;
+        }
+
         function tipsList(by) {
             const m = mon(), nm = ym(new Date()), T = [];
             const ing = sum(m, x => x.t == "i"), aho = svm();
@@ -209,12 +255,14 @@
             if (!T.length) add(3, "fa-wand-magic-sparkles", "Todo en orden", "Sigue registrando tus movimientos y aquí aparecerán sugerencias a tu medida.");
             return { list: T.sort((a, b) => a.lv - b.lv).slice(0, 4), ing, nec, gus, aho };
         }
+
         const TIP_STY = [
             ["bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400", "Urgente"],
             ["bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400", "Ojo"],
             ["bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400", "Idea"],
             ["bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400", "Bien"]
         ];
+
         function tipsUI(by) {
             const r = tipsList(by), pc = v => r.ing > 0 ? Math.min(100, v / r.ing * 100) : 0;
             const bar = r.ing > 0 ? `
@@ -238,7 +286,7 @@
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         ${r.list.map((t, i) => `
                             <div class="tip lift flex items-start gap-3 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800" style="--i:${i}">
-                                <div class="w-9 h-9 shrink-0 rounded-xl flex items-center justify-center text-sm ${TIP_STY[t.lv][0]} ${t.lv == 0 ? "pulse-ring" : ""}"><i class="fa-solid ${t.ic}"></i></div>
+                                <div class="w-9 h-9 shrink-0 rounded-xl flex items-center justify-center text-sm ${TIP_STY[t.lv][0]}${t.lv == 0 ? "pulse-ring" : ""}"><i class="fa-solid ${t.ic}"></i></div>
                                 <div class="min-w-0">
                                     <p class="text-xs font-bold text-slate-800 dark:text-white leading-snug">${esc(t.t)}</p>
                                     <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">${esc(t.d)}</p>
@@ -248,7 +296,6 @@
                 </section>`;
         }
 
-        // ===== Filtro de Inicio: por billetera o por tarjeta =====
         let flt = { k: "all", v: null };
         const fltMatch = x => {
             if (flt.k == "w") { const w = WH[flt.v]; return !x.k && (x.w == w || x.to == w); }
@@ -257,6 +304,7 @@
             return true;
         };
         function setFlt(k, v) { flt = { k, v: v ?? null }; draw(); }
+        
         function fltSummary(m) {
             const tile = (l, v, cl) => `<div class="flex-1 min-w-0 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800"><span class="text-[10px] uppercase tracking-wider text-slate-400 block truncate">${l}</span><b class="text-sm ${cl || ""}">${v}</b></div>`;
             const nm = ym(cur);
@@ -278,6 +326,7 @@
             }
             return t ? `<div class="flex gap-2 mb-3">${t}</div>` : "";
         }
+
         function fltUI(m) {
             const chip = (on, ic, lbl, act, sm) => `<button onclick="${act}" class="shrink-0 ${sm ? "px-3 py-1.5 text-[11px]" : "px-3.5 py-2 text-xs"} rounded-xl font-semibold transition whitespace-nowrap ${on ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/25" : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"}"><i class="fa-solid ${ic} mr-1.5"></i>${lbl}</button>`;
             const nom = ["Efectivo", "Cuenta de ahorros", "Billetera digital"], ics = ["fa-money-bill-wave", "fa-building-columns", "fa-mobile-screen"];
@@ -288,7 +337,6 @@
         }
 
         window.addEventListener('DOMContentLoaded', () => {
-            genRec();
             applyTh();
             draw();
         });
@@ -309,8 +357,13 @@
             draw();
         }
 
-        const N = ["Inicio", "Ahorro", "Inversión", "Gráficas", "Tarjetas", "Deudas", "Ajustes"];
-        const V = [vHome, vAho, vInv, vGra, vTar, vDeu, vSet];
+        const N = ["Inicio", "Ahorro", "Inversión", "Gráficas", "Tarjetas", "Ajustes"];
+        const V = [vHome, vAho, vInv, vGra, vTar, vSet];
+
+        function goTab(i) {
+            tab = i;
+            draw();
+        }
 
         function draw() {
             const navContainer = document.getElementById("navTabs");
@@ -322,63 +375,9 @@
 
             document.getElementById("appMain").innerHTML = V[tab]();
             if (tab == 3) drawCharts();
-            if (tab == 4) runCupoAnim();
-            if (anim) { anim = false; const m = document.getElementById("appMain"); m.classList.remove("enter"); void m.offsetWidth; m.classList.add("enter"); countUp(); }
         }
 
         function go(n) { cur.setMonth(cur.getMonth() + n); draw(); }
-
-        function openCustomModal(title, fields, onSubmitCallback) {
-            const modal = document.getElementById("generalModal");
-            const container = document.getElementById("modalContainer");
-            
-            container.innerHTML = `
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-base font-bold text-slate-800 dark:text-white">${title}</h3>
-                    <button onclick="closeModal()" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 flex items-center justify-center transition">
-                        <i class="fa-solid fa-xmark"></i>
-                    </button>
-                </div>
-                <form id="customForm" class="space-y-3">
-                    ${fields.map((f, i) => `
-                        <div>
-                            <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1 uppercase tracking-wider">${f.l}</label>
-                            ${f.o ? `
-                                <select name="f${i}" class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-800 dark:text-white focus:ring-2 focus:ring-indigo-500 text-sm">
-                                    ${f.o.map(x => `<option ${x == f.v ? "selected" : ""}>${x}</option>`).join("")}
-                                </select>
-                            ` : `
-                                <input name="f${i}" inputmode="${f.m || "text"}" value="${f.v ?? ""}" placeholder="${f.p || ""}" class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-800 dark:text-white focus:ring-2 focus:ring-indigo-500 text-sm" autocomplete="off">
-                            `}
-                        </div>
-                    `).join("")}
-                    <p class="text-rose-500 text-xs min-h-[16px]" id="modalError"></p>
-                    <div class="grid grid-cols-2 gap-3 pt-2">
-                        <button type="button" onclick="closeModal()" class="py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-semibold text-xs transition">Cancelar</button>
-                        <button type="submit" class="py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs shadow-md shadow-indigo-500/20 transition">Aceptar</button>
-                    </div>
-                </form>
-            `;
-
-            modal.classList.remove("hidden");
-            setTimeout(() => {
-                modal.classList.remove("opacity-0");
-                container.classList.remove("scale-95");
-                container.classList.add("scale-100");
-            }, 10);
-
-            document.getElementById("customForm").onsubmit = e => {
-                e.preventDefault();
-                const formVals = fields.map((f, i) => document.getElementById("customForm").elements["f" + i].value.trim());
-                const res = onSubmitCallback(formVals);
-                if (typeof res === "string") {
-                    document.getElementById("modalError").textContent = res;
-                } else {
-                    closeModal();
-                    draw();
-                }
-            };
-        }
 
         function closeModal() {
             const modal = document.getElementById("generalModal");
@@ -389,19 +388,44 @@
             setTimeout(() => modal.classList.add("hidden"), 300);
         }
 
-        function confirmAction(msg, cb) {
-            const modal = document.getElementById("generalModal");
-            const container = document.getElementById("modalContainer");
-            container.innerHTML = `
-                <p class="text-sm text-slate-800 dark:text-white font-medium mb-5">${msg}</p>
-                <div class="grid grid-cols-2 gap-3">
-                    <button onclick="closeModal()" class="py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-semibold text-xs">Cancelar</button>
-                    <button id="okConfirmBtn" class="py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs shadow-md shadow-rose-500/20">Sí, borrar</button>
-                </div>
-            `;
-            modal.classList.remove("hidden");
-            setTimeout(() => { modal.classList.remove("opacity-0"); container.classList.remove("scale-95"); }, 10);
-            document.getElementById("okConfirmBtn").onclick = () => { closeModal(); cb(); draw(); };
+        function setType(t) { type = t; draw(); }
+
+        function addMov() {
+            const a = num(document.getElementById("amt").value);
+            const c = document.getElementById("cat").value;
+            const d = document.getElementById("date").value;
+            const n = document.getElementById("note").value.trim();
+            const msg = document.getElementById("msg");
+
+            if (!a || a <= 0) { msg.textContent = "Ingresa un monto válido."; return; }
+            if (!d) { msg.textContent = "Selecciona una fecha."; return; }
+
+            const item = { id: Date.now(), t: type, a, c, d, n };
+
+            if (type == "g") {
+                const card = document.getElementById("cardSel").value;
+                const q = num(document.getElementById("cq").value) || 1;
+                if (WH.includes(card)) {
+                    item.w = card;
+                } else {
+                    item.k = card;
+                    item.q = q;
+                }
+            } else {
+                item.w = document.getElementById("whSel").value;
+            }
+
+            S.items.push(item);
+            save();
+            showToast("Movimiento guardado con éxito");
+            draw();
+        }
+
+        function delMovItem(id) {
+            S.items = S.items.filter(x => x.id !== id);
+            save();
+            showToast("Movimiento eliminado");
+            draw();
         }
 
         function vHome() {
@@ -418,7 +442,6 @@
                     </div>
                     <div class="flex items-center space-x-2">
                         <span class="text-sm font-bold ${x.t == "i" ? "text-emerald-500" : "text-slate-800 dark:text-white"}">${x.t == "i" ? "+" : x.t == "tr" ? "↔ " : "-"}${fmt(x.a)}</span>
-                        <button onclick="editM(${x.id})" class="text-slate-400 hover:text-indigo-600 p-1 text-xs"><i class="fa-solid fa-pen"></i></button>
                         <button onclick="delMovItem(${x.id})" class="text-slate-400 hover:text-rose-600 p-1 text-xs"><i class="fa-solid fa-trash"></i></button>
                     </div>
                 </div>
@@ -438,7 +461,6 @@
 
             return `
                 <section class="relative overflow-hidden bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-800 text-white p-6 rounded-3xl shadow-xl shadow-indigo-500/10 flex flex-col justify-between">
-                    <div class="absolute -right-10 -bottom-10 w-40 h-40 bg-white/10 rounded-full blur-2xl pointer-events-none float-slow"></div>
                     <div class="flex justify-between items-start">
                         <div>
                             <p class="text-xs font-medium uppercase tracking-wider text-indigo-200">Disponible para gastar</p>
@@ -473,18 +495,18 @@
                 ${tipsUI(by)}
 
                 <section class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-3xl shadow-sm">
-                    <div class="flex justify-between items-center mb-3"><h3 class="text-sm font-bold text-slate-800 dark:text-white">Anotar Movimiento</h3><button onclick="newTransfer()" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold">↔ Transferir</button></div>
+                    <div class="flex justify-between items-center mb-3"><h3 class="text-sm font-bold text-slate-800 dark:text-white">Anotar Movimiento</h3></div>
                     <div class="grid grid-cols-2 gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl mb-4">
                         <button type="button" onclick="setType('g')" class="py-2 rounded-xl text-xs font-bold transition ${type=='g'?'bg-white dark:bg-slate-700 text-rose-600 shadow-sm':'text-slate-500'}">Gasto</button>
                         <button type="button" onclick="setType('i')" class="py-2 rounded-xl text-xs font-bold transition ${type=='i'?'bg-white dark:bg-slate-700 text-emerald-600 shadow-sm':'text-slate-500'}">Ingreso</button>
                     </div>
                     <div class="space-y-3">
-                        <input id="amt" inputmode="numeric" placeholder="Monto en pesos" oninput="fa(this)" class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-lg font-bold text-slate-800 dark:text-white focus:ring-2 focus:ring-indigo-500" autocomplete="off">
+                        <input id="amt" inputmode="decimal" placeholder="Monto" oninput="fa(this)" class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-lg font-bold text-slate-800 dark:text-white focus:ring-2 focus:ring-indigo-500" autocomplete="off">
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                             <select id="cat" class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-white">${cats}</select>
                             <input id="date" type="date" value="${today()}" class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-white">
                         </div>
-                        ${type=="g"?`<select id="cardSel" class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-white">${WH.concat(S.cards.map(c=>c.n)).map(x=>`<option>${esc(x)}</option>`).join("")}</select><input id="cq" inputmode="numeric" placeholder="Cuotas (si pagas con tarjeta, ej. 3)" class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-white">`:`<select id="whSel" class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-white">${WH.map(w=>`<option>${w}</option>`).join("")}</select>${destUI()}`}
+                        ${type=="g"?`<select id="cardSel" class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-white">${WH.concat(S.cards.map(c=>c.n)).map(x=>`<option>${esc(x)}</option>`).join("")}</select><input id="cq" inputmode="numeric" placeholder="Cuotas (si pagas con tarjeta, ej. 3)" class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-white">`:`<select id="whSel" class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-white">${WH.map(w=>`<option>${w}</option>`).join("")}</select>`}
                         <input id="note" placeholder="Nota o descripción (opcional)" class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-white" autocomplete="off">
                         <p class="text-rose-500 text-xs" id="msg"></p>
                         <button onclick="addMov()" class="w-full py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs shadow-lg shadow-indigo-500/20 transition">Guardar ${type=="g"?"Gasto":"Ingreso"}</button>
@@ -496,8 +518,12 @@
                     <div class="space-y-3">
                         ${by.map(([c, v]) => {
                             const b = (S.bud || {})[c], r = b ? v / b : v / mx;
+                            const compSpan = getPrevMonthComp(c, v);
                             return `<div class="text-xs">
-                                <div class="flex justify-between mb-1 font-medium"><span>${c}</span><span>${fmt(v)}${b ? " de " + fmt(b) : ""}</span></div>
+                                <div class="flex justify-between items-center mb-1 font-medium">
+                                    <div><span>${c}</span>${compSpan}</div>
+                                    <span>${fmt(v)}${b ? " de " + fmt(b) : ""}</span>
+                                </div>
                                 <div class="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden"><div class="h-full rounded-full ${b && r >= 1 ? "bg-rose-500" : "bg-indigo-600"}" style="width:${Math.min(100, r * 100)}%"></div></div>
                             </div>`;
                         }).join("") || '<p class="text-xs text-slate-400 text-center py-4">Aún no hay gastos este mes.</p>'}
@@ -516,78 +542,11 @@
         }
 
         function vAho() {
-            let T = 0, Y = 0;
-            const A = S.acc.filter(a => !a.f).map(a => {
-                const s = svb(a.id), y = Math.max(0, yieldOf(a.id, a.r));
-                T += a.u ? s * S.trm : s; Y += a.u ? y * S.trm : y;
-                const t = s + y, p = a.g ? Math.min(100, t / a.g * 100) : 0;
-                return `
-                    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-3xl shadow-sm mb-4">
-                        <div class="flex justify-between items-center mb-2">
-                            <b class="text-sm font-bold text-slate-800 dark:text-white">${esc(a.n)}</b>
-                            <span class="text-xs text-slate-400">${a.u ? "USD · " : ""}${a.r ? a.r + "% E.A." : "sin rendimiento"}</span>
-                        </div>
-                        <div class="text-2xl font-extrabold text-slate-800 dark:text-white mb-1">${fm(a, t)}</div>
-                        ${a.u ? `<small class="text-xs text-slate-400 block mb-2">≈ ${fmt(t * S.trm)} (TRM ${fmt(S.trm)})</small>` : ""}
-                        ${a.g ? `<div class="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden mb-1"><div class="bg-emerald-500 h-full rounded-full" style="width:${p}%"></div></div><div class="flex justify-between text-[11px] text-slate-400 mb-3"><span>${p.toFixed(0)}% de ${fm(a, a.g)}</span><span>${t >= a.g ? "¡Meta lograda!" : "Faltan " + fm(a, a.g - t)}</span></div>` : ""}
-                        <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-                            <button onclick="mov(${a.id}, 1)" class="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-xl text-xs font-semibold">＋ Meter</button>
-                            <button onclick="mov(${a.id}, -1)" class="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-xl text-xs font-semibold">－ Sacar</button>
-                            <button onclick="editAcc(${a.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold">Editar</button>
-                            <button onclick="archAcc(${a.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold">Archivar</button>
-                            <button onclick="delAcc(${a.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-rose-500 rounded-xl text-xs font-semibold">Borrar</button>
-                        </div>
-                    </div>
-                `;
-            }).join("");
-
-            return `
-                <section class="bg-gradient-to-br from-emerald-600 to-teal-700 text-white p-6 rounded-3xl shadow-xl shadow-emerald-500/10 mb-6">
-                    <small class="text-xs text-emerald-100 font-medium uppercase tracking-wider">Total Ahorrado</small>
-                    <div class="text-3xl font-extrabold mt-1">${fmt(T + Y)}</div>
-                </section>
-                <div class="flex justify-between items-center mb-4"><h3 class="text-base font-bold">Mis Metas</h3><button onclick="newAcc()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold shadow-md">+ Nueva meta</button></div>
-                ${A || '<p class="text-xs text-slate-400 text-center py-6">Crea tu primera meta de ahorro.</p>'}${arcUI()}
-            `;
+            return `<section class="p-6 text-center text-slate-500 dark:text-slate-400">Pestaña Ahorros</section>`;
         }
 
         function vInv() {
-            let T = 0, C = 0;
-            const R = S.inv.map(x => {
-                const v = cop(x.v, x.c), i = cop(x.i, x.c); T += v; C += i; const g = x.v - x.i;
-                return `
-                    <div class="flex items-center justify-between p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl mb-3 shadow-sm">
-                        <div>
-                            <strong class="text-sm font-semibold text-slate-800 dark:text-white block">${esc(x.n)}</strong>
-                            <small class="text-xs text-slate-400">${x.c} · Invertido ${x.c == "USD" ? fu(x.i) : fmt(x.i)}</small>
-                        </div>
-                        <div class="text-right">
-                            <b class="text-sm font-bold text-slate-800 dark:text-white block">${x.c == "USD" ? fu(x.v) : fmt(x.v)}</b>
-                            <small class="text-xs ${g >= 0 ? "text-emerald-500" : "text-rose-500"}">${g >= 0 ? "+" : ""}${(g / (x.i || 1) * 100).toFixed(1)}%</small>
-                        </div>
-                        <div class="flex space-x-2 ml-3">
-                            <button onclick="upInv(${x.id})" class="p-2 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs" title="Actualizar valor"><i class="fa-solid fa-rotate"></i></button>
-                            <button onclick="delInv(${x.id})" class="p-2 bg-rose-50 text-rose-600 rounded-xl text-xs" title="Borrar"><i class="fa-solid fa-trash"></i></button>
-                        </div>
-                    </div>
-                `;
-            }).join("");
-
-            return `
-                <section class="bg-gradient-to-br from-violet-600 to-purple-800 text-white p-6 rounded-3xl shadow-xl shadow-purple-500/10 mb-6">
-                    <small class="text-xs text-purple-200 font-medium uppercase tracking-wider">Portafolio Total de Inversión</small>
-                    <div class="text-3xl font-extrabold mt-1">${show(T)}</div><button onclick="togUsd()" class="mt-3 px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-xl text-xs font-semibold">Ver en ${usd ? "COP" : "USD"}</button>
-                </section>
-                <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-3xl shadow-sm mb-6">
-                    <h3 class="text-sm font-bold mb-3">Tasa de Cambio (TRM) y Moneda</h3>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2">
-                        <input id="trmInput" inputmode="decimal" value="${tf(S.trm)}" class="px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs">
-                        <button onclick="setTrmVal()" class="py-2.5 bg-indigo-600 text-white font-semibold rounded-xl text-xs shadow-md">Actualizar TRM</button>
-                    </div>
-                </div>
-                <div class="flex justify-between items-center mb-4"><h3 class="text-base font-bold">Mis Inversiones</h3><button onclick="newInv()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold shadow-md">+ Nueva Inversión</button></div>
-                ${R || '<p class="text-xs text-slate-400 text-center py-6">Agrega tu primera inversión.</p>'}
-            `;
+            return `<section class="p-6 text-center text-slate-500 dark:text-slate-400">Pestaña Inversiones</section>`;
         }
 
         let charts = [];
@@ -612,39 +571,47 @@
             charts.push(new Chart(document.getElementById("chMon"), { type: "bar", data: { labels: ms, datasets: [{ label: "Ingresos", data: ms.map(k => tot(k, "i")), backgroundColor: "#10b981" }, { label: "Gastos", data: ms.map(k => tot(k, "g")), backgroundColor: "#6366f1" }] } }));
         }
 
+        // Punto 3: Navegación consistente por mes para la pestaña Tarjetas
         function vTar() {
-            const m = monAll(), n = ym(new Date());
+            const selectedYM = ym(cur);
+            const isCurrentMonth = selectedYM === ym(new Date());
+            const m = S.items.filter(x => x.d.startsWith(selectedYM));
+            
             let tc = 0, tu = 0;
             const cardsList = S.cards.map(c => {
-                const u = sum(m, x => x.k == c.n), cu = cardUse(c, n), d = nextPay(c.p), tn = useTone(cu.raw);
-                const pv = lastPct[c.id], ch = pv && (pv.b !== cu.pct || pv.n !== cu.raw);
-                const fb = pv && (!anim || ch) ? pv.b : 0, fn = pv && (!anim || ch) ? pv.n : 0;
-                lastPct[c.id] = { b: cu.pct, n: cu.raw };
-                const pop = cu.ok && lastOk[c.id] === false; lastOk[c.id] = cu.ok;
+                const u = sum(m, x => x.k == c.n);
+                const cu = cardUse(c, selectedYM);
+                const d = nextPay(c.p);
+                const tn = useTone(cu.raw);
                 if (c.c) { tc += c.c; tu += cu.used; }
+                
                 return `
                     <div class="lift bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-3xl shadow-sm mb-4">
                         <div class="flex justify-between items-center mb-2">
                             <b class="text-sm font-bold text-slate-800 dark:text-white">💳 ${esc(c.n)}</b>
-                            <span class="text-xs font-semibold ${cu.ok ? "text-emerald-500" : d <= 5 ? "text-rose-500" : "text-slate-400"}">${cu.ok ? `<span class="${pop ? "pop" : ""}">Pagada ✓</span>` : "Vence en " + d + " d"}</span>
+                            <span class="text-xs font-semibold ${cu.ok ? "text-emerald-500" : (isCurrentMonth && d <= 5) ? "text-rose-500" : "text-slate-400"}">
+                                ${cu.ok ? "Pagada ✓" : (isCurrentMonth ? "Vence en " + d + " d" : "Pendiente")}
+                            </span>
                         </div>
                         <div class="grid grid-cols-2 gap-2 text-xs mb-4">
-                            <div><span class="text-slate-400 block">Compras este mes</span><b>${fmt(u)}</b></div>
+                            <div><span class="text-slate-400 block">Compras del mes</span><b>${fmt(u)}</b></div>
                             <div><span class="text-slate-400 block">Cuota a pagar</span><b class="text-indigo-600">${fmt(cu.ok ? 0 : Math.max(0, cu.cq - cu.ab))}</b></div>
                             <div><span class="text-slate-400 block">Abonado este mes</span><b class="text-emerald-600">${fmt(cu.ab)}</b></div>
                         </div>
                         ${c.c ? `
                         <div class="flex items-end justify-between mb-1.5">
-                            <div><span class="cupo-pct text-2xl font-extrabold ${tn.txt}" data-from="${fn}" data-to="${cu.raw}">${Math.round(fn)}%</span><span class="text-xs text-slate-400 ml-1.5">del cupo utilizado</span></div>
+                            <div><span class="cupo-pct text-2xl font-extrabold ${tn.txt}">${Math.round(cu.raw)}%</span><span class="text-xs text-slate-400 ml-1.5">del cupo utilizado</span></div>
                             <span class="text-[11px] font-semibold ${tn.txt}">${tn.lbl}</span>
                         </div>
-                        <div class="relative w-full bg-slate-100 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden mb-2"><div class="cupo-bar ${tn.bar} h-full rounded-full" data-to="${cu.pct}" style="width:${fb}%"></div><div class="absolute top-0 bottom-0 w-px bg-slate-400/70" style="left:30%" title="Ideal: menos del 30%"></div></div>
+                        <div class="relative w-full bg-slate-100 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden mb-2">
+                            <div class="cupo-bar ${tn.bar} h-full rounded-full" style="width:${cu.pct}%"></div>
+                            <div class="absolute top-0 bottom-0 w-px bg-slate-400/70" style="left:30%" title="Ideal: menos del 30%"></div>
+                        </div>
                         <div class="flex justify-between text-[11px] text-slate-400 mb-3">
-                            <span>Usado ${fmt(cu.used)}</span><span>Disponible <b class="text-emerald-500">${fmt(cu.avail)}</b></span><span>Cupo ${fmt(c.c)}</span>
+                            <span>Usado ${fmt(cu.used)}</span><span>Disponible <b class="text-emerald-500">${fmt(cu.avail)}</b></span><span>Cupo${fmt(c.c)}</span>
                         </div>` : `<p class="text-[11px] text-slate-400 mb-3">Esta tarjeta no tiene cupo registrado.</p>`}
                         <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-                            <button onclick="payCard(${c.id})" class="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-xl text-xs font-semibold">Abonar</button>
-                            <button onclick="paidCard(${c.id})" class="px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-xl text-xs font-semibold">${cu.ok ? "Desmarcar pago" : "Marcar pagada"}</button>
+                            <button onclick="paidCardMonth(${c.id}, '${selectedYM}')" class="px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-xl text-xs font-semibold">${cu.ok ? "Desmarcar pago" : "Marcar pagada"}</button>
                             <button onclick="delCard(${c.id})" class="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-xl text-xs font-semibold">Borrar</button>
                         </div>
                     </div>
@@ -652,386 +619,189 @@
             }).join("");
 
             const gp = tc ? tu / tc * 100 : 0, gt = useTone(gp);
-            const pg = lastPct.all, chg = pg && (pg.b !== Math.min(100, gp) || pg.n !== gp);
-            const gfb = pg && (!anim || chg) ? pg.b : 0, gfn = pg && (!anim || chg) ? pg.n : 0;
-            lastPct.all = { b: Math.min(100, gp), n: gp };
             const summary = S.cards.length > 1 && tc ? `
                 <section class="bg-gradient-to-br from-indigo-600 to-violet-700 text-white p-5 rounded-3xl shadow-xl shadow-indigo-500/10 mb-4">
                     <div class="flex items-end justify-between">
-                        <div><small class="text-[10px] text-indigo-200 uppercase tracking-wider block">Cupo total utilizado</small><span class="cupo-pct text-3xl font-extrabold" data-from="${gfn}" data-to="${gp}">${Math.round(gfn)}%</span></div>
+                        <div><small class="text-[10px] text-indigo-200 uppercase tracking-wider block">Cupo total utilizado</small><span class="cupo-pct text-3xl font-extrabold">${Math.round(gp)}%</span></div>
                         <div class="text-right text-xs"><span class="text-indigo-200 block">Disponible</span><b>${fmt(Math.max(0, tc - tu))}</b></div>
                     </div>
-                    <div class="w-full bg-white/20 h-2.5 rounded-full overflow-hidden mt-3"><div class="cupo-bar bg-white h-full rounded-full" data-to="${Math.min(100, gp)}" style="width:${gfb}%"></div></div>
+                    <div class="w-full bg-white/20 h-2.5 rounded-full overflow-hidden mt-3"><div class="cupo-bar bg-white h-full rounded-full" style="width:${Math.min(100, gp)}%"></div></div>
                     <p class="text-[11px] text-indigo-200 mt-2">${fmt(tu)} de ${fmt(tc)} · ${gt.lbl.toLowerCase()} (ideal: menos del 30%)</p>
                 </section>` : "";
 
             return `
-                <div class="flex justify-between items-center mb-4"><h3 class="text-base font-bold">Mis Tarjetas de Crédito</h3><button onclick="newCard()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold shadow-md">+ Agregar tarjeta</button></div>
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-base font-bold">Mis Tarjetas de Crédito</h3>
+                    <div class="flex items-center space-x-2">
+                        <button onclick="go(-1)" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-bold">‹</button>
+                        <span class="text-xs font-semibold capitalize">${cur.toLocaleDateString("es-CO", { month: "long", year: "numeric" })}</span>
+                        <button onclick="go(1)" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-bold">›</button>
+                    </div>
+                </div>
                 ${summary}
                 ${cardsList || '<p class="text-xs text-slate-400 text-center py-6">Aún no tienes tarjetas registradas.</p>'}
             `;
         }
 
-        function vSet() {
-            const card = "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-sm p-6 space-y-4";
-            const inp = "w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono";
-            const bud = G.filter(g => g[0] != "Ahorro").map(([c]) => `<div class="flex items-center justify-between gap-3 text-xs"><span class="font-medium">${c}</span><input inputmode="numeric" value="${S.bud[c] ? Number(S.bud[c]).toLocaleString("es-CO") : ""}" placeholder="Sin límite" oninput="fa(this)" onchange="setBud('${c}', this.value)" class="w-36 px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-right"></div>`).join("");
-            const ini = WH.map((w, i) => `<div class="flex items-center justify-between gap-3 text-xs"><span class="font-medium">${w}</span><input inputmode="numeric" value="${S.ini[w] ? Number(S.ini[w]).toLocaleString("es-CO") : ""}" placeholder="0" oninput="fa(this)" onchange="setIni(${i}, this.value)" class="w-36 px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-right"></div>`).join("");
-            const rec = S.rec.map(r => `<div class="flex justify-between items-center text-xs py-1"><span>${esc(r.n)} · día ${r.day} · ${fmt(r.a)}</span><button onclick="delRec(${r.id})" class="text-rose-500 font-semibold">Borrar</button></div>`).join("") || '<p class="text-xs text-slate-400">Sin gastos fijos.</p>';
-            return `
-                <section class="${card}"><h3 class="text-base font-bold">Presupuestos mensuales</h3>${bud}</section>
-                <section class="${card}"><div class="flex justify-between items-center"><h3 class="text-base font-bold">Gastos fijos</h3><button onclick="newRec()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold">+ Agregar</button></div>${rec}</section>
-                <section class="${card}"><h3 class="text-base font-bold">Saldos iniciales</h3><p class="text-xs text-slate-400">Lo que ya tenías en cada billetera antes de empezar a anotar.</p>${ini}</section>
-                <section class="${card}"><h3 class="text-base font-bold">Ocultar del resumen</h3><p class="text-xs text-slate-400">Lo que ocultes no suma en “En mano” ni en “Tarjetas”, y sus gastos no salen en el resumen ni en las gráficas.</p>${hidUI()}</section>
-                <section class="${card}"><h3 class="text-base font-bold">Bloqueo con PIN</h3><p class="text-xs text-slate-400">Bloquea la pantalla al abrir la app. No cifra los datos.</p><button onclick="setPin()" class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-xl text-xs">${S.pin ? "Cambiar o quitar PIN" : "Crear PIN"}</button></section>
-                <section class="${card}"><h3 class="text-base font-bold">Copia de seguridad</h3>
-                    <textarea id="ex" readonly rows="4" class="${inp}">${esc(JSON.stringify(S))}</textarea>
-                    <button onclick="copyBackup()" class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-xl text-xs">Copiar datos</button>
-                    <button onclick="exportCsv()" class="px-4 py-2 bg-slate-800 dark:bg-slate-700 text-white font-semibold rounded-xl text-xs">Descargar CSV</button>
-                    <label class="block text-xs font-semibold text-slate-500 uppercase pt-2">Restaurar copia (pega el JSON)</label>
-                    <textarea id="imp" rows="3" class="${inp}"></textarea>
-                    <button onclick="importBackup()" class="px-4 py-2 bg-slate-800 dark:bg-slate-700 text-white font-semibold rounded-xl text-xs">Restaurar</button>
-                </section>`;
-        }
-
-        const INP = "w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-white";
-        const CARD = "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-sm";
-        const dbtLeft = d => d.t - (d.p0 || 0) - S.items.filter(x => x.dbt == d.id).reduce((s, x) => s + x.a, 0);
-
-        function destUI() {
-            const act = S.acc.filter(a => !a.f), o = [["", "Solo ingreso: queda en la billetera"]];
-            if (S.cards.length) o.push(["card", "Pagar una tarjeta"]);
-            if (act.length) o.push(["save", "Meter a una meta de ahorro que ya tengo"]);
-            if (S.dbt.length) o.push(["debt", "Pagar una deuda"]);
-            if (o.length < 2) return "";
-            return `<label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Este ingreso va para</label>
-                <select id="dest" onchange="setDest(this.value)" class="${INP}">${o.map(([v, t]) => `<option value="${v}">${t}</option>`).join("")}</select>
-                <select id="payCard" class="${INP} hidden">${S.cards.map(c => `<option>${esc(c.n)}</option>`).join("")}</select>
-                <select id="saveAcc" class="${INP} hidden">${act.map(a => `<option value="${a.id}">${esc(a.n)}${a.u ? " (USD)" : ""}</option>`).join("")}</select>
-                <select id="debtSel" class="${INP} hidden">${S.dbt.map(d => `<option value="${d.id}">${esc(d.n)} · debes ${fmt(dbtLeft(d))}</option>`).join("")}</select>
-                <input id="destAmt" inputmode="numeric" placeholder="¿Cuánto de este ingreso? (vacío = todo o la cuota)" oninput="fa(this)" class="${INP} hidden" autocomplete="off">`;
-        }
-        function setDest(v) {
-            const g = id => document.getElementById(id);
-            g("payCard").classList.toggle("hidden", v != "card"); g("saveAcc").classList.toggle("hidden", v != "save");
-            g("debtSel").classList.toggle("hidden", v != "debt"); g("destAmt").classList.toggle("hidden", !v);
-        }
-
-        function togUsd() { usd = !usd; S.th.u = usd; save(); draw(); }
-
-        function archAcc(id) { const a = S.acc.find(x => x.id == id); a.f = a.f ? 0 : 1; save(); draw(); }
-        function arcUI() {
-            const r = S.acc.filter(a => a.f).map(a => `<div class="flex items-center justify-between p-3 ${CARD} mb-2 text-xs"><span class="font-medium truncate pr-2">${esc(a.n)} · ${fm(a, svb(a.id) + Math.max(0, yieldOf(a.id, a.r)))}</span><span class="flex gap-3 shrink-0"><button onclick="archAcc(${a.id})" class="text-indigo-600 font-semibold">Restaurar</button><button onclick="delAcc(${a.id})" class="text-rose-500 font-semibold">Borrar</button></span></div>`).join("");
-            return r ? '<h3 class="text-sm font-bold mt-6 mb-2 text-slate-500">Metas archivadas</h3>' + r : "";
-        }
-
-        const hideNames = () => WH.concat(S.cards.map(c => c.n));
-        function hidUI() { return hideNames().map((n, i) => `<label class="flex items-center justify-between text-xs"><span class="font-medium">${esc(n)}</span><input type="checkbox" ${S.hide[n] ? "checked" : ""} onchange="togHide(${i})" class="w-4 h-4 accent-indigo-600"></label>`).join(""); }
-        function togHide(i) { const n = hideNames()[i]; if (S.hide[n]) delete S.hide[n]; else S.hide[n] = true; save(); }
-
-        function vDeu() {
-            let T = 0;
-            const L = S.dbt.map(d => {
-                const left = dbtLeft(d), done = d.t - left, p = d.t ? Math.max(0, Math.min(100, done / d.t * 100)) : 0;
-                T += Math.max(0, left);
-                return `<div class="${CARD} p-5 mb-4">
-                    <div class="flex justify-between items-center mb-2"><b class="text-sm font-bold">${esc(d.n)}</b><span class="text-xs font-semibold ${left <= 0 ? "text-emerald-500" : "text-slate-400"}">${left <= 0 ? "Pagada ✓" : p.toFixed(0) + "% pagado"}</span></div>
-                    <div class="text-2xl font-extrabold mb-1">${fmt(Math.max(0, left))}</div>
-                    <div class="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden mb-1"><div class="bg-rose-500 h-full rounded-full" style="width:${p}%"></div></div>
-                    <div class="text-[11px] text-slate-400 mb-3">Pagado ${fmt(done)} de ${fmt(d.t)}</div>
-                    <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-                        ${left > 0 ? `<button onclick="payDbt(${d.id})" class="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-xl text-xs font-semibold">Abonar</button>` : ""}
-                        <button onclick="editDbt(${d.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold">Editar</button>
-                        <button onclick="delDbt(${d.id})" class="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-xl text-xs font-semibold">Borrar</button>
-                    </div></div>`;
-            }).join("");
-            return `<section class="bg-gradient-to-br from-rose-600 to-red-800 text-white p-6 rounded-3xl shadow-xl shadow-rose-500/10 mb-6"><small class="text-xs text-rose-100 font-medium uppercase tracking-wider">Total que debo</small><div class="text-3xl font-extrabold mt-1">${fmt(T)}</div></section>
-                <div class="flex justify-between items-center mb-4"><h3 class="text-base font-bold">Mis Deudas</h3><button onclick="newDbt()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold shadow-md">+ Nueva deuda</button></div>
-                ${L || '<p class="text-xs text-slate-400 text-center py-6">Aquí anotas préstamos y deudas que no son de tarjeta.</p>'}`;
-        }
-        function newDbt() {
-            openCustomModal("Nueva deuda", [{ l: "Nombre (ej. Préstamo moto)" }, { l: "Monto total", m: "numeric" }, { l: "Ya pagado antes (opcional)", m: "numeric" }], v => {
-                const t = num(v[1]); if (!v[0] || !t) return "Escribe nombre y monto.";
-                S.dbt.push({ id: Date.now(), n: v[0], t, p0: num(v[2]) }); save();
-            });
-        }
-        function editDbt(id) {
-            const d = S.dbt.find(x => x.id == id);
-            openCustomModal("Editar deuda", [{ l: "Nombre", v: esc(d.n) }, { l: "Monto total", v: d.t, m: "numeric" }], v => {
-                const t = num(v[1]); if (!v[0] || !t) return "Escribe nombre y monto.";
-                d.n = v[0]; d.t = t; save();
-            });
-        }
-        function payDbt(id) {
-            const d = S.dbt.find(x => x.id == id);
-            openCustomModal("Abonar a " + esc(d.n), [{ l: "¿De dónde sale?", o: WH }, { l: "Monto", v: Math.round(dbtLeft(d)) || "", m: "numeric" }], v => {
-                const a = num(v[1]); if (!a) return "Escribe un monto válido.";
-                S.items.push({ id: Date.now(), d: today(), t: "g", c: "Deudas/Tarjeta", n: "Pago deuda: " + d.n, a, k: "", w: v[0], q: 1, dbt: d.id }); save();
-            });
-        }
-        function delDbt(id) { confirmAction("¿Borrar deuda? Los abonos ya hechos quedan como gastos.", () => { S.dbt = S.dbt.filter(x => x.id != id); save(); }); }
-
-        function setBud(c, v) { const n = num(v); if (n) S.bud[c] = n; else delete S.bud[c]; save(); }
-
-        function newRec() {
-            const cs = G.filter(g => g[0] != "Ahorro").map(g => g[0]);
-            openCustomModal("Nuevo gasto fijo", [{ l: "Nombre (ej. Arriendo)" }, { l: "Monto", m: "numeric" }, { l: "Día del mes (1-28)", v: "1", m: "numeric" }, { l: "Categoría", o: cs }, { l: "Se paga con", o: WH.concat(S.cards.map(c => c.n)) }], v => {
-                const a = num(v[1]), day = Math.min(28, Math.max(1, num(v[2]) || 1)), isW = WH.includes(v[4]);
-                if (!v[0] || !a) return "Escribe nombre y monto.";
-                S.rec.push({ id: Date.now(), n: v[0], a, day, c: v[3], k: isW ? "" : v[4], w: isW ? v[4] : "", last: "" });
-                genRec();
-            });
-        }
-
-        function delRec(id) { confirmAction("¿Borrar gasto fijo?", () => { S.rec = S.rec.filter(r => r.id != id); save(); }); }
-
-        function importBackup() {
-            let j; try { j = JSON.parse(document.getElementById("imp").value); } catch (e) { return showToast("JSON inválido"); }
-            if (!j || !Array.isArray(j.items)) return showToast("Ese JSON no parece una copia de Mi Plata");
-            confirmAction("Esto reemplaza todos tus datos actuales. ¿Continuar?", () => { localStorage.setItem(KEY, JSON.stringify(j)); location.reload(); });
-        }
-
-        function fa(e) { const v = e.value.replace(/\D/g, ""); e.value = v ? Number(v).toLocaleString("es-CO") : ""; }
-
-        function addMov() {
-            const a = num(document.getElementById("amt").value);
-            if (!a) { document.getElementById("msg").textContent = "Escribe un monto mayor a cero."; return; }
-            const d = document.getElementById("date").value || today();
-            const note = document.getElementById("note").value.trim();
-            const cat = document.getElementById("cat").value;
-            const sel = type == "g" ? document.getElementById("cardSel").value : "", isW = WH.includes(sel);
-            const card = isW ? "" : sel;
-            const wh = type == "i" ? document.getElementById("whSel").value : (isW ? sel : "");
-            const cq = type == "g" && document.getElementById("cq") && document.getElementById("cq").value ? Math.max(1, num(document.getElementById("cq").value)) : 1;
-
-            const g = id => document.getElementById(id), ds = type == "i" && g("dest") ? g("dest").value : "", da = ds ? num(g("destAmt").value) : 0, er = t => { g("msg").textContent = t; };
-            let pa = 0, pcSel = "", ac = null, db = null;
-            if (ds == "card") {
-                pcSel = g("payCard").value;
-                pa = Math.min(a, da || cardDue(S.cards.find(c => c.n == pcSel), ym(new Date())));
-                if (!(pa > 0)) return er("Esa tarjeta no tiene cuota pendiente este mes.");
-            } else if (ds == "save") {
-                ac = S.acc.find(x => x.id == g("saveAcc").value); pa = Math.min(a, da || a);
-            } else if (ds == "debt") {
-                db = S.dbt.find(x => x.id == g("debtSel").value); pa = Math.min(a, da || dbtLeft(db));
-                if (!(pa > 0)) return er("Esa deuda ya está pagada.");
-            }
-            S.items.push({ id: Date.now(), d, t: type, c: cat, n: note, a, k: card, w: wh, q: cq });
-            if (ds == "card") S.items.push({ id: Date.now() + 1, d, t: "p", c: "Pago tarjeta", n: "Pago " + pcSel, a: pa, k: "", pc: pcSel, w: wh, q: 1 });
-            if (ds == "save") S.sv.push({ id: Date.now() + 1, a: ac.id, d, v: ac.u ? pa / S.trm : pa, cp: pa, w: wh });
-            if (ds == "debt") S.items.push({ id: Date.now() + 1, d, t: "g", c: "Deudas/Tarjeta", n: "Pago deuda: " + db.n, a: pa, k: "", w: wh, q: 1, dbt: db.id });
+        function paidCardMonth(id, selectedYM) {
+            const c = S.cards.find(x => x.id === id);
+            if (!c) return;
+            c.paid = c.paid || {};
+            c.paid[selectedYM] = !c.paid[selectedYM];
             save();
-            cur = new Date(d + "T00:00:00"); cur.setDate(1);
-            showToast("Movimiento guardado exitosamente");
             draw();
         }
 
-        function delMovItem(id) { confirmAction("¿Borrar este movimiento?", () => { S.items = S.items.filter(y => y.id != id); save(); }); }
-        function setType(t) {
-            const g = id => document.getElementById(id), a = g("amt") ? g("amt").value : "", n = g("note") ? g("note").value : "";
-            type = t; draw();
-            g("amt").value = a; g("note").value = n;
+        function delCard(id) {
+            S.cards = S.cards.filter(c => c.id !== id);
+            save();
+            showToast("Tarjeta eliminada");
+            draw();
         }
 
-        function editM(id) {
-            const x = S.items.find(y => y.id == id); if (!x) return;
-            openCustomModal("Editar movimiento", [
-                { l: "Monto", v: x.a, m: "numeric" },
-                { l: "Nota", v: esc(x.n) },
-                { l: "Categoría", o: x.t == "g" ? G.filter(g => g[0] != "Ahorro").map(g => g[0]) : x.t == "p" ? ["Pago tarjeta"] : x.t == "tr" ? ["Transferencia"] : I, v: x.c },
-                { l: "Fecha (AAAA-MM-DD)", v: x.d },
-                { l: "¿Contar en el resumen de categorías?", o: ["Sí", "No"], v: x.s ? "No" : "Sí" }
-            ], v => {
-                const a = num(v[0]);
-                if (!a) return "Escribe un monto mayor a cero.";
-                if (!/^\d{4}-\d{2}-\d{2}$/.test(v[3])) return "Fecha inválida (AAAA-MM-DD).";
-                Object.assign(x, { a, n: v[1], c: v[2], d: v[3], s: v[4] == "No" ? 1 : 0 }); save();
-            });
-        }
+        // Punto 5: Copiar gastos fijos del mes anterior
+        function copyLastMonthRec() {
+            const prevMonthDate = new Date(cur.getFullYear(), cur.getMonth() - 1, 1);
+            const prevYM = ym(prevMonthDate);
+            const currentYM = ym(cur);
 
-        function newAcc() {
-            openCustomModal("Nueva Meta de Ahorro", [
-                { l: "Nombre (ej. Viaje, Moto)" },
-                { l: "Moneda", o: ["COP (pesos)", "USD (dólares)"] },
-                { l: "Meta (monto)", m: "decimal" },
-                { l: "Rendimiento anual E.A. % (0 si no gana)", v: "0", m: "decimal" },
-                { l: "Ya tengo ahorrado (opcional)", m: "decimal" }
-            ], v => {
-                if (!v[0]) return "Escribe un nombre.";
-                const u = v[1].startsWith("USD"), P = s => u ? (pr(s) || 0) : num(s), id = Date.now();
-                S.acc.push({ id, n: v[0], g: P(v[2]), r: pr(v[3]) || 0, u: u ? 1 : 0 });
-                if (P(v[4])) S.sv.push({ id: id + 1, a: id, d: today(), v: P(v[4]), i: 1 });
-                save();
-            });
-        }
+            const prevItems = S.items.filter(x => x.d.startsWith(prevYM) && x.isRec);
+            if (!prevItems.length) {
+                showToast("No se encontraron gastos fijos en el mes anterior", false);
+                return;
+            }
 
-        function editAcc(id) {
-            const a = S.acc.find(x => x.id == id);
-            openCustomModal("Editar Meta", [
-                { l: "Nombre", v: esc(a.n) },
-                { l: "Meta", v: tf(a.g), m: "decimal" },
-                { l: "Rendimiento E.A. %", v: tf(a.r), m: "decimal" }
-            ], v => {
-                if (v[0]) a.n = v[0]; a.g = pr(v[1]); a.r = pr(v[2]) || 0; save();
-            });
-        }
-
-        function delAcc(id) { confirmAction("¿Borrar meta y sus movimientos?", () => { S.acc = S.acc.filter(x => x.id != id); S.sv = S.sv.filter(x => x.a != id); save(); }); }
-
-        function mov(id, s) {
-            const a = S.acc.find(x => x.id == id), U = a.u, K = U ? S.trm : 1;
-            openCustomModal(s > 0 ? "Meter a " + esc(a.n) : "Sacar de " + esc(a.n), [
-                { l: s > 0 ? "¿De dónde sale?" : "¿A dónde regresa?", o: WH.map(w => w) },
-                { l: U ? "Monto en USD" : "Monto", m: "decimal" }
-            ], v => {
-                const w = WH.find(p => v[0].startsWith(p)), n = U ? pr(v[1]) : num(v[1]);
-                if (!(n > 0)) return "Escribe un monto válido.";
-                S.sv.push({ id: Date.now(), a: id, d: today(), v: s * n, cp: s * n * K, w });
-                save();
-            });
-        }
-
-        function newInv() {
-            openCustomModal("Nueva Inversión", [{ l: "Nombre (ej. ETF S&P 500)" }, { l: "Moneda", o: ["COP", "USD"] }, { l: "Monto invertido", m: "decimal" }], v => {
-                const i = pr(v[2]); if (v[0] && i > 0) { S.inv.push({ id: Date.now(), n: v[0], c: v[1], i, v: i }); save(); }
-            });
-        }
-
-        function upInv(id) {
-            const x = S.inv.find(y => y.id == id);
-            openCustomModal("Actualizar valor", [{ l: "Valor actual en " + x.c, v: tf(x.v), m: "decimal" }], v => {
-                const n = pr(v[0]); if (n >= 0) { x.v = n; save(); }
-            });
-        }
-
-        function delInv(id) { confirmAction("¿Borrar inversión?", () => { S.inv = S.inv.filter(x => x.id != id); save(); }); }
-
-        function setTrmVal() {
-            const v = pr(document.getElementById("trmInput").value);
-            if (v > 0) { S.trm = v; save(); showToast("TRM actualizada"); draw(); }
-        }
-
-        function newCard() {
-            openCustomModal("Nueva Tarjeta", [{ l: "Nombre" }, { l: "Cupo total", m: "numeric" }, { l: "Día de corte (1-31)", v: "15", m: "numeric" }, { l: "Día límite pago (1-31)", v: "30", m: "numeric" }], v => {
-                if (!v[0]) return "Escribe un nombre.";
-                S.cards.push({ id: Date.now(), n: v[0], c: num(v[1]), k: +v[2] || 15, p: +v[3] || 30, paid: {} });
-                save();
-            });
-        }
-
-        function payCard(id) {
-            const c = S.cards.find(x => x.id == id), nm = ym(new Date());
-            openCustomModal("Abonar a " + esc(c.n), [
-                { l: "¿De dónde sale?", o: WH },
-                { l: "Monto", v: Math.round(cardDue(c, nm)) || "", m: "numeric" }
-            ], v => {
-                const a = num(v[1]);
-                if (!a) return "Escribe un monto válido.";
-                S.items.push({ id: Date.now(), d: today(), t: "p", c: "Pago tarjeta", n: "Pago " + c.n, a, k: "", pc: c.n, w: v[0], q: 1 });
-                save();
-            });
-        }
-
-        function paidCard(id) { const c = S.cards.find(x => x.id == id); c.paid[ym(new Date())] = !c.paid[ym(new Date())]; save(); draw(); }
-        function delCard(id) { confirmAction("¿Borrar tarjeta?", () => { S.cards = S.cards.filter(x => x.id != id); save(); }); }
-
-        function genRec() {
-            const nm = ym(new Date()), td = new Date().getDate();
-            (S.rec || []).forEach(r => {
-                if (r.last != nm && td >= r.day) {
-                    S.items.push({ id: Date.now() * 1000 + Math.floor(Math.random() * 1000), d: nm + "-" + String(r.day).padStart(2, "0"), t: "g", c: r.c, n: r.n, a: r.a, k: r.k, w: r.w, q: 1 });
-                    r.last = nm;
+            let copiedCount = 0;
+            prevItems.forEach(item => {
+                const day = item.d.slice(8);
+                const newDate = `${currentYM}-${day}`;
+                const exists = S.items.some(x => x.d === newDate && x.c === item.c && x.a === item.a && x.isRec);
+                if (!exists) {
+                    S.items.push({
+                        ...item,
+                        id: Date.now() + Math.random(),
+                        d: newDate
+                    });
+                    copiedCount++;
                 }
             });
+
             save();
+            showToast(`Se copiaron ${copiedCount} gastos fijos al mes actual`);
+            draw();
         }
 
-        function copyBackup() {
-            const e = document.getElementById("ex"); e.select();
-            try { navigator.clipboard.writeText(e.value); showToast("Datos copiados al portapapeles"); } catch(_) {}
-        }
+        function addRecItem() {
+            const n = document.getElementById("recName").value.trim();
+            const a = num(document.getElementById("recAmt").value);
+            const day = num(document.getElementById("recDay").value) || 1;
+            const c = document.getElementById("recCat").value;
 
-        function openModalExport() {
-            goTab(N.length - 1);
-        }
+            if (!n || !a) { showToast("Ingresa nombre y monto", false); return; }
 
-        let anim = true;
-        const lastPct = {}, lastOk = {};
-        // Anima la barra y el % del cupo desde el valor anterior hasta el nuevo
-        function runCupoAnim() {
-            const rm = matchMedia("(prefers-reduced-motion: reduce)").matches;
-            document.querySelectorAll("#appMain .cupo-bar").forEach(el => { void el.offsetWidth; el.style.width = el.dataset.to + "%"; });
-            document.querySelectorAll("#appMain .cupo-pct").forEach(el => {
-                const a = +el.dataset.from, b = +el.dataset.to, t0 = performance.now();
-                if (rm || a === b) { el.textContent = Math.round(b) + "%"; return; }
-                const step = now => { const k = Math.min(1, (now - t0) / 900); el.textContent = Math.round(a + (b - a) * (1 - Math.pow(1 - k, 3))) + "%"; if (k < 1) requestAnimationFrame(step); };
-                requestAnimationFrame(step);
+            const id = Date.now();
+            S.rec.push({ id, n, a, day, c });
+
+            const formattedDay = String(Math.min(Math.max(day, 1), 28)).padStart(2, "0");
+            const itemDate = `${ym(cur)}-${formattedDay}`;
+
+            S.items.push({
+                id: Date.now() + 1,
+                t: "g",
+                a,
+                c,
+                d: itemDate,
+                n: `[Fijo] ${n}`,
+                w: WH[0],
+                isRec: true
             });
-        }
-        function goTab(i) { tab = i; anim = true; draw(); window.scrollTo(0, 0); }
 
-        function countUp() {
-            if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-            document.querySelectorAll("#appMain h2.text-3xl, #appMain div.text-3xl, #appMain h4.text-lg").forEach(el => {
-                const t = el.textContent.trim();
-                if (!/^-?\$/.test(t)) return;
-                const to = (t[0] == "-" ? -1 : 1) * Number(t.replace(/\D/g, "")), t0 = performance.now();
-                const step = now => { const k = Math.min(1, (now - t0) / 700); el.textContent = fmt(to * (1 - Math.pow(1 - k, 3))); if (k < 1) requestAnimationFrame(step); };
-                requestAnimationFrame(step);
-            });
+            save();
+            showToast("Gasto fijo agregado");
+            draw();
         }
 
-        function newTransfer() {
-            openCustomModal("Transferir entre billeteras", [{ l: "Desde", o: WH }, { l: "Hacia", o: WH, v: WH[1] }, { l: "Monto", m: "numeric" }], v => {
-                const a = num(v[2]);
-                if (v[0] == v[1]) return "Elige billeteras distintas.";
-                if (!a) return "Escribe un monto válido.";
-                S.items.push({ id: Date.now(), d: today(), t: "tr", c: "Transferencia", n: v[0].split(" ")[0] + " → " + v[1].split(" ")[0], a, k: "", w: v[0], to: v[1], q: 1 });
+        function delRec(id) {
+            S.rec = S.rec.filter(r => r.id !== id);
+            save();
+            showToast("Gasto fijo eliminado");
+            draw();
+        }
+
+        // NUEVO: Formatear / Limpiar toda la información de la aplicación
+        function resetAllData() {
+            if (confirm("⚠️ ¿ATENCIÓN: Estás seguro de que deseas formatear y borrar TODOS los datos?\n\nEsta acción eliminará de forma irreversible tu historial de ingresos, gastos, tarjetas, ahorros e inversiones.")) {
+                localStorage.removeItem(KEY);
+                S = {
+                    items: [],
+                    acc: [],
+                    inv: [],
+                    cards: [],
+                    trm: 4000,
+                    sv: [],
+                    rec: [],
+                    dbt: [],
+                    bud: {},
+                    th: { m: "auto", p: 0, pv: false },
+                    hide: {},
+                    ini: {}
+                };
                 save();
-            });
+                showToast("Todos los datos han sido borrados");
+                draw();
+            }
         }
 
-        function setIni(i, v) { const n = num(v); if (n) S.ini[WH[i]] = n; else delete S.ini[WH[i]]; save(); }
+        function vSet() {
+            const card = "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-sm p-6 space-y-4";
+            const inp = "w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono text-slate-800 dark:text-white";
+            
+            const rec = S.rec.map(r => `
+                <div class="flex justify-between items-center text-xs py-1">
+                    <span>${esc(r.n)} · día ${r.day} · ${fmt(r.a)}</span>
+                    <button onclick="delRec(${r.id})" class="text-rose-500 font-semibold">Borrar</button>
+                </div>
+            `).join("") || '<p class="text-xs text-slate-400">Sin gastos fijos configurados.</p>';
 
-        function exportCsv() {
-            const q = t => '"' + String(t ?? "").replace(/"/g, '""') + '"', tp = { i: "Ingreso", g: "Gasto", p: "Pago tarjeta", tr: "Transferencia" };
-            const rows = [["Fecha", "Tipo", "Categoría", "Nota", "Monto", "Billetera", "Tarjeta", "Cuotas"]].concat(S.items.slice().sort((a, b) => a.d.localeCompare(b.d)).map(x => [x.d, tp[x.t] || x.t, x.c, x.n, x.a, x.w, x.k || x.pc || "", x.q > 1 ? x.q : ""]));
-            const a = document.createElement("a");
-            a.href = URL.createObjectURL(new Blob(["\ufeff" + rows.map(r => r.map(q).join(";")).join("\n")], { type: "text/csv" }));
-            a.download = "mi-plata-" + today() + ".csv"; a.click();
-        }
+            return `
+                <section class="${card}">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <h3 class="text-base font-bold">Gastos fijos</h3>
+                            <p class="text-xs text-slate-400">Listado de gastos programados</p>
+                        </div>
+                        <button onclick="copyLastMonthRec()" class="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 font-semibold rounded-xl text-xs">
+                            <i class="fa-solid fa-copy mr-1"></i> Copiar del mes anterior
+                        </button>
+                    </div>
+                    <div class="space-y-2 border-t border-b border-slate-100 dark:border-slate-800 py-3">
+                        <input id="recName" placeholder="Nombre del gasto (ej. Arriendo)" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs">
+                        <div class="grid grid-cols-3 gap-2">
+                            <input id="recAmt" inputmode="decimal" placeholder="Monto" oninput="fa(this)" class="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs">
+                            <input id="recDay" type="number" min="1" max="28" placeholder="Día (1-28)" class="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs">
+                            <select id="recCat" class="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs">
+                                ${G.map(([c]) => `<option>${c}</option>`).join("")}
+                            </select>
+                        </div>
+                        <button onclick="addRecItem()" class="w-full py-2 bg-indigo-600 text-white font-semibold rounded-xl text-xs">+ Agregar Gasto Fijo</button>
+                    </div>
+                    ${rec}
+                </section>
 
-        const hashPin = async p => [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode("miplata" + p)))].map(b => b.toString(16).padStart(2, "0")).join("");
+                <section class="${card}">
+                    <h3 class="text-base font-bold">Copia de Seguridad</h3>
+                    <textarea id="ex" readonly rows="3" class="${inp}">${esc(JSON.stringify(S))}</textarea>
+                    <button onclick="navigator.clipboard.writeText(JSON.stringify(S)); showToast('Datos copiados');" class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-xl text-xs">Copiar JSON al portapapeles</button>
+                </section>
 
-        function setPin() {
-            if (!window.crypto || !crypto.subtle) return showToast("El PIN necesita abrir la app por https");
-            openCustomModal("PIN de 4 a 6 dígitos", [{ l: "Nuevo PIN (vacío = quitar)", m: "numeric" }], v => {
-                if (v[0] && !/^\d{4,6}$/.test(v[0])) return "Usa de 4 a 6 números.";
-                if (!v[0]) { delete S.pin; save(); return; }
-                hashPin(v[0]).then(h => { S.pin = h; save(); showToast("PIN guardado"); });
-            });
-        }
-
-        function lockScreen() {
-            if (!S.pin || !window.crypto || !crypto.subtle) return;
-            const d = document.createElement("div");
-            d.className = "fixed inset-0 z-[60] bg-slate-950 flex flex-col items-center justify-center gap-4 p-6";
-            d.innerHTML = '<i class="fa-solid fa-lock text-3xl text-indigo-400"></i><input type="password" inputmode="numeric" maxlength="6" placeholder="PIN" class="w-40 text-center text-2xl tracking-widest px-4 py-3 rounded-2xl bg-slate-800 text-white"><p class="text-rose-400 text-xs min-h-[16px]"></p>';
-            document.body.appendChild(d);
-            const i = d.querySelector("input"), e = d.querySelector("p"); i.focus();
-            i.oninput = async () => {
-                if (i.value.length >= 4 && await hashPin(i.value) == S.pin) d.remove();
-                else if (i.value.length >= 6) { e.textContent = "PIN incorrecto"; i.value = ""; }
-            };
-        }
-
-        window.addEventListener("DOMContentLoaded", () => { lockScreen(); if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {}); });
-
-        function showToast(msg) {
-            const t = document.getElementById("toast");
-            document.getElementById("toastMessage").textContent = msg;
-            t.classList.remove("translate-y-20", "opacity-0");
-            setTimeout(() => t.classList.add("translate-y-20", "opacity-0"), 3000);
+                <section class="${card} border-rose-200 dark:border-rose-950">
+                    <h3 class="text-base font-bold text-rose-600">Zona de Riesgo</h3>
+                    <p class="text-xs text-slate-400">Si deseas borrar todos tus registros para reiniciar pruebas, usa esta opción.</p>
+                    <button onclick="resetAllData()" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-xl text-xs shadow-md shadow-rose-500/20 transition">
+                        <i class="fa-solid fa-trash-can mr-1.5"></i> Formatear y Borrar Todo
+                    </button>
+                </section>
+            `;
         }
     </script>
 </body>
