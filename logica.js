@@ -97,8 +97,18 @@ const yieldOf = (id, r) => {
 const goalTotal = a => svb(a.id) + Math.max(0, yieldOf(a.id, a.r));
 
 // ---------- Tarjetas: cuotas con interés ----------
-// Meses transcurridos desde la compra (1 = mes de la compra)
-const me = (x, nm) => (+nm.slice(0, 4) * 12 + +nm.slice(5)) - (+x.d.slice(0, 4) * 12 + +x.d.slice(5, 7)) + 1;
+// Mes en que se paga la PRIMERA cuota de una compra (año*12 + mes), según el corte y el día de pago de su tarjeta:
+//  - comprar después del día de corte la manda al extracto siguiente (+1 mes)
+//  - si el día de pago es igual o menor al de corte, el pago cae el mes después del cierre (+1 mes)
+// Ej. corte 28 y pago 18: lo comprado del 1 al 28 de septiembre cierra el 28 y se paga el 18 de octubre.
+const firstPay = x => {
+    const c = S.cards.find(c => c.n == x.k);
+    let m = +x.d.slice(0, 4) * 12 + +x.d.slice(5, 7);
+    if (c && c.k && c.p) { if (+x.d.slice(8, 10) > c.k) m++; if (c.p <= c.k) m++; }
+    return m;
+};
+// Cuota número N que cae en el mes nm (1 = primera cuota; 0 o menos = compra aún sin facturar)
+const me = (x, nm) => (+nm.slice(0, 4) * 12 + +nm.slice(5)) - firstPay(x) + 1;
 // Tasa mensual con la que se hizo esa compra (guardada al comprar). Sin tasa guardada = sin interés.
 const rate = x => (x.k && x.q > 1 && !x.ni ? (x.ir || 0) : 0) / 100;
 // Cuota fija (sistema francés). Con tasa 0 es dividir en partes iguales.
@@ -107,12 +117,13 @@ const cm = (x, nm) => { const q = x.q > 1 ? x.q : 1, e = me(x, nm); return e >= 
 // Capital que aún debes al empezar ese mes (lo que ocupa cupo)
 const pend = (x, nm) => {
     const q = x.q > 1 ? x.q : 1, e = me(x, nm);
-    if (!(e >= 1 && e <= q)) return 0;
+    if (e < 1) return x.d.slice(0, 7) <= nm ? x.a : 0; // ya comprada pero sin facturar: ya ocupa cupo completo
+    if (e > q) return 0;
     const i = rate(x), C = pmt(x.a, q, i);
     return i > 0 ? x.a * Math.pow(1 + i, e - 1) - C * (Math.pow(1 + i, e - 1) - 1) / i : x.a - C * (e - 1);
 };
 // Parte de la cuota de ese mes que son intereses
-const intOf = (x, nm) => { const i = rate(x); return i > 0 ? i * pend(x, nm) : 0; };
+const intOf = (x, nm) => { const i = rate(x); return i > 0 && me(x, nm) >= 1 ? i * pend(x, nm) : 0; };
 const cardInt = (c, nm) => S.items.filter(x => x.k == c.n).reduce((t, x) => t + intOf(x, nm), 0);
 const cardPaid = (c, nm) => S.items.filter(x => x.t == "p" && x.pc == c.n && x.d.startsWith(nm)).reduce((s, x) => s + x.a, 0);
 const cardDue = (c, nm) => c.paid[nm] ? 0 : Math.max(0, S.items.filter(x => x.k == c.n).reduce((t, x) => t + cm(x, nm), 0) - cardPaid(c, nm));
