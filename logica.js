@@ -271,6 +271,9 @@ const cardNext = c => {
     for (let i = 0; i < 24; i++) { m = nextMonth(m); const dd = cardDue(c, m); if (dd > 0) return { m, due: dd }; }
     return { m: nextMonth(nm), due: 0 };
 };
+// Lo que pesa sobre "Disponible": solo la próxima cuota si cae este mes o el siguiente.
+// Una cuota más lejana (ej. febrero) ya cuenta en el cupo usado, pero no te quita plata para gastar hoy.
+const cardSoon = c => { const nx = cardNext(c); return nx.m <= nextMonth(ym(new Date())) ? nx.due : 0; };
 // Días que faltan para el pago de ESTE mes (negativo = ya pasó)
 const dueIn = p => daysTo(payDate(p));
 const dueTxt = d => d < 0 ? "venció hace " + (-d) + (d == -1 ? " día" : " días") : d == 0 ? "vence hoy" : "vence en " + d + (d == 1 ? " día" : " días");

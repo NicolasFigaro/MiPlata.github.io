@@ -189,7 +189,7 @@ function vHome() {
 
     const hasW = S.items.some(x => x.w) || Object.keys(S.ini).length > 0, nm = ym(cur);
     const have = hasW ? WH.filter(w => !(S.hide || {})[w]).reduce((s, w) => s + bal(w, nm), 0) : sob;
-    const due = S.cards.filter(c => !(S.hide || {})[c.n]).reduce((s, c) => s + (nm == ym(new Date()) ? cardNext(c).due : cardDue(c, nm)), 0);
+    const due = S.cards.filter(c => !(S.hide || {})[c.n]).reduce((s, c) => s + (nm == ym(new Date()) ? cardSoon(c) : cardDue(c, nm)), 0);
     const svt = S.acc.reduce((s, a) => s + svb(a.id, nm) * (a.u ? S.trm : 1), 0), disp = have - due;
     const P = invPortfolio(), invT = P.T, invC = P.C;
     const totAcc = S.acc.filter(a => !a.f).reduce((s, a) => s + goalTotal(a) * (a.u ? S.trm : 1), 0);
