@@ -130,12 +130,14 @@ function setDest(v) {
     g("payCard").classList.toggle("hidden", v != "card"); g("saveAcc").classList.toggle("hidden", v != "save");
     g("debtSel").classList.toggle("hidden", v != "debt"); g("destAmt").classList.toggle("hidden", !v);
 }
-// Muestra cuotas/interés solo si el gasto es con tarjeta
+// Muestra cuotas/interés solo si el gasto es con tarjeta; si es meta de ahorro, muestra el saldo de la meta
 function togCardOpts() {
     const s = document.getElementById("cardSel"), o = document.getElementById("cardOpts");
     if (!s || !o) return;
-    o.classList.toggle("hidden", WH.includes(s.value));
+    const isMeta = s.value.startsWith("meta:");
+    o.classList.toggle("hidden", WH.includes(s.value) || isMeta);
     cuotaPreview();
+    metaPreview();
 }
 function cuotaPreview() {
     const g = id => document.getElementById(id), p = g("cqPrev");
@@ -145,15 +147,27 @@ function cuotaPreview() {
     const con = g("ci").value.startsWith("Con"), i = con && c.ir > 0 ? c.ir / 100 : 0, C = pmt(a, q, i);
     p.textContent = q + " cuotas de " + fmt(C) + (i > 0 ? " · intereses totales " + fmt(C * q - a) : con && !c.ir ? " · esta tarjeta no tiene tasa registrada (Tarjetas → Editar)" : " · sin intereses");
 }
+// Si eligieron una meta de ahorro como origen, avisa cuánto hay disponible ahí
+function metaPreview() {
+    const g = id => document.getElementById(id), p = g("metaPrev"), s = g("cardSel");
+    if (!p || !s) return;
+    if (!s.value.startsWith("meta:")) { p.textContent = ""; return; }
+    const acc = S.acc.find(x => x.id == Number(s.value.slice(5)));
+    if (!acc) { p.textContent = ""; return; }
+    const disp = goalTotal(acc) * (acc.u ? S.trm : 1), amt = num(g("amt").value);
+    p.textContent = "Tienes " + fmt(disp) + " en esta meta" + (amt > disp ? " · quedaría en negativo, revisa el monto" : "");
+}
 
 function addMov() {
     const g = id => document.getElementById(id), er = t => { g("msg").textContent = t; };
     const a = num(g("amt").value);
     if (!a) return er("Escribe un monto mayor a cero.");
     const d = g("date").value || today(), note = g("note").value.trim(), cat = g("cat").value;
-    const sel = type == "g" ? g("cardSel").value : "", isW = WH.includes(sel);
-    const card = isW ? "" : sel;
-    const wh = type == "i" ? g("whSel").value : (isW ? sel : "");
+    const rawSel = type == "g" ? g("cardSel").value : "";
+    const isMeta = rawSel.startsWith("meta:"), isW = !isMeta && WH.includes(rawSel);
+    const savAcc = isMeta ? S.acc.find(x => x.id == Number(rawSel.slice(5))) : null;
+    const card = (!isMeta && !isW) ? rawSel : "";
+    const wh = type == "i" ? g("whSel").value : (isW ? rawSel : "");
     const cq = card && g("cq") && g("cq").value ? Math.max(1, num(g("cq").value)) : 1;
     const cObj = card ? S.cards.find(c => c.n == card) : null;
     const ni = card && cq > 1 && g("ci") && g("ci").value == "Sin interés" ? 1 : 0;
@@ -171,10 +185,12 @@ function addMov() {
         db = S.dbt.find(x => x.id == g("debtSel").value); pa = Math.min(a, da || dbtLeft(db));
         if (!(pa > 0)) return er("Esa deuda ya está pagada.");
     }
-    S.items.push({ id: Date.now(), d, t: type, c: cat, n: note, a, k: card, w: wh, q: cq, ni, ir });
+    S.items.push({ id: Date.now(), d, t: type, c: cat, n: note, a, k: card, w: wh, q: cq, ni, ir, sav: savAcc ? savAcc.id : undefined });
     if (ds == "card") S.items.push({ id: Date.now() + 1, d, t: "p", c: "Pago tarjeta", n: "Pago " + pcSel, a: pa, k: "", pc: pcSel, w: wh, q: 1 });
     if (ds == "save") S.sv.push({ id: Date.now() + 1, a: ac.id, d, v: ac.u ? pa / S.trm : pa, cp: pa, w: wh });
     if (ds == "debt") S.items.push({ id: Date.now() + 1, d, t: "g", c: "Deudas/Tarjeta", n: "Pago deuda: " + db.n, a: pa, k: "", w: wh, q: 1, dbt: db.id });
+    // El gasto sale directo de una meta: se descuenta de ahí y no toca ninguna billetera
+    if (savAcc) S.sv.push({ id: Date.now() + 1, a: savAcc.id, d, v: savAcc.u ? -(a / S.trm) : -a, cp: -a, w: "" });
     save();
     cur = new Date(d + "T00:00:00"); cur.setDate(1);
     showToast("Movimiento guardado exitosamente");

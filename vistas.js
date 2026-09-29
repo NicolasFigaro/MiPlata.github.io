@@ -112,7 +112,7 @@ function movListHTML() {
         <div class="flex items-center justify-between py-3 border-b border-slate-100 dark:border-slate-800 last:border-0">
             <div class="min-w-0 flex-1 pr-2">
                 <strong class="text-sm font-semibold text-slate-800 dark:text-white block truncate">${esc(x.n || x.c)}</strong>
-                <small class="text-xs text-slate-400">${x.n ? esc(x.c) + " · " : ""}${x.d.slice(8)}/${x.d.slice(5, 7)}${sall ? "/" + x.d.slice(2, 4) : ""}${x.k ? " · 💳 " + esc(x.k) : ""}${x.w ? " · " + esc(x.w) : ""}${x.q > 1 ? " · " + x.q + " cuotas de " + fmt(pmt(x.a, x.q, r)) + (r > 0 ? " (con interés)" : "") : ""}${x.s ? " · fuera del resumen" : ""}</small>
+                <small class="text-xs text-slate-400">${x.n ? esc(x.c) + " · " : ""}${x.d.slice(8)}/${x.d.slice(5, 7)}${sall ? "/" + x.d.slice(2, 4) : ""}${x.k ? " · 💳 " + esc(x.k) : ""}${x.sav ? " · 🎯 " + esc((S.acc.find(a => a.id == x.sav) || {}).n || "meta borrada") : ""}${x.w ? " · " + esc(x.w) : ""}${x.q > 1 ? " · " + x.q + " cuotas de " + fmt(pmt(x.a, x.q, r)) + (r > 0 ? " (con interés)" : "") : ""}${x.s ? " · fuera del resumen" : ""}</small>
             </div>
             <div class="flex items-center space-x-2">
                 <span class="text-sm font-bold ${x.t == "i" ? "text-emerald-500" : "text-slate-800 dark:text-white"}">${x.t == "i" ? "+" : x.t == "tr" ? "↔ " : "-"}${fmt(x.a)}</span>
@@ -203,18 +203,23 @@ function vHome() {
                 <button type="button" onclick="setType('i')" class="py-2 rounded-xl text-xs font-bold transition ${type == 'i' ? 'bg-white dark:bg-slate-700 text-emerald-600 shadow-sm' : 'text-slate-500'}">Ingreso</button>
             </div>
             <div class="space-y-3">
-                <input id="amt" inputmode="numeric" placeholder="Monto en pesos" oninput="fa(this);cuotaPreview()" class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-lg font-bold text-slate-800 dark:text-white focus:ring-2 focus:ring-indigo-500" autocomplete="off">
+                <input id="amt" inputmode="numeric" placeholder="Monto en pesos" oninput="fa(this);cuotaPreview();metaPreview()" class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-lg font-bold text-slate-800 dark:text-white focus:ring-2 focus:ring-indigo-500" autocomplete="off">
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <select id="cat" class="${sel}">${cats}</select>
                     <input id="date" type="date" value="${today()}" class="${sel}">
                 </div>
                 ${type == "g" ? `
-                    <select id="cardSel" onchange="togCardOpts()" class="${sel}">${WH.concat(S.cards.map(c => c.n)).map(x => `<option>${esc(x)}</option>`).join("")}</select>
+                    <select id="cardSel" onchange="togCardOpts()" class="${sel}">
+                        <optgroup label="Billetera">${WH.map(x => `<option>${esc(x)}</option>`).join("")}</optgroup>
+                        ${S.cards.length ? `<optgroup label="Tarjeta">${S.cards.map(c => `<option>${esc(c.n)}</option>`).join("")}</optgroup>` : ""}
+                        ${S.acc.filter(a => !a.f).length ? `<optgroup label="Meta de ahorro">${S.acc.filter(a => !a.f).map(a => `<option value="meta:${a.id}">🎯 ${esc(a.n)}</option>`).join("")}</optgroup>` : ""}
+                    </select>
                     <div id="cardOpts" class="space-y-3 hidden">
                         <input id="cq" inputmode="numeric" placeholder="Cuotas (ej. 3)" oninput="cuotaPreview()" class="${sel}">
                         <select id="ci" onchange="cuotaPreview()" class="${sel}"><option>Con la tasa de la tarjeta</option><option>Sin interés</option></select>
                         <p id="cqPrev" class="text-[11px] text-indigo-500 font-semibold min-h-[14px]"></p>
-                    </div>` : `
+                    </div>
+                    <p id="metaPrev" class="text-[11px] text-indigo-500 font-semibold min-h-[14px]"></p>` : `
                     <select id="whSel" class="${sel}">${WH.map(w => `<option>${w}</option>`).join("")}</select>${destUI()}`}
                 <input id="note" placeholder="Nota o descripción (opcional)" class="${sel}" autocomplete="off">
                 <p class="text-rose-500 text-xs" id="msg"></p>
