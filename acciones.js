@@ -8,6 +8,7 @@ function draw() {
     `).join("");
 
     document.getElementById("appMain").innerHTML = V[tab]();
+    if (keep && tab == 0) restoreForm();
     if (tab == 3) drawCharts();
     if (tab == 4) runCupoAnim();
     if (anim) { anim = false; const m = document.getElementById("appMain"); m.classList.remove("enter"); void m.offsetWidth; m.classList.add("enter"); countUp(); }
@@ -103,11 +104,14 @@ function confirmAction(msg, cb) {
     setTimeout(() => { modal.classList.remove("opacity-0"); container.classList.remove("scale-95"); }, 10);
     document.getElementById("okConfirmBtn").onclick = () => { closeModal(); cb(); draw(); };
 }
-function showToast(msg) {
+let toastTimer;
+function showToast(msg, warn) {
     const t = document.getElementById("toast");
     document.getElementById("toastMessage").textContent = msg;
+    document.getElementById("toastIcon").className = "fa-solid " + (warn ? "fa-triangle-exclamation text-amber-400" : "fa-circle-check text-emerald-400");
     t.classList.remove("translate-y-20", "opacity-0");
-    setTimeout(() => t.classList.add("translate-y-20", "opacity-0"), 3000);
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.add("translate-y-20", "opacity-0"), warn ? 5000 : 3000);
 }
 function fa(e) { const v = e.value.replace(/\D/g, ""); e.value = v ? Number(v).toLocaleString("es-CO") : ""; }
 
@@ -185,6 +189,7 @@ function addMov() {
         db = S.dbt.find(x => x.id == g("debtSel").value); pa = Math.min(a, da || dbtLeft(db));
         if (!(pa > 0)) return er("Esa deuda ya está pagada.");
     }
+    const bud = type == "g" ? (S.bud || {})[cat] : 0, bk = d.slice(0, 7), before = bud ? catSpent(cat, bk) : 0;
     S.items.push({ id: Date.now(), d, t: type, c: cat, n: note, a, k: card, w: wh, q: cq, ni, ir, sav: savAcc ? savAcc.id : undefined });
     if (ds == "card") S.items.push({ id: Date.now() + 1, d, t: "p", c: "Pago tarjeta", n: "Pago " + pcSel, a: pa, k: "", pc: pcSel, w: wh, q: 1 });
     if (ds == "save") S.sv.push({ id: Date.now() + 1, a: ac.id, d, v: ac.u ? pa / S.trm : pa, cp: pa, w: wh });
@@ -193,7 +198,14 @@ function addMov() {
     if (savAcc) S.sv.push({ id: Date.now() + 1, a: savAcc.id, d, v: savAcc.u ? -(a / S.trm) : -a, cp: -a, w: "" });
     save();
     cur = new Date(d + "T00:00:00"); cur.setDate(1);
-    showToast("Movimiento guardado exitosamente");
+    // Aviso de presupuesto en el momento: al cruzar el 80% y al pasarte del 100%
+    let warn = "";
+    if (bud) {
+        const r0 = before / bud, r1 = catSpent(cat, bk) / bud;
+        if (r1 >= 1 && r0 < 1) warn = "Te pasaste del presupuesto de " + cat + " (" + fmt(catSpent(cat, bk)) + " de " + fmt(bud) + ")";
+        else if (r1 >= 0.8 && r0 < 0.8) warn = "Ya llevas el " + Math.floor(r1 * 100) + "% del presupuesto de " + cat + ". Te quedan " + fmt(bud - catSpent(cat, bk));
+    }
+    showToast(warn || "Movimiento guardado exitosamente", !!warn);
     draw();
 }
 function delMovItem(id) { confirmAction("¿Borrar este movimiento?", () => { S.items = S.items.filter(y => y.id != id); save(); }); }
@@ -220,6 +232,64 @@ function newTransfer() {
         S.items.push({ id: Date.now(), d: today(), t: "tr", c: "Transferencia", n: v[0].split(" ")[0] + " → " + v[1].split(" ")[0], a, k: "", w: v[0], to: v[1], q: 1 });
         save();
     });
+}
+
+// ---------- Categorías propias ----------
+let keep = null; // lo que la persona ya había escrito en el formulario mientras creaba una categoría
+const CAT_KINDS = ["Necesidad (cuenta en el 50%)", "Gusto (cuenta en el 30%)"];
+function catErr(n, own) {
+    if (!/^[\p{L}\p{N}][\p{L}\p{N} .\/-]{0,19}$/u.test(n)) return "Usa hasta 20 letras o números (sin comillas ni símbolos raros).";
+    const taken = G.map(g => g[0]).concat(I, ["Pago tarjeta", "Transferencia"]).filter(x => x != own).map(x => x.toLowerCase());
+    if (taken.includes(n.toLowerCase())) return "Ya existe una categoría con ese nombre.";
+    return "";
+}
+function newCat(snap) {
+    openCustomModal("Nueva categoría", [{ l: "Nombre (ej. Mascota, Estudio)" }, { l: "¿Qué tipo de gasto es?", o: CAT_KINDS }], v => {
+        const e = catErr(v[0]); if (e) return e;
+        S.cat.push({ id: Date.now(), n: v[0], k: v[1].startsWith("Nec") ? "n" : "g" });
+        syncG(); save();
+        if (snap) keep = Object.assign({}, snap, { cat: v[0] });
+    });
+}
+function editCat(id) {
+    const c = S.cat.find(x => x.id == id); if (!c) return;
+    openCustomModal("Editar categoría", [{ l: "Nombre", v: esc(c.n) }, { l: "Tipo", o: CAT_KINDS, v: CAT_KINDS[c.k == "n" ? 0 : 1] }], v => {
+        const e = catErr(v[0], c.n); if (e) return e;
+        if (v[0] != c.n) { // el cambio de nombre arrastra movimientos, presupuesto y gastos fijos
+            S.items.forEach(x => { if (x.t == "g" && x.c == c.n) x.c = v[0]; });
+            S.rec.forEach(r => { if (r.c == c.n) r.c = v[0]; });
+            if (S.bud[c.n]) { S.bud[v[0]] = S.bud[c.n]; delete S.bud[c.n]; }
+            c.n = v[0];
+        }
+        c.k = v[1].startsWith("Nec") ? "n" : "g";
+        syncG(); save();
+    });
+}
+function delCat(id) {
+    const c = S.cat.find(x => x.id == id); if (!c) return;
+    const n = S.items.filter(x => x.t == "g" && x.c == c.n).length;
+    confirmAction("¿Borrar la categoría " + esc(c.n) + "?" + (n ? " Sus " + n + " movimientos pasarán a «Otros»." : ""), () => {
+        S.items.forEach(x => { if (x.t == "g" && x.c == c.n) x.c = "Otros"; });
+        S.rec.forEach(r => { if (r.c == c.n) r.c = "Otros"; });
+        delete S.bud[c.n];
+        S.cat = S.cat.filter(x => x.id != id);
+        syncG(); save();
+    });
+}
+// Desde el selector de Inicio: "＋ Nueva categoría…" guarda lo escrito, crea la categoría y la deja elegida
+function catChange(sel) {
+    if (sel.value != "__new") return;
+    const g = id => document.getElementById(id), v = id => g(id) ? g(id).value : "";
+    const snap = { amt: v("amt"), note: v("note"), date: v("date"), sel: v("cardSel") || v("whSel"), cq: v("cq"), ci: v("ci") };
+    sel.selectedIndex = 0; // si cancela, no se queda en "Nueva categoría"
+    newCat(snap);
+}
+function restoreForm() {
+    const g = id => document.getElementById(id), k = keep; keep = null;
+    const put = (id, val) => { if (g(id) && val != null && val !== "") g(id).value = val; };
+    put("amt", k.amt); put("note", k.note); put("date", k.date); put("cat", k.cat);
+    put(g("cardSel") ? "cardSel" : "whSel", k.sel); put("cq", k.cq); put("ci", k.ci);
+    togCardOpts(); cuotaPreview(); metaPreview();
 }
 
 // ---------- Metas de ahorro ----------
@@ -268,32 +338,51 @@ function mov(id, s) {
     });
 }
 
-// ---------- Recordatorios de metas ----------
-function notify(title, body) {
-    const fb = () => { try { new Notification(title, { body, icon: "icon-192.png" }); } catch (e) {} };
+// ---------- Avisos: metas, tarjetas y deudas ----------
+// Copia de los avisos en IndexedDB para que el service worker los lea aunque la app esté cerrada
+const idb = () => new Promise((ok, no) => { if (!window.indexedDB) return no(); const r = indexedDB.open("miplata", 1); r.onupgradeneeded = () => r.result.createObjectStore("kv"); r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error); });
+const kvGet = k => idb().then(db => new Promise(ok => { const q = db.transaction("kv").objectStore("kv").get(k); q.onsuccess = () => ok(q.result); q.onerror = () => ok(undefined); })).catch(() => undefined);
+const kvSet = (k, v) => idb().then(db => new Promise(ok => { const t = db.transaction("kv", "readwrite"); t.objectStore("kv").put(v, k); t.oncomplete = ok; t.onerror = ok; })).catch(() => {});
+function mirrorEvents() {
+    kvSet("events", reminderEvents());
+    kvGet("sent").then(o => kvSet("sent", Object.assign({}, o || {}, S.nt)));
+}
+function notify(title, body, tag) {
+    const fb = () => { try { new Notification(title, { body, icon: "icon-192.png", tag }); } catch (e) {} };
     try {
         if (navigator.serviceWorker && navigator.serviceWorker.getRegistration) {
-            navigator.serviceWorker.getRegistration().then(r => r ? r.showNotification(title, { body, icon: "icon-192.png" }) : fb()).catch(fb);
+            navigator.serviceWorker.getRegistration().then(r => r ? r.showNotification(title, { body, icon: "icon-192.png", tag }) : fb()).catch(fb);
         } else fb();
     } catch (e) { fb(); }
 }
 function checkReminders() {
     if (typeof Notification == "undefined" || Notification.permission != "granted") return;
-    const td = today(); let ch = false;
-    S.acc.filter(a => !a.f && a.dl && a.g).forEach(a => {
-        const gi = goalInfo(a);
-        if (!gi || gi.done || S.nt[a.id] == td) return;
-        if (!gi.late && gi.days > 7) return;
-        if (gi.late && gi.days < -7) return;
-        notify("Mi Plata · " + a.n, gi.late ? "La meta venció y faltan " + fm(a, gi.falta) + "." : "Vence " + (gi.days == 0 ? "hoy" : "en " + gi.days + (gi.days == 1 ? " día" : " días")) + ". Faltan " + fm(a, gi.falta) + ".");
-        S.nt[a.id] = td; ch = true;
+    kvGet("sent").then(sent => {
+        sent = sent || {}; const td = today(); let ch = false;
+        reminderEvents().forEach(e => {
+            const days = daysTo(e.date);
+            if (days > e.win || days < -7 || S.nt[e.key] == td || sent[e.key] == td) return;
+            notify(e.title, remindBody(e, days), e.key);
+            S.nt[e.key] = td; ch = true;
+        });
+        if (ch) save();
     });
-    if (ch) save();
+}
+// Chrome en Android (app instalada): pide al sistema despertar el service worker de vez en cuando
+async function regPeriodic() {
+    try {
+        if (typeof Notification == "undefined" || Notification.permission != "granted" || !("serviceWorker" in navigator)) return;
+        const r = await navigator.serviceWorker.ready;
+        if (!r.periodicSync) return;
+        const st = await navigator.permissions.query({ name: "periodic-background-sync" });
+        if (st.state == "granted") await r.periodicSync.register("miplata-avisos", { minInterval: 12 * 3600 * 1000 });
+    } catch (e) {}
 }
 function askNotif() {
     if (typeof Notification == "undefined") return showToast("Este navegador no permite notificaciones");
-    Notification.requestPermission().then(p => { showToast(p == "granted" ? "Avisos activados" : "No se activaron los avisos"); checkReminders(); draw(); });
+    Notification.requestPermission().then(p => { showToast(p == "granted" ? "Avisos activados" : "No se activaron los avisos"); checkReminders(); regPeriodic(); draw(); });
 }
+function testNotif() { notify("Mi Plata", "Los avisos funcionan ✓", "prueba"); }
 
 // ---------- Inversiones ----------
 function togUsd() { usd = !usd; S.th.u = usd; save(); draw(); }
@@ -378,21 +467,23 @@ function delCard(id) { confirmAction("¿Borrar tarjeta?", () => { S.cards = S.ca
 
 // ---------- Deudas ----------
 function newDbt() {
-    openCustomModal("Nueva deuda", [{ l: "Nombre (ej. Préstamo moto)" }, { l: "Monto total", m: "numeric" }, { l: "Ya pagado antes (opcional)", m: "numeric" }], v => {
+    openCustomModal("Nueva deuda", [{ l: "Nombre (ej. Préstamo moto)" }, { l: "Monto total", m: "numeric" }, { l: "Ya pagado antes (opcional)", m: "numeric" }, { l: "Cuota mensual (opcional)", m: "numeric" }, { l: "Día de pago del mes 1-31 (opcional, activa avisos)", m: "numeric" }], v => {
         const t = num(v[1]); if (!v[0] || !t) return "Escribe nombre y monto.";
-        S.dbt.push({ id: Date.now(), n: v[0], t, p0: num(v[2]) }); save();
+        const dd = num(v[4]); if (v[4] && (dd < 1 || dd > 31)) return "El día de pago va entre 1 y 31.";
+        S.dbt.push({ id: Date.now(), n: v[0], t, p0: num(v[2]), cu: num(v[3]), dd }); save();
     });
 }
 function editDbt(id) {
     const d = S.dbt.find(x => x.id == id);
-    openCustomModal("Editar deuda", [{ l: "Nombre", v: esc(d.n) }, { l: "Monto total", v: d.t, m: "numeric" }], v => {
+    openCustomModal("Editar deuda", [{ l: "Nombre", v: esc(d.n) }, { l: "Monto total", v: d.t, m: "numeric" }, { l: "Cuota mensual (opcional)", v: d.cu || "", m: "numeric" }, { l: "Día de pago del mes 1-31 (opcional, activa avisos)", v: d.dd || "", m: "numeric" }], v => {
         const t = num(v[1]); if (!v[0] || !t) return "Escribe nombre y monto.";
-        d.n = v[0]; d.t = t; save();
+        const dd = num(v[3]); if (v[3] && (dd < 1 || dd > 31)) return "El día de pago va entre 1 y 31.";
+        d.n = v[0]; d.t = t; d.cu = num(v[2]); d.dd = dd; save();
     });
 }
 function payDbt(id) {
     const d = S.dbt.find(x => x.id == id);
-    openCustomModal("Abonar a " + esc(d.n), [{ l: "¿De dónde sale?", o: WH }, { l: "Monto", v: Math.round(dbtLeft(d)) || "", m: "numeric" }], v => {
+    openCustomModal("Abonar a " + esc(d.n), [{ l: "¿De dónde sale?", o: WH }, { l: "Monto", v: Math.round(dbtDue(d, ym(new Date())) || dbtLeft(d)) || "", m: "numeric" }], v => {
         const a = num(v[1]); if (!a) return "Escribe un monto válido.";
         S.items.push({ id: Date.now(), d: today(), t: "g", c: "Deudas/Tarjeta", n: "Pago deuda: " + d.n, a, k: "", w: v[0], q: 1, dbt: d.id }); save();
     });
@@ -425,8 +516,25 @@ function genRec() {
 }
 
 // ---------- Copias de seguridad ----------
+function markBackup() { S.bk = today(); delete S.bkz; save(); }
+function downloadBackup() {
+    markBackup(); // se marca antes de armar el archivo, así la copia ya incluye su propia fecha
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(S)], { type: "application/json" }));
+    a.download = "mi-plata-copia-" + today() + ".json"; a.click();
+    showToast("Copia descargada. Guárdala en Drive o envíatela por WhatsApp");
+    draw();
+}
+function snoozeBackup() { S.bkz = ymd(new Date(Date.now() + 3 * 864e5)); save(); draw(); }
+function importFile(inp) {
+    const f = inp.files && inp.files[0]; if (!f) return;
+    const r = new FileReader();
+    r.onload = () => { document.getElementById("imp").value = r.result; importBackup(); };
+    r.readAsText(f);
+}
 function copyBackup() {
-    const e = document.getElementById("ex"); e.select();
+    markBackup();
+    const e = document.getElementById("ex"); e.value = JSON.stringify(S); e.select();
     try { navigator.clipboard.writeText(e.value); showToast("Datos copiados al portapapeles"); } catch (_) {}
 }
 function importBackup() {
@@ -472,5 +580,5 @@ window.addEventListener("DOMContentLoaded", () => {
     draw();
     lockScreen();
     checkReminders();
-    if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+    if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").then(regPeriodic).catch(() => {});
 });

@@ -137,11 +137,46 @@ function destUI() {
         <input id="destAmt" inputmode="numeric" placeholder="¿Cuánto de este ingreso? (vacío = todo o la cuota)" oninput="fa(this)" class="${INP} hidden" autocomplete="off">`;
 }
 
+function bkUI() {
+    if (!bkDue()) return "";
+    const d = bkDaysAgo();
+    return `
+        <section class="${CARD} p-4 !border-amber-300 dark:!border-amber-500/40 bg-amber-50/60 dark:bg-amber-500/5">
+            <div class="flex items-start gap-3">
+                <div class="w-9 h-9 shrink-0 rounded-xl flex items-center justify-center text-sm bg-amber-100 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400"><i class="fa-solid fa-cloud-arrow-down"></i></div>
+                <div class="min-w-0 flex-1">
+                    <p class="text-xs font-bold text-slate-800 dark:text-white">${d === null ? "Aún no has hecho una copia de seguridad" : "Tu última copia fue hace " + d + " días"}</p>
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">Tus datos viven solo en este celular. Si lo pierdes, lo formateas o borras el navegador, se van con él. Descarga la copia y guárdala en Drive o envíatela por WhatsApp.</p>
+                    <div class="flex gap-2 mt-3">
+                        <button onclick="downloadBackup()" class="px-3 py-1.5 bg-indigo-600 text-white rounded-xl text-xs font-semibold shadow-md shadow-indigo-500/20">Descargar copia</button>
+                        <button onclick="snoozeBackup()" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold">Recordarme luego</button>
+                    </div>
+                </div>
+            </div>
+        </section>`;
+}
+
+function dailyUI(disp) {
+    const dy = dailyInfo(disp);
+    if (!dy) return "";
+    const over = dy.rest < 0, none = dy.pool <= 0;
+    const sub = none ? "Lo disponible no alcanza para lo que resta del mes"
+        : "≈ " + fmt(dy.perDay) + " por día · " + (dy.left == 1 ? "último día del mes" : "quedan " + dy.left + " días");
+    return `
+        <div class="mt-4 p-3 rounded-2xl bg-white/10 flex items-center justify-between gap-3">
+            <div class="min-w-0">
+                <small class="text-[10px] text-indigo-200 block uppercase">${over && !none ? "Hoy te pasaste por" : "Hoy puedes gastar"}</small>
+                <b class="text-xl font-extrabold ${over || none ? "text-rose-300" : ""}">${none ? fmt(0) : fmt(over ? -dy.rest : dy.rest)}</b>
+            </div>
+            <div class="text-right text-[11px] text-indigo-200 leading-snug">${sub}${dy.fixed > 0 ? `<br>ya descontados ${fmt(dy.fixed)} de gastos fijos por venir` : ""}</div>
+        </div>`;
+}
+
 // ---------- Inicio ----------
 function vHome() {
     if (flt.k == "c" && !S.cards.some(c => c.id == flt.v)) flt = { k: "cards", v: null };
     const m = mon(), ing = sum(m, x => x.t == "i"), aho = svm(), gas = sum(m, x => x.t == "g"), sob = ing - gas - aho;
-    const cats = (type == "g" ? G.filter(x => x[0] != "Ahorro").map(x => x[0]) : I).map(c => `<option>${c}</option>`).join("");
+    const cats = (type == "g" ? G.filter(x => x[0] != "Ahorro").map(x => x[0]) : I).map(c => `<option>${c}</option>`).join("") + (type == "g" ? '<option value="__new">＋ Nueva categoría…</option>' : "");
     const by = G.map(([c]) => [c, sum(m, x => x.t == "g" && x.c == c && !x.s)]).filter(x => x[1] > 0 || (S.bud || {})[x[0]]).sort((a, b) => b[1] - a[1]), mx = (by[0] ? by[0][1] : 1) || 1;
 
     const hasW = S.items.some(x => x.w) || Object.keys(S.ini).length > 0, nm = ym(cur);
@@ -159,6 +194,7 @@ function vHome() {
 
     const sel = "w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-white";
     return `
+        ${bkUI()}
         <section class="relative overflow-hidden bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-800 text-white p-6 rounded-3xl shadow-xl shadow-indigo-500/10 flex flex-col justify-between">
             <div class="absolute -right-10 -bottom-10 w-40 h-40 bg-white/10 rounded-full blur-2xl pointer-events-none float-slow"></div>
             <div class="flex justify-between items-start">
@@ -172,7 +208,8 @@ function vHome() {
                     <button onclick="go(1)" class="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-sm font-bold transition">›</button>
                 </div>
             </div>
-            <div class="grid grid-cols-3 gap-2 mt-6 pt-4 border-t border-white/10">
+            ${dailyUI(disp)}
+            <div class="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-white/10">
                 <div><small class="text-[10px] text-indigo-200 block uppercase">En mano</small><b class="text-xs sm:text-sm font-bold">${fmt(have)}</b></div>
                 <div><small class="text-[10px] text-indigo-200 block uppercase">Tarjetas</small><b class="text-xs sm:text-sm font-bold">${fmt(due)}</b></div>
                 <div><small class="text-[10px] text-indigo-200 block uppercase">Apartado</small><b class="text-xs sm:text-sm font-bold">${fmt(svt)}</b></div>
@@ -205,7 +242,7 @@ function vHome() {
             <div class="space-y-3">
                 <input id="amt" inputmode="numeric" placeholder="Monto en pesos" oninput="fa(this);cuotaPreview();metaPreview()" class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-lg font-bold text-slate-800 dark:text-white focus:ring-2 focus:ring-indigo-500" autocomplete="off">
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <select id="cat" class="${sel}">${cats}</select>
+                    <select id="cat" onchange="catChange(this)" class="${sel}">${cats}</select>
                     <input id="date" type="date" value="${today()}" class="${sel}">
                 </div>
                 ${type == "g" ? `
@@ -234,7 +271,7 @@ function vHome() {
                     const b = (S.bud || {})[c], r = b ? v / b : v / mx;
                     return `<div class="text-xs">
                         <div class="flex justify-between mb-1 font-medium"><span>${c}</span><span>${fmt(v)}${b ? " de " + fmt(b) : ""}</span></div>
-                        <div class="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden"><div class="h-full rounded-full ${b && r >= 1 ? "bg-rose-500" : "bg-indigo-600"}" style="width:${Math.min(100, r * 100)}%"></div></div>
+                        <div class="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden"><div class="h-full rounded-full ${b && r >= 1 ? "bg-rose-500" : b && r >= 0.8 ? "bg-amber-500" : "bg-indigo-600"}" style="width:${Math.min(100, r * 100)}%"></div></div>
                     </div>`;
                 }).join("") || '<p class="text-xs text-slate-400 text-center py-4">Aún no hay gastos este mes.</p>'}
             </div>
@@ -411,7 +448,7 @@ function drawCharts() {
     const dark = document.documentElement.classList.contains("dark");
     Chart.defaults.color = dark ? "#94a3b8" : "#64748b";
     const m = mon(), by = G.map(([c]) => [c, sum(m, x => x.t == "g" && x.c == c && !x.s)]).filter(x => x[1] > 0);
-    charts.push(new Chart(document.getElementById("chCat"), { type: "doughnut", data: { labels: by.map(x => x[0]), datasets: [{ data: by.map(x => x[1]), backgroundColor: ["#6366f1","#8b5cf6","#10b981","#f59e0b","#ef4444","#06b6d4","#ec4899","#64748b","#84cc16"] }] } }));
+    charts.push(new Chart(document.getElementById("chCat"), { type: "doughnut", data: { labels: by.map(x => x[0]), datasets: [{ data: by.map(x => x[1]), backgroundColor: by.map((_, i) => ["#6366f1","#8b5cf6","#10b981","#f59e0b","#ef4444","#06b6d4","#ec4899","#64748b","#84cc16","#f97316","#14b8a6","#a855f7","#0ea5e9","#e11d48","#65a30d","#78716c"][i % 16]) }] } }));
 
     const cc = document.getElementById("chCmp");
     if (cc) {
@@ -436,17 +473,18 @@ function vTar() {
     const m = monAll(), n = ym(new Date());
     let tc = 0, tu = 0;
     const cardsList = S.cards.map(c => {
-        const u = sum(m, x => x.k == c.n), cu = cardUse(c, n), d = nextPay(c.p), tn = useTone(cu.raw), it = cardInt(c, n);
+        const u = sum(m, x => x.k == c.n), cu = cardUse(c, n), d = dueIn(c.p), tn = useTone(cu.raw), it = cardInt(c, n);
         const pv = lastPct[c.id], ch = pv && (pv.b !== cu.pct || pv.n !== cu.raw);
         const fb = pv && (!anim || ch) ? pv.b : 0, fn = pv && (!anim || ch) ? pv.n : 0;
         lastPct[c.id] = { b: cu.pct, n: cu.raw };
         const pop = cu.ok && lastOk[c.id] === false; lastOk[c.id] = cu.ok;
         if (c.c) { tc += c.c; tu += cu.used; }
+        const late = !cu.ok && cu.cq - cu.ab > 0 && d < 0, nd = d < 0 && !late ? nextPay(c.p) : d;
         return `
             <div class="lift ${CARD} p-5 mb-4">
                 <div class="flex justify-between items-center mb-2">
                     <div><b class="text-sm font-bold text-slate-800 dark:text-white">💳 ${esc(c.n)}</b>${c.ir > 0 ? `<span class="text-[11px] text-slate-400 ml-2">${tf(c.ir)}% mensual</span>` : ""}</div>
-                    <span class="text-xs font-semibold ${cu.ok ? "text-emerald-500" : d <= 5 ? "text-rose-500" : "text-slate-400"}">${cu.ok ? `<span class="${pop ? "pop" : ""}">Pagada ✓</span>` : "Vence en " + d + " d"}</span>
+                    <span class="text-xs font-semibold ${cu.ok ? "text-emerald-500" : late || nd <= 5 ? "text-rose-500" : "text-slate-400"}">${cu.ok ? `<span class="${pop ? "pop" : ""}">Pagada ✓</span>` : late ? "Venció hace " + (-d) + " d" : "Vence en " + nd + " d"}</span>
                 </div>
                 <div class="grid grid-cols-2 gap-2 text-xs mb-4">
                     <div><span class="text-slate-400 block">Compras este mes</span><b>${fmt(u)}</b></div>
@@ -503,7 +541,8 @@ function vDeu() {
             <div class="flex justify-between items-center mb-2"><b class="text-sm font-bold">${esc(d.n)}</b><span class="text-xs font-semibold ${left <= 0 ? "text-emerald-500" : "text-slate-400"}">${left <= 0 ? "Pagada ✓" : p.toFixed(0) + "% pagado"}</span></div>
             <div class="text-2xl font-extrabold mb-1">${fmt(Math.max(0, left))}</div>
             <div class="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden mb-1"><div class="bg-rose-500 h-full rounded-full" style="width:${p}%"></div></div>
-            <div class="text-[11px] text-slate-400 mb-3">Pagado ${fmt(done)} de ${fmt(d.t)}</div>
+            <div class="text-[11px] text-slate-400 ${d.dd && left > 0 ? "mb-1" : "mb-3"}">Pagado ${fmt(done)} de ${fmt(d.t)}</div>
+            ${d.dd && left > 0 ? (() => { const due = dbtDue(d, ym(new Date())), dt = dueIn(d.dd); return `<div class="text-[11px] mb-3 ${due > 0 && dt <= 3 ? "text-rose-500 font-semibold" : "text-slate-400"}">${d.cu > 0 ? "Cuota " + fmt(d.cu) + " · " : ""}pago el día ${d.dd} · ${due > 0 ? dueTxt(dt) : "al día este mes ✓"}</div>`; })() : ""}
             <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
                 ${left > 0 ? `<button onclick="payDbt(${d.id})" class="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-xl text-xs font-semibold">Abonar</button>` : ""}
                 <button onclick="editDbt(${d.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold">Editar</button>
@@ -526,25 +565,38 @@ function vSet() {
     const ini = WH.map((w, i) => `<div class="flex items-center justify-between gap-3 text-xs"><span class="font-medium">${w}</span><input inputmode="numeric" value="${S.ini[w] ? Number(S.ini[w]).toLocaleString("es-CO") : ""}" placeholder="0" oninput="fa(this)" onchange="setIni(${i}, this.value)" class="w-36 px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-right"></div>`).join("");
     const rec = S.rec.map(r => `<div class="flex justify-between items-center text-xs py-1"><span>${esc(r.n)} · día ${r.day} · ${fmt(r.a)}</span><button onclick="delRec(${r.id})" class="text-rose-500 font-semibold">Borrar</button></div>`).join("") || '<p class="text-xs text-slate-400">Sin gastos fijos.</p>';
     const np = typeof Notification == "undefined" ? "no" : Notification.permission;
+    const bgOk = typeof ServiceWorkerRegistration != "undefined" && "periodicSync" in ServiceWorkerRegistration.prototype;
+    const cats = S.cat.map(c => `<div class="flex justify-between items-center text-xs py-1"><span>${esc(c.n)} · <span class="text-slate-400">${c.k == "n" ? "Necesidad" : "Gusto"}</span></span><span class="flex gap-3"><button onclick="editCat(${c.id})" class="text-indigo-600 font-semibold">Editar</button><button onclick="delCat(${c.id})" class="text-rose-500 font-semibold">Borrar</button></span></div>`).join("") || '<p class="text-xs text-slate-400">Aún no has creado categorías propias.</p>';
     return `
+        <section class="${card}"><div class="flex justify-between items-center"><h3 class="text-base font-bold">Mis categorías</h3><button onclick="newCat()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold">+ Nueva</button></div>
+            <p class="text-xs text-slate-400">Además de las 8 de siempre. El tipo (necesidad o gusto) define en qué parte de la regla 50/30/20 cuenta. También puedes crearlas desde Inicio, al anotar un gasto.</p>${cats}</section>
         <section class="${card}"><h3 class="text-base font-bold">Presupuestos mensuales</h3>${bud}</section>
         <section class="${card}"><div class="flex justify-between items-center"><h3 class="text-base font-bold">Gastos fijos</h3><button onclick="newRec()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold">+ Agregar</button></div>${rec}</section>
         <section class="${card}"><h3 class="text-base font-bold">Saldos iniciales</h3><p class="text-xs text-slate-400">Lo que ya tenías en cada billetera antes de empezar a anotar.</p>${ini}</section>
         <section class="${card}"><h3 class="text-base font-bold">Ocultar del resumen</h3><p class="text-xs text-slate-400">Lo que ocultes no suma en “En mano” ni en “Tarjetas”, y sus gastos no salen en el resumen ni en las gráficas.</p>${hidUI()}</section>
         <section class="${card}"><h3 class="text-base font-bold">Avisos de metas</h3>
-            <p class="text-xs text-slate-400">Cuando abras la app te avisa de las metas que vencen en 7 días o ya vencieron. Siempre las ves también en los Consejos de Inicio.</p>
+            <p class="text-xs text-slate-400">Te avisa de metas (7 días antes), tarjetas y deudas con día de pago (3 días antes) y hasta 7 días después si siguen pendientes. Siempre lo ves también en los Consejos de Inicio.</p>
+            <p class="text-xs text-slate-400">${bgOk ? "Si instalaste la app en Chrome (Android), también intenta avisarte en segundo plano sin que la abras. El sistema decide cuándo, así que no es exacto ni está garantizado." : "En este navegador los avisos solo llegan cuando abres la app. Para recibirlos sin abrirla se necesita Chrome en Android con la app instalada."}</p>
             ${np == "no" ? '<p class="text-xs text-slate-400">Este navegador no permite notificaciones.</p>'
-              : np == "granted" ? '<p class="text-xs text-emerald-500 font-semibold">Avisos activados ✓</p>'
+              : np == "granted" ? '<p class="text-xs text-emerald-500 font-semibold">Avisos activados ✓</p><button onclick="testNotif()" class="px-4 py-2 bg-slate-800 dark:bg-slate-700 text-white font-semibold rounded-xl text-xs">Enviar aviso de prueba</button>'
               : np == "denied" ? '<p class="text-xs text-rose-500">Los bloqueaste en el navegador. Actívalos desde los permisos del sitio.</p>'
               : '<button onclick="askNotif()" class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-xl text-xs">Activar avisos</button>'}
         </section>
         <section class="${card}"><h3 class="text-base font-bold">Bloqueo con PIN</h3><p class="text-xs text-slate-400">Bloquea la pantalla al abrir la app. No cifra los datos.</p><button onclick="setPin()" class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-xl text-xs">${S.pin ? "Cambiar o quitar PIN" : "Crear PIN"}</button></section>
         <section class="${card}"><h3 class="text-base font-bold">Copia de seguridad</h3>
-            <textarea id="ex" readonly rows="4" class="${inp}">${esc(JSON.stringify(S))}</textarea>
-            <button onclick="copyBackup()" class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-xl text-xs">Copiar datos</button>
+            <p class="text-xs ${bkDue() ? "text-amber-500 font-semibold" : "text-slate-400"}">${S.bk ? "Última copia: " + dmy(S.bk) + " (hace " + bkDaysAgo() + " d). Te lo recuerdo cada " + BK_DAYS + " días." : "Aún no has hecho ninguna copia. Tus datos solo están en este celular."}</p>
+            <button onclick="downloadBackup()" class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-xl text-xs">Descargar copia (.json)</button>
             <button onclick="exportCsv()" class="px-4 py-2 bg-slate-800 dark:bg-slate-700 text-white font-semibold rounded-xl text-xs">Descargar CSV</button>
-            <label class="block text-xs font-semibold text-slate-500 uppercase pt-2">Restaurar copia (pega el JSON)</label>
-            <textarea id="imp" rows="3" class="${inp}"></textarea>
-            <button onclick="importBackup()" class="px-4 py-2 bg-slate-800 dark:bg-slate-700 text-white font-semibold rounded-xl text-xs">Restaurar</button>
+            <label class="block text-xs font-semibold text-slate-500 uppercase pt-2">Restaurar desde archivo</label>
+            <input type="file" accept=".json,application/json" onchange="importFile(this)" class="block w-full text-xs text-slate-500 file:mr-3 file:px-4 file:py-2 file:rounded-xl file:border-0 file:bg-slate-800 file:text-white file:font-semibold file:text-xs">
+            <details class="pt-2"><summary class="text-xs font-semibold text-slate-500 cursor-pointer">Copiar o pegar como texto</summary>
+                <div class="space-y-3 pt-3">
+                    <textarea id="ex" readonly rows="4" class="${inp}">${esc(JSON.stringify(S))}</textarea>
+                    <button onclick="copyBackup()" class="px-4 py-2 bg-slate-800 dark:bg-slate-700 text-white font-semibold rounded-xl text-xs">Copiar datos</button>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase pt-2">Restaurar copia (pega el JSON)</label>
+                    <textarea id="imp" rows="3" class="${inp}"></textarea>
+                    <button onclick="importBackup()" class="px-4 py-2 bg-slate-800 dark:bg-slate-700 text-white font-semibold rounded-xl text-xs">Restaurar</button>
+                </div>
+            </details>
         </section>`;
 }

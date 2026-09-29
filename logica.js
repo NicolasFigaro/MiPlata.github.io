@@ -1,7 +1,8 @@
 // ===== Mi Plata · logica.js =====
 // Datos, utilidades y cálculos. No toca la pantalla (eso está en vistas.js y acciones.js).
 
-const G = [["Vivienda","n"],["Comida","n"],["Transporte","n"],["Servicios","n"],["Deudas/Tarjeta","n"],["Ocio","g"],["Compras","g"],["Otros","g"],["Ahorro","a"]];
+const G0 = [["Vivienda","n"],["Comida","n"],["Transporte","n"],["Servicios","n"],["Deudas/Tarjeta","n"],["Ocio","g"],["Compras","g"],["Otros","g"],["Ahorro","a"]];
+const G = G0.slice(); // lista viva: base + categorías propias (se rearma con syncG)
 const I = ["Sueldo","Extra","Otro ingreso"];
 const WH = ["Efectivo","Cuenta de ahorros","Billetera digital (Nequi, Daviplata)"];
 const KEY = "miplata_advanced_v2"; // misma clave: tus datos actuales siguen funcionando
@@ -43,7 +44,11 @@ S.th = S.th || { m: "auto", p: 0, pv: false };
 S.hide = S.hide || {};
 S.ini = S.ini || {};
 S.nwh = S.nwh || {};   // historial del patrimonio neto (una foto por mes)
-S.nt = S.nt || {};     // avisos de metas ya mostrados (para no repetir el mismo día)
+S.nt = S.nt || {};     // avisos ya mostrados (para no repetir el mismo día)
+S.cat = S.cat || [];   // categorías propias: { id, n: nombre, k: "n" necesidad | "g" gusto }
+// "Ahorro" siempre queda de última
+const syncG = () => { G.length = 0; G0.slice(0, -1).forEach(x => G.push(x)); S.cat.forEach(c => G.push([c.n, c.k])); G.push(G0[G0.length - 1]); };
+syncG();
 S.items.forEach(x => { if (x.t == "g") { if (WH.includes(x.k)) { x.w = x.k; x.k = ""; } else if (!x.k && !x.w) x.w = WH[0]; } });
 // Inversiones antiguas no tenían fecha: se usa el momento en que se crearon
 S.inv.forEach(x => { if (!x.d) { const d = new Date(x.id); x.d = isNaN(d) ? today() : ymd(d); } });
@@ -64,6 +69,7 @@ const lastPct = {}, lastOk = {};
 const save = () => {
     try { S.nwh[ym(new Date())] = Math.round(netWorth().tot); } catch (e) {}
     try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {}
+    try { mirrorEvents(); } catch (e) {}
 };
 const cop = (v, c) => c == "USD" ? v * S.trm : v;
 const show = c => usd ? fu(c / S.trm) : fmt(c);
@@ -195,6 +201,66 @@ const fltMatch = x => {
     return true;
 };
 
+// ---------- Copia de seguridad: recordatorio ----------
+const BK_DAYS = 14; // cada cuántos días te lo recuerda
+const bkDaysAgo = () => S.bk ? daysBetween(new Date(S.bk + "T00:00:00"), midnight()) : null;
+const bkDue = () => {
+    if (S.items.length < 3 && !S.acc.length && !S.inv.length) return false; // aún no hay nada que perder
+    if (S.bkz && S.bkz > today()) return false;                              // pospuesto
+    const d = bkDaysAgo();
+    return d === null || d >= BK_DAYS;
+};
+
+// ---------- Cuánto puedo gastar hoy ----------
+// Reparte lo disponible entre los días que faltan del mes (hoy incluido),
+// descontando los gastos fijos que todavía no han "caído" este mes.
+function dailyInfo(disp) {
+    const n = new Date();
+    if (ym(n) != ym(cur)) return null; // solo tiene sentido en el mes actual
+    const nm = ym(n), td = n.getDate(), left = new Date(n.getFullYear(), n.getMonth() + 1, 0).getDate() - td + 1;
+    // Lo gastado hoy que salió de una billetera (ya está restado de "disp")
+    const spent = S.items.filter(x => x.d == today() && x.t == "g" && !x.k && !x.sav && vis(x)).reduce((s, x) => s + x.a, 0);
+    const fixed = (S.rec || []).filter(r => r.last != nm && r.day > td && !r.k).reduce((s, r) => s + r.a, 0);
+    const pool = disp + spent - fixed;   // lo que había al empezar el día, menos lo que ya viene
+    const perDay = pool / left;
+    return { left, spent, fixed, pool, perDay, rest: perDay - spent };
+}
+
+// ---------- Presupuestos ----------
+const catSpent = (c, k) => S.items.filter(x => x.d.startsWith(k) && x.t == "g" && x.c == c && !x.s && vis(x)).reduce((s, x) => s + x.a, 0);
+
+// ---------- Fechas de pago y avisos ----------
+const REM_WIN = { g: 7, c: 3, d: 3 }; // cuántos días antes empieza a avisar: metas, tarjetas, deudas
+const daysTo = date => daysBetween(midnight(), new Date(date + "T00:00:00"));
+const payDate = p => { const n = new Date(), dim = new Date(n.getFullYear(), n.getMonth() + 1, 0).getDate(); return ymd(new Date(n.getFullYear(), n.getMonth(), Math.min(p, dim))); };
+// Días que faltan para el pago de ESTE mes (negativo = ya pasó)
+const dueIn = p => daysTo(payDate(p));
+const dueTxt = d => d < 0 ? "venció hace " + (-d) + (d == -1 ? " día" : " días") : d == 0 ? "vence hoy" : "vence en " + d + (d == 1 ? " día" : " días");
+// Lo que falta pagar este mes de una deuda con día de pago
+const dbtDue = (d, nm) => {
+    const left = dbtLeft(d); if (!(left > 0)) return 0;
+    const paid = S.items.filter(x => x.dbt == d.id && x.d.startsWith(nm)).reduce((s, x) => s + x.a, 0);
+    return d.cu > 0 ? Math.min(left, Math.max(0, d.cu - paid)) : (paid > 0 ? 0 : left);
+};
+// Todo lo que puede avisar: metas, tarjetas y deudas. La app y el service worker usan esta misma lista.
+function reminderEvents() {
+    const E = [], nm = ym(new Date());
+    S.acc.filter(a => !a.f && a.dl && a.g).forEach(a => {
+        const gi = goalInfo(a); if (!gi || gi.done) return;
+        E.push({ key: "g" + a.id, title: "Mi Plata · " + a.n, what: "Tu meta", date: a.dl, win: REM_WIN.g, extra: "Faltan " + fm(a, gi.falta) + "." });
+    });
+    S.cards.filter(c => !(S.hide || {})[c.n]).forEach(c => {
+        const due = cardDue(c, nm); if (!(due > 0)) return;
+        E.push({ key: "c" + c.id, title: "Mi Plata · " + c.n, what: "El pago de la tarjeta", date: payDate(c.p), win: REM_WIN.c, extra: "Te faltan " + fmt(due) + " de la cuota." });
+    });
+    S.dbt.filter(d => d.dd).forEach(d => {
+        const due = dbtDue(d, nm); if (!(due > 0)) return;
+        E.push({ key: "d" + d.id, title: "Mi Plata · " + d.n, what: "El pago de la deuda", date: payDate(d.dd), win: REM_WIN.d, extra: d.cu > 0 ? "Te faltan " + fmt(due) + " de la cuota." : "Debes " + fmt(due) + " y aún no abonas este mes." });
+    });
+    return E;
+}
+const remindBody = (e, days) => e.what + " " + dueTxt(days) + ". " + e.extra;
+
 // ---------- Consejos automáticos ----------
 function tipsList(by) {
     const m = mon(), nm = ym(new Date()), T = [];
@@ -217,12 +283,17 @@ function tipsList(by) {
     // Tarjetas
     let goodCard = false, intTot = 0;
     S.cards.filter(c => c.c && !(S.hide || {})[c.n]).forEach(c => {
-        const u = cardUse(c, nm), pc = Math.round(u.raw), d = nextPay(c.p);
+        const u = cardUse(c, nm), pc = Math.round(u.raw), d = dueIn(c.p);
         intTot += cardInt(c, nm);
-        if (!u.ok && u.cq - u.ab > 0 && d <= 5) add(0, "fa-calendar-day", c.n + " vence en " + d + (d == 1 ? " día" : " días"), "Te faltan " + fmt(u.cq - u.ab) + " de la cuota. Págala a tiempo y evita intereses de mora.");
+        if (!u.ok && u.cq - u.ab > 0 && d <= 5 && d >= -30) add(0, "fa-calendar-day", c.n + " " + dueTxt(d), "Te faltan " + fmt(u.cq - u.ab) + " de la cuota. " + (d < 0 ? "Págala cuanto antes para frenar los intereses de mora." : "Págala a tiempo y evita intereses de mora."));
         if (u.raw >= 70) add(0, "fa-credit-card", c.n + " está al " + pc + "% del cupo", "Abona para liberar cupo. Lo ideal es mantener cada tarjeta por debajo del 30%.");
         else if (u.raw >= 30) add(1, "fa-credit-card", c.n + " va en " + pc + "% del cupo", "Antes de otra compra a cuotas, abona un poco. Meta: menos del 30% utilizado.");
         else if (!goodCard) { goodCard = true; add(3, "fa-circle-check", "Buen manejo de " + c.n, "Solo usas el " + pc + "% del cupo. Eso cuida tu historial crediticio."); }
+    });
+    // Deudas con día de pago
+    S.dbt.filter(x => x.dd).forEach(x => {
+        const due = dbtDue(x, nm), dt = dueIn(x.dd);
+        if (due > 0 && dt <= 5 && dt >= -30) add(0, "fa-hand-holding-dollar", x.n + " " + dueTxt(dt), (x.cu > 0 ? "Te faltan " + fmt(due) + " de la cuota. " : "Aún no registras un abono este mes. ") + "Págala a tiempo para evitar intereses de mora.");
     });
     if (intTot > 0) add(1, "fa-percent", "Pagas " + fmt(intTot) + " en intereses este mes", "Comprar sin interés o a una sola cuota te ahorra esa plata.");
 
@@ -233,7 +304,12 @@ function tipsList(by) {
         if (aho / ing < 0.1) add(2, "fa-piggy-bank", "Págate primero", "Separa entre 10% y 20% apenas recibas el ingreso, antes de gastar.");
         else if (aho / ing >= 0.2) add(3, "fa-piggy-bank", "Estás ahorrando el " + Math.round(aho / ing * 100) + "%", "Vas por encima del 20% recomendado. ¡Sigue así!");
     }
-    by.filter(([c, v]) => (S.bud || {})[c] && v > S.bud[c]).slice(0, 1).forEach(([c, v]) => add(1, "fa-bullseye", "Te pasaste en " + c, "Llevas " + fmt(v) + " de un presupuesto de " + fmt(S.bud[c]) + ". Frena esta categoría lo que queda del mes."));
+    // Presupuestos: avisa desde el 80% (antes de pasarte) y cuando ya te pasaste. Máx. 2, los más críticos.
+    const nowM = ym(cur) == nm, dLeft = new Date(cur.getFullYear(), cur.getMonth() + 1, 0).getDate() - new Date().getDate() + 1;
+    by.filter(([c]) => (S.bud || {})[c]).map(([c, v]) => [c, v, S.bud[c], v / S.bud[c]]).filter(x => x[3] >= 0.8).sort((a, b) => b[3] - a[3]).slice(0, 2).forEach(([c, v, b, r]) => {
+        if (r >= 1) add(1, "fa-bullseye", "Te pasaste en " + c, "Llevas " + fmt(v) + " de un presupuesto de " + fmt(b) + ". Frena esta categoría lo que queda del mes.");
+        else add(1, "fa-gauge-high", "Vas al " + Math.floor(r * 100) + "% de tu presupuesto en " + c, "Te quedan " + fmt(b - v) + (nowM && dLeft > 0 ? " para " + dLeft + (dLeft == 1 ? " día" : " días") + " (≈ " + fmt((b - v) / dLeft) + " por día)." : "."));
+    });
 
     const ah = S.acc.filter(a => !a.f).reduce((t, a) => t + svb(a.id) * (a.u ? S.trm : 1), 0);
     if (gas > 0 && ah < gas * 3) add(2, "fa-shield-halved", "Arma tu fondo de emergencia", "Meta: 3 meses de gastos (≈ " + fmt(gas * 3) + "). Llevas " + Math.round(ah / (gas * 3) * 100) + "%.");
