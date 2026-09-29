@@ -126,20 +126,36 @@ const pend = (x, nm) => {
 const intOf = (x, nm) => { const i = rate(x); return i > 0 && me(x, nm) >= 1 ? i * pend(x, nm) : 0; };
 const cardInt = (c, nm) => S.items.filter(x => x.k == c.n).reduce((t, x) => t + intOf(x, nm), 0);
 const cardPaid = (c, nm) => S.items.filter(x => x.t == "p" && x.pc == c.n && x.d.startsWith(nm)).reduce((s, x) => s + x.a, 0);
-// Reparte los pagos entre las cuotas mes a mes. Lo que pagas y no cabe en la cuota de ese mes
-// (ej. pagas antes de que cierre el extracto) queda como saldo a favor y se aplica a las cuotas que siguen.
-// Devuelve la cuota del mes nm y lo que ya hay pagado para ella (incluido el saldo a favor que llega de meses anteriores).
+// Cómo se aplican los pagos a una tarjeta:
+//  1) Lo que pagas en un mes va primero a la cuota que toca pagar ese mes.
+//  2) Lo que sobra (o lo que pagas en un mes sin cuota) es un abono a capital: baja lo que debes y libera cupo,
+//     pero NO te quita la cuota del mes siguiente. Acorta el plazo: se cancelan las últimas cuotas.
+// Devuelve la cuota del mes nm ya ajustada por esos abonos (cuota), lo pagado en ese mes (av) y el abono a capital acumulado antes de ese mes (pool).
+const mIdx = m => +m.slice(0, 4) * 12 + +m.slice(5);
+const idxYm = i => Math.floor((i - 1) / 12) + "-" + String((i - 1) % 12 + 1).padStart(2, "0");
 const cardFlow = (c, nm) => {
     const its = S.items.filter(x => x.k == c.n), ps = S.items.filter(x => x.t == "p" && x.pc == c.n);
-    const ms = its.map(x => x.d.slice(0, 7)).concat(ps.map(x => x.d.slice(0, 7))).sort();
-    if (!ms.length || ms[0] > nm) return { cuota: 0, av: 0 };
-    let cuota = 0, av = 0, carry = 0;
-    for (let m = ms[0]; m <= nm; m = nextMonth(m)) {
-        av = carry + ps.filter(x => x.d.startsWith(m)).reduce((s, x) => s + x.a, 0);
-        cuota = its.reduce((t, x) => t + cm(x, m), 0);
-        carry = Math.max(0, av - cuota);
+    const n0 = mIdx(nm), sch = {}, paidM = {};
+    let start = null, last = null;
+    its.forEach(x => {
+        const q = x.q > 1 ? x.q : 1, f = firstPay(x);
+        for (let e = 0; e < q; e++) { const i = f + e; sch[i] = (sch[i] || 0) + cm(x, idxYm(i)); }
+        if (start === null || f < start) start = f;
+        if (last === null || f + q - 1 > last) last = f + q - 1;
+    });
+    ps.forEach(x => { const i = mIdx(x.d.slice(0, 7)); paidM[i] = (paidM[i] || 0) + x.a; if (start === null || i < start) start = i; });
+    if (start === null || start > n0) return { cuota: 0, av: 0, pool: 0 };
+    let total = 0; Object.keys(sch).forEach(i => { total += sch[i]; });
+    let pool = 0, run = 0, out = { cuota: 0, av: 0, pool: 0 };
+    for (let i = start; i <= n0; i++) {
+        const base = sch[i] || 0, paid = paidM[i] || 0;
+        run += base;
+        const later = total - run;                                   // cuotas que vienen después de este mes
+        const eff = base - Math.max(0, Math.min(base, pool - later)); // el abono a capital borra primero las últimas cuotas
+        if (i == n0) out = { cuota: eff, av: paid, pool };
+        pool += Math.max(0, paid - eff);
     }
-    return { cuota, av };
+    return out;
 };
 const cardDue = (c, nm) => { if (c.paid[nm]) return 0; const f = cardFlow(c, nm); return Math.max(0, f.cuota - f.av); };
 const nextPay = p => {
@@ -151,9 +167,9 @@ const nextPay = p => {
 // Cupo real: lo que debes menos lo que ya pagaste
 const cardUse = (c, nm) => {
     const its = S.items.filter(x => x.k == c.n);
-    const f = cardFlow(c, nm), cq = f.cuota, us = its.reduce((t, x) => t + pend(x, nm), 0), ab = f.av; // ab = pagado para esta cuota (con saldo a favor de meses anteriores)
+    const f = cardFlow(c, nm), cq = f.cuota, us = its.reduce((t, x) => t + pend(x, nm), 0), ab = f.av; // ab = pagado este mes; f.pool = abonos a capital de meses anteriores
     const ok = !!c.paid[nm] || (cq > 0 && cq - ab <= 0);
-    const used = Math.max(0, us - (ok ? Math.max(ab, cq) : ab));
+    const used = Math.max(0, us - f.pool - (ok ? Math.max(ab, cq) : ab));
     const raw = c.c ? used / c.c * 100 : 0;
     return { cq, us, ab, ok, used, raw, pct: Math.min(100, raw), avail: Math.max(0, (c.c || 0) - used) };
 };
