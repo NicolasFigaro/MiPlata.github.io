@@ -181,8 +181,8 @@ function addMov() {
     let pa = 0, pcSel = "", ac = null, db = null;
     if (ds == "card") {
         pcSel = g("payCard").value;
-        pa = Math.min(a, da || cardDue(S.cards.find(c => c.n == pcSel), ym(new Date())));
-        if (!(pa > 0)) return er("Esa tarjeta no tiene cuota pendiente este mes.");
+        pa = Math.min(a, da || cardNext(S.cards.find(c => c.n == pcSel)).due);
+        if (!(pa > 0)) return er("Esa tarjeta no tiene cuota pendiente.");
     } else if (ds == "save") {
         ac = S.acc.find(x => x.id == g("saveAcc").value); pa = Math.min(a, da || a);
     } else if (ds == "debt") {
@@ -454,7 +454,7 @@ function payCard(id) {
     const c = S.cards.find(x => x.id == id), nm = ym(new Date());
     openCustomModal("Abonar a " + esc(c.n), [
         { l: "¿De dónde sale?", o: WH },
-        { l: "Monto", v: Math.round(cardDue(c, nm)) || "", m: "numeric" }
+        { l: "Monto", v: Math.round(cardNext(c).due) || "", m: "numeric" }
     ], v => {
         const a = num(v[1]);
         if (!a) return "Escribe un monto válido.";

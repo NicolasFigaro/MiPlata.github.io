@@ -126,7 +126,22 @@ const pend = (x, nm) => {
 const intOf = (x, nm) => { const i = rate(x); return i > 0 && me(x, nm) >= 1 ? i * pend(x, nm) : 0; };
 const cardInt = (c, nm) => S.items.filter(x => x.k == c.n).reduce((t, x) => t + intOf(x, nm), 0);
 const cardPaid = (c, nm) => S.items.filter(x => x.t == "p" && x.pc == c.n && x.d.startsWith(nm)).reduce((s, x) => s + x.a, 0);
-const cardDue = (c, nm) => c.paid[nm] ? 0 : Math.max(0, S.items.filter(x => x.k == c.n).reduce((t, x) => t + cm(x, nm), 0) - cardPaid(c, nm));
+// Reparte los pagos entre las cuotas mes a mes. Lo que pagas y no cabe en la cuota de ese mes
+// (ej. pagas antes de que cierre el extracto) queda como saldo a favor y se aplica a las cuotas que siguen.
+// Devuelve la cuota del mes nm y lo que ya hay pagado para ella (incluido el saldo a favor que llega de meses anteriores).
+const cardFlow = (c, nm) => {
+    const its = S.items.filter(x => x.k == c.n), ps = S.items.filter(x => x.t == "p" && x.pc == c.n);
+    const ms = its.map(x => x.d.slice(0, 7)).concat(ps.map(x => x.d.slice(0, 7))).sort();
+    if (!ms.length || ms[0] > nm) return { cuota: 0, av: 0 };
+    let cuota = 0, av = 0, carry = 0;
+    for (let m = ms[0]; m <= nm; m = nextMonth(m)) {
+        av = carry + ps.filter(x => x.d.startsWith(m)).reduce((s, x) => s + x.a, 0);
+        cuota = its.reduce((t, x) => t + cm(x, m), 0);
+        carry = Math.max(0, av - cuota);
+    }
+    return { cuota, av };
+};
+const cardDue = (c, nm) => { if (c.paid[nm]) return 0; const f = cardFlow(c, nm); return Math.max(0, f.cuota - f.av); };
 const nextPay = p => {
     const n = new Date(), d = new Date(n.getFullYear(), n.getMonth(), Math.min(p, 28));
     if (p > 28) d.setDate(p);
@@ -136,7 +151,7 @@ const nextPay = p => {
 // Cupo real: lo que debes menos lo que ya pagaste
 const cardUse = (c, nm) => {
     const its = S.items.filter(x => x.k == c.n);
-    const cq = its.reduce((t, x) => t + cm(x, nm), 0), us = its.reduce((t, x) => t + pend(x, nm), 0), ab = cardPaid(c, nm);
+    const f = cardFlow(c, nm), cq = f.cuota, us = its.reduce((t, x) => t + pend(x, nm), 0), ab = f.av; // ab = pagado para esta cuota (con saldo a favor de meses anteriores)
     const ok = !!c.paid[nm] || (cq > 0 && cq - ab <= 0);
     const used = Math.max(0, us - (ok ? Math.max(ab, cq) : ab));
     const raw = c.c ? used / c.c * 100 : 0;
@@ -251,7 +266,10 @@ const nextMonth = m => ym(new Date(+m.slice(0, 4), +m.slice(5), 1));
 const cardNext = c => {
     const nm = ym(new Date()), d = cardDue(c, nm);
     if (d > 0) return { m: nm, due: d };
-    const nx = nextMonth(nm); return { m: nx, due: cardDue(c, nx) };
+    // Busca la primera cuota pendiente que viene (puede estar a 2 meses o más si compraste después del corte)
+    let m = nm;
+    for (let i = 0; i < 24; i++) { m = nextMonth(m); const dd = cardDue(c, m); if (dd > 0) return { m, due: dd }; }
+    return { m: nextMonth(nm), due: 0 };
 };
 // Días que faltan para el pago de ESTE mes (negativo = ya pasó)
 const dueIn = p => daysTo(payDate(p));
