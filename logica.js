@@ -126,38 +126,66 @@ const pend = (x, nm) => {
 const intOf = (x, nm) => { const i = rate(x); return i > 0 && me(x, nm) >= 1 ? i * pend(x, nm) : 0; };
 const cardInt = (c, nm) => S.items.filter(x => x.k == c.n).reduce((t, x) => t + intOf(x, nm), 0);
 const cardPaid = (c, nm) => S.items.filter(x => x.t == "p" && x.pc == c.n && x.d.startsWith(nm)).reduce((s, x) => s + x.a, 0);
-// Cómo se aplican los pagos a una tarjeta:
-//  1) Lo que pagas en un mes va primero a la cuota que toca pagar ese mes.
-//  2) Lo que sobra (o lo que pagas en un mes sin cuota) es un abono a capital: baja lo que debes y libera cupo,
-//     pero NO te quita la cuota del mes siguiente. Acorta el plazo: se cancelan las últimas cuotas.
-// Devuelve la cuota del mes nm ya ajustada por esos abonos (cuota), lo pagado en ese mes (av) y el abono a capital acumulado antes de ese mes (pool).
 const mIdx = m => +m.slice(0, 4) * 12 + +m.slice(5);
 const idxYm = i => Math.floor((i - 1) / 12) + "-" + String((i - 1) % 12 + 1).padStart(2, "0");
+// Cuota de manejo que cae en el extracto que se paga en el mes i (año*12+mes).
+//  Mensual: todos los meses desde que se registró. Anual: solo en el mes elegido.
+const feeAt = (c, i) => {
+    if (!(c.mf > 0) || !c.mfs || i < mIdx(c.mfs)) return 0;
+    return c.mt == "a" ? (((i - 1) % 12 + 1) == c.mm ? c.mf : 0) : c.mf;
+};
+const dayDiff = (a, b) => Math.max(0, daysBetween(new Date(a + "T00:00:00"), new Date(b + "T00:00:00")));
+// Cómo se aplican los pagos a una tarjeta:
+//  1) Lo que pagas en un mes va primero a lo que toca pagar ese mes (cuota + cuota de manejo + mora, si hay).
+//  2) Lo que sobra adelanta la cuota del mes siguiente (así, si pagas por adelantado, esa cuota queda en $0).
+//  3) Si todavía sobra, es un abono a capital: baja lo que debes y libera cupo, pero NO te quita cuotas
+//     futuras; acorta el plazo (se cancelan las últimas cuotas).
+// Mora: si pagas después del día de pago (o no pagas), se calcula un interés diario sobre lo que quedó sin pagar,
+// con la tasa de mora de la tarjeta. Es un estimado (el banco puede cobrarlo distinto).
+// Devuelve: cuota del mes ya ajustada por abonos a capital (cuota), cuota de manejo (fee), mora (mora), fee+mora (ext),
+// lo pagado en el mes (av), lo que ya cubre este mes contando adelantos del mes anterior (got) y el abono a capital acumulado (pool).
 const cardFlow = (c, nm) => {
     const its = S.items.filter(x => x.k == c.n), ps = S.items.filter(x => x.t == "p" && x.pc == c.n);
-    const n0 = mIdx(nm), sch = {}, paidM = {};
-    let start = null, last = null;
+    const n0 = mIdx(nm), sch = {}, byM = {}, td = today(), rd = (c.mr || 0) / 100 / 30;
+    let start = null;
     its.forEach(x => {
         const q = x.q > 1 ? x.q : 1, f = firstPay(x);
         for (let e = 0; e < q; e++) { const i = f + e; sch[i] = (sch[i] || 0) + cm(x, idxYm(i)); }
         if (start === null || f < start) start = f;
-        if (last === null || f + q - 1 > last) last = f + q - 1;
     });
-    ps.forEach(x => { const i = mIdx(x.d.slice(0, 7)); paidM[i] = (paidM[i] || 0) + x.a; if (start === null || i < start) start = i; });
-    if (start === null || start > n0) return { cuota: 0, av: 0, pool: 0 };
+    ps.forEach(x => { const i = mIdx(x.d.slice(0, 7)); (byM[i] = byM[i] || []).push(x); if (start === null || i < start) start = i; });
+    if (c.mf > 0 && c.mfs) { const i = mIdx(c.mfs); if (start === null || i < start) start = i; }
+    const zero = { cuota: 0, fee: 0, mora: 0, ext: 0, av: 0, got: 0, pool: 0 };
+    if (start === null || start > n0) return zero;
     let total = 0; Object.keys(sch).forEach(i => { total += sch[i]; });
-    let pool = 0, run = 0, out = { cuota: 0, av: 0, pool: 0 };
+    let pool = 0, run = 0, cin = 0, out = zero;
     for (let i = start; i <= n0; i++) {
-        const base = sch[i] || 0, paid = paidM[i] || 0;
+        const base = sch[i] || 0, fee = feeAt(c, i), m = idxYm(i), P = payDateIn(c.p, m), pool0 = pool, cin0 = cin;
         run += base;
-        const later = total - run;                                   // cuotas que vienen después de este mes
-        const eff = base - Math.max(0, Math.min(base, pool - later)); // el abono a capital borra primero las últimas cuotas
-        if (i == n0) out = { cuota: eff, av: paid, pool };
-        pool += Math.max(0, paid - eff);
+        const eff = base - Math.max(0, Math.min(base, pool - (total - run))); // el abono a capital borra primero las últimas cuotas
+        const D = eff + fee;
+        const evs = (byM[i] || []).slice().sort((a, b) => a.d.localeCompare(b.d) || a.id - b.id), av = evs.reduce((s, x) => s + x.a, 0);
+        let got = cin; const late = [];
+        evs.forEach(x => { if (x.d <= P) got += x.a; else late.push(x); });   // a tiempo = hasta el día de pago
+        let bal = Math.max(0, D - got), xs = Math.max(0, got - D), mora = 0, mp = 0, prev = P;
+        const eom = payDateIn(31, m), lim = td < eom ? td : eom;              // la mora corre hasta hoy (o fin de ese mes)
+        late.forEach(x => {
+            const dt = x.d < lim ? x.d : lim;
+            if (bal > 0 && rd > 0) mora += bal * rd * dayDiff(prev, dt);
+            if (dt > prev) prev = dt;
+            const pb = Math.min(x.a, bal); bal -= pb;                            // un pago tardío cubre primero la cuota...
+            const pm = Math.min(x.a - pb, mora - mp); mp += pm;                 // ...y luego la mora causada hasta ese día
+            xs += x.a - pb - pm;
+        });
+        if (bal > 0 && rd > 0) mora += bal * rd * dayDiff(prev, lim);
+        if (c.paid && c.paid[m]) mora = 0;                                       // marcada como pagada: sin mora
+        if (i == n0) out = { cuota: eff, fee, mora, ext: fee + mora, av, got: av + cin0, pool: pool0 };
+        const need = (sch[i + 1] || 0) + feeAt(c, i + 1), sp = Math.min(xs, need); // lo que sobra adelanta la cuota siguiente
+        pool += xs - sp; cin = sp;
     }
     return out;
 };
-const cardDue = (c, nm) => { if (c.paid[nm]) return 0; const f = cardFlow(c, nm); return Math.max(0, f.cuota - f.av); };
+const cardDue = (c, nm) => { if (c.paid[nm]) return 0; const f = cardFlow(c, nm); return Math.max(0, f.cuota + f.ext - f.got); };
 const nextPay = p => {
     const n = new Date(), d = new Date(n.getFullYear(), n.getMonth(), Math.min(p, 28));
     if (p > 28) d.setDate(p);
@@ -167,13 +195,65 @@ const nextPay = p => {
 // Cupo real: lo que debes menos lo que ya pagaste
 const cardUse = (c, nm) => {
     const its = S.items.filter(x => x.k == c.n);
-    const f = cardFlow(c, nm), cq = f.cuota, us = its.reduce((t, x) => t + pend(x, nm), 0), ab = f.av; // ab = pagado este mes; f.pool = abonos a capital de meses anteriores
-    const ok = !!c.paid[nm] || (cq > 0 && cq - ab <= 0);
-    const used = Math.max(0, us - f.pool - (ok ? Math.max(ab, cq) : ab));
+    const f = cardFlow(c, nm), cq = f.cuota, ext = f.ext, tot = cq + ext, ab = f.got, us = its.reduce((t, x) => t + pend(x, nm), 0); // ab = pagado que cubre este mes; f.pool = abonos a capital anteriores
+    const ok = !!c.paid[nm] || (tot > 0 && tot - ab <= 0);
+    const cap = Math.max(0, ab - ext); // la cuota de manejo y la mora no bajan la deuda: solo lo demás libera cupo
+    const used = Math.max(0, us - f.pool - (ok ? Math.max(cap, cq) : cap));
     const raw = c.c ? used / c.c * 100 : 0;
-    return { cq, us, ab, ok, used, raw, pct: Math.min(100, raw), avail: Math.max(0, (c.c || 0) - used) };
+    return { cq, ext, fee: f.fee, mora: f.mora, us, ab, ok, used, raw, pct: Math.min(100, raw), avail: Math.max(0, (c.c || 0) - used) };
 };
 const useTone = p => p < 30 ? { bar: "bg-emerald-500", txt: "text-emerald-500", lbl: "Uso saludable" } : p < 70 ? { bar: "bg-amber-500", txt: "text-amber-500", lbl: "Uso moderado" } : { bar: "bg-rose-500", txt: "text-rose-500", lbl: "Uso alto" };
+
+// ---------- Tarjetas: extracto (qué compras entran en cada corte) ----------
+// Mes en que cae el pago de un día de pago dado, por si la tarjeta se registró hoy (la cuota de manejo empieza en el próximo pago)
+const nextPayYm = p => { const d = midnight(); d.setDate(d.getDate() + nextPay(p)); return ym(d); };
+// Extracto que se paga en el mes i (año*12+mes): compras del corte, cuotas de compras anteriores, manejo y mora
+function stmt(c, i) {
+    const nm = idxYm(i), rows = [];
+    let base = 0, news = 0;
+    S.items.filter(x => x.k == c.n).forEach(x => {
+        const q = x.q > 1 ? x.q : 1, e = me(x, nm);
+        if (e < 1 || e > q) return;
+        const cu = cm(x, nm); base += cu;
+        if (e == 1) news += x.a;
+        rows.push({ x, e, q, cu, it: intOf(x, nm) });
+    });
+    rows.sort((a, b) => (a.e == 1 ? 0 : 1) - (b.e == 1 ? 0 : 1) || b.x.d.localeCompare(a.x.d) || b.x.id - a.x.id);
+    const f = cardFlow(c, nm), k = c.k || c.p, cl = i - (c.k && c.p && c.p <= c.k ? 1 : 0); // mes en que cierra (corte)
+    const close = payDateIn(k, idxYm(cl)), prev = payDateIn(k, idxYm(cl - 1));
+    const from = ymd(new Date(+prev.slice(0, 4), +prev.slice(5, 7) - 1, +prev.slice(8) + 1));
+    const total = f.cuota + f.ext, flagged = !!c.paid[nm];
+    return { nm, rows, news, base, adj: f.cuota - base, fee: f.fee, mora: f.mora, total, paid: f.got, flagged,
+        pend: flagged ? 0 : Math.max(0, total - f.got), from, close, pay: payDateIn(c.p, nm), open: close >= today() };
+}
+// Extractos que se pueden recorrer: desde el primer pago de una compra hasta el último, y siempre el que está abierto hoy
+function stmtBounds(c) {
+    const nowI = mIdx(ym(new Date()));
+    let lo = nowI, hi = Math.max(nowI + 1, firstPay({ d: today(), k: c.n }));
+    S.items.filter(x => x.k == c.n).forEach(x => { const q = x.q > 1 ? x.q : 1, f = firstPay(x); lo = Math.min(lo, f); hi = Math.max(hi, f + q - 1); });
+    return { lo, hi };
+}
+
+// ---------- Detalle por categoría (con rango de fechas) ----------
+// Atajos de rango. "" en desde/hasta = sin límite.
+function catRanges() {
+    const n = new Date(), y = n.getFullYear(), m = n.getMonth(), r = (a, b) => [ymd(a), ymd(b)];
+    return {
+        m0: r(new Date(y, m, 1), new Date(y, m + 1, 0)),
+        m1: r(new Date(y, m - 1, 1), new Date(y, m, 0)),
+        d30: r(new Date(y, m, n.getDate() - 29), n),
+        m3: r(new Date(y, m - 2, 1), new Date(y, m + 1, 0)),
+        y0: r(new Date(y, 0, 1), new Date(y, 11, 31)),
+        all: ["", ""]
+    };
+}
+// Mismos movimientos que suma "En qué se va la plata": gastos de esa categoría, visibles y dentro del resumen
+function catDetail(c, from, to) {
+    const all = S.items.filter(x => x.t == "g" && x.c == c && vis(x) && (!from || x.d >= from) && (!to || x.d <= to));
+    const rows = all.filter(x => !x.s).sort((a, b) => b.d.localeCompare(a.d) || b.id - a.id);
+    const tot = rows.reduce((s, x) => s + x.a, 0);
+    return { rows, tot, avg: rows.length ? tot / rows.length : 0, hid: all.length - rows.length, big: rows.reduce((m, x) => x.a > (m ? m.a : 0) ? x : m, null) };
+}
 
 // ---------- Deudas ----------
 const dbtLeft = d => d.t - (d.p0 || 0) - S.items.filter(x => x.dbt == d.id).reduce((s, x) => s + x.a, 0);
@@ -287,9 +367,13 @@ const cardNext = c => {
     for (let i = 0; i < 24; i++) { m = nextMonth(m); const dd = cardDue(c, m); if (dd > 0) return { m, due: dd }; }
     return { m: nextMonth(nm), due: 0 };
 };
-// Lo que pesa sobre "Disponible": solo la próxima cuota si cae este mes o el siguiente.
-// Una cuota más lejana (ej. febrero) ya cuenta en el cupo usado, pero no te quita plata para gastar hoy.
-const cardSoon = c => { const nx = cardNext(c); return nx.m <= nextMonth(ym(new Date())) ? nx.due : 0; };
+// Lo que pesa sobre "Disponible": lo que falta de la cuota de ESTE mes. La cuota del mes siguiente solo se suma
+// cuando ya pasó el día de pago de este mes (mientras tanto ya cuenta en el cupo usado, pero no te quita plata para gastar hoy).
+// Así: pagas la cuota → queda en $0 → pasa la fecha de pago → recién ahí empieza a contar la siguiente.
+const cardSoon = c => {
+    const nm = ym(new Date()), d = cardDue(c, nm);
+    return dueIn(c.p) < 0 ? d + cardDue(c, nextMonth(nm)) : d;
+};
 // Días que faltan para el pago de ESTE mes (negativo = ya pasó)
 const dueIn = p => daysTo(payDate(p));
 const dueTxt = d => d < 0 ? "venció hace " + (-d) + (d == -1 ? " día" : " días") : d == 0 ? "vence hoy" : "vence en " + d + (d == 1 ? " día" : " días");
@@ -342,6 +426,7 @@ function tipsList(by) {
     S.cards.filter(c => c.c && !(S.hide || {})[c.n]).forEach(c => {
         const u = cardUse(c, nm), pc = Math.round(u.raw), nx = cardNext(c), d = daysTo(payDateIn(c.p, nx.m));
         intTot += cardInt(c, nm);
+        if (u.mora > 0) add(0, "fa-triangle-exclamation", c.n + " ya está generando mora", "Van ≈ " + fmt(u.mora) + " de interés de mora. Págala hoy para que no siga subiendo.");
         if (nx.due > 0 && d <= 5 && d >= -30) add(0, "fa-calendar-day", c.n + " " + dueTxt(d), "Te faltan " + fmt(nx.due) + " de la cuota. " + (d < 0 ? "Págala cuanto antes para frenar los intereses de mora." : "Págala a tiempo y evita intereses de mora."));
         if (u.raw >= 70) add(0, "fa-credit-card", c.n + " está al " + pc + "% del cupo", "Abona para liberar cupo. Lo ideal es mantener cada tarjeta por debajo del 30%.");
         else if (u.raw >= 30) add(1, "fa-credit-card", c.n + " va en " + pc + "% del cupo", "Antes de otra compra a cuotas, abona un poco. Meta: menos del 30% utilizado.");

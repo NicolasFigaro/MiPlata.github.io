@@ -273,12 +273,13 @@ function vHome() {
         </section>
 
         <section class="${CARD} p-5">
-            <h3 class="text-sm font-bold text-slate-800 dark:text-white mb-3">En qué se va la plata</h3>
+            <h3 class="text-sm font-bold text-slate-800 dark:text-white">En qué se va la plata</h3>
+            <p class="text-[11px] text-slate-400 mt-0.5 mb-3">Toca una categoría para ver sus compras y filtrar por fechas</p>
             <div class="space-y-3">
                 ${by.map(([c, v]) => {
                     const b = (S.bud || {})[c], r = b ? v / b : v / mx;
-                    return `<div class="text-xs">
-                        <div class="flex justify-between mb-1 font-medium"><span>${c}</span><span>${fmt(v)}${b ? " de " + fmt(b) : ""}</span></div>
+                    return `<div class="text-xs cursor-pointer rounded-xl -mx-2 px-2 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition" role="button" tabindex="0" onclick="openCat('${esc(c)}')" onkeydown="if(event.key==='Enter')openCat('${esc(c)}')" title="Ver las compras de ${esc(c)}">
+                        <div class="flex justify-between mb-1 font-medium"><span>${esc(c)}<i class="fa-solid fa-chevron-right text-[8px] text-slate-300 ml-1.5"></i></span><span>${fmt(v)}${b ? " de " + fmt(b) : ""}</span></div>
                         <div class="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden"><div class="h-full rounded-full ${b && r >= 1 ? "bg-rose-500" : b && r >= 0.8 ? "bg-amber-500" : "bg-indigo-600"}" style="width:${Math.min(100, r * 100)}%"></div></div>
                     </div>`;
                 }).join("") || '<p class="text-xs text-slate-400 text-center py-4">Aún no hay gastos este mes.</p>'}
@@ -426,6 +427,7 @@ function vGra() {
             <div class="flex justify-between items-center mb-4"><h3 class="text-sm font-bold">Gastos por categoría</h3>
             <div class="flex items-center space-x-2"><button onclick="go(-1)" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800">‹</button><span class="text-xs font-semibold capitalize">${cur.toLocaleDateString("es-CO", { month: "long", year: "numeric" })}</span><button onclick="go(1)" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800">›</button></div></div>
             <div class="max-w-xs mx-auto"><canvas id="chCat"></canvas></div>
+            <p class="text-[11px] text-slate-400 text-center mt-3">Toca una porción para ver esas compras</p>
         </section>
 
         <section class="${CARD} p-5">
@@ -437,7 +439,7 @@ function vGra() {
             <canvas id="chCmp"></canvas>
             <div class="mt-4 text-xs">
                 <div class="grid grid-cols-4 gap-2 pb-2 border-b border-slate-100 dark:border-slate-800 text-[10px] uppercase tracking-wider text-slate-400 font-bold"><span>Categoría</span><span class="text-right capitalize">${monLabel(ok)}</span><span class="text-right capitalize">${monLabel(mk)}</span><span class="text-right">Cambio</span></div>
-                ${rows.map(r => `<div class="grid grid-cols-4 gap-2 py-2 border-b border-slate-100 dark:border-slate-800 items-center"><span class="font-medium truncate">${r.c}</span><span class="text-right">${fmt(r.b)}</span><span class="text-right">${fmt(r.a)}</span><span class="text-right text-[11px]">${delta(r.a, r.b)}</span></div>`).join("")}
+                ${rows.map(r => `<div onclick="openCat('${esc(r.c)}')" class="grid grid-cols-4 gap-2 py-2 border-b border-slate-100 dark:border-slate-800 items-center cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 transition"><span class="font-medium truncate">${esc(r.c)}</span><span class="text-right">${fmt(r.b)}</span><span class="text-right">${fmt(r.a)}</span><span class="text-right text-[11px]">${delta(r.a, r.b)}</span></div>`).join("")}
                 <div class="grid grid-cols-4 gap-2 pt-2 font-bold items-center"><span>Total</span><span class="text-right">${fmt(tb)}</span><span class="text-right">${fmt(ta)}</span><span class="text-right text-[11px]">${delta(ta, tb)}</span></div>
             </div>` : '<p class="text-xs text-slate-400 text-center py-6">No hay gastos en esos dos meses para comparar.</p>'}
         </section>
@@ -456,7 +458,7 @@ function drawCharts() {
     const dark = document.documentElement.classList.contains("dark");
     Chart.defaults.color = dark ? "#94a3b8" : "#64748b";
     const m = mon(), by = G.map(([c]) => [c, sum(m, x => x.t == "g" && x.c == c && !x.s)]).filter(x => x[1] > 0);
-    charts.push(new Chart(document.getElementById("chCat"), { type: "doughnut", data: { labels: by.map(x => x[0]), datasets: [{ data: by.map(x => x[1]), backgroundColor: by.map((_, i) => ["#6366f1","#8b5cf6","#10b981","#f59e0b","#ef4444","#06b6d4","#ec4899","#64748b","#84cc16","#f97316","#14b8a6","#a855f7","#0ea5e9","#e11d48","#65a30d","#78716c"][i % 16]) }] } }));
+    charts.push(new Chart(document.getElementById("chCat"), { type: "doughnut", options: { onClick: (ev, els) => { if (els.length) openCat(by[els[0].index][0]); } }, data: { labels: by.map(x => x[0]), datasets: [{ data: by.map(x => x[1]), backgroundColor: by.map((_, i) => ["#6366f1","#8b5cf6","#10b981","#f59e0b","#ef4444","#06b6d4","#ec4899","#64748b","#84cc16","#f97316","#14b8a6","#a855f7","#0ea5e9","#e11d48","#65a30d","#78716c"][i % 16]) }] } }));
 
     const cc = document.getElementById("chCmp");
     if (cc) {
@@ -487,19 +489,25 @@ function vTar() {
         lastPct[c.id] = { b: cu.pct, n: cu.raw };
         const pop = cu.ok && lastOk[c.id] === false; lastOk[c.id] = cu.ok;
         if (c.c) { tc += c.c; tu += cu.used; }
-        const late = !cu.ok && cu.cq - cu.ab > 0 && d < 0, nd = d < 0 && !late ? nextPay(c.p) : d, cn = cardNext(c);
+        const cn = cardNext(c), owe = cu.cq + cu.ext - cu.ab, late = !cu.ok && owe > 0 && d < 0, nd = cn.due > 0 ? daysTo(payDateIn(c.p, cn.m)) : nextPay(c.p), over = cu.ab - (cu.cq + cu.ext);
         return `
             <div class="lift ${CARD} p-5 mb-4">
                 <div class="flex justify-between items-center mb-2">
                     <div><b class="text-sm font-bold text-slate-800 dark:text-white">💳 ${esc(c.n)}</b>${c.ir > 0 ? `<span class="text-[11px] text-slate-400 ml-2">${tf(c.ir)}% mensual</span>` : ""}</div>
-                    <span class="text-xs font-semibold ${cu.ok ? "text-emerald-500" : late || nd <= 5 ? "text-rose-500" : "text-slate-400"}">${cu.ok ? `<span class="${pop ? "pop" : ""}">Pagada ✓</span>` : late ? "Venció hace " + (-d) + " d" : "Vence en " + nd + " d"}</span>
+                    <span class="text-xs font-semibold ${cu.ok ? "text-emerald-500" : late || (cn.due > 0 && nd <= 5) ? "text-rose-500" : "text-slate-400"}">${cu.ok ? `<span class="${pop ? "pop" : ""}">Pagada ✓</span>` : late ? "Venció hace " + (-d) + " d" : cn.due > 0 ? "Vence en " + nd + " d" : "Sin cuota pendiente"}</span>
                 </div>
                 <div class="grid grid-cols-2 gap-2 text-xs mb-4">
                     <div><span class="text-slate-400 block">Compras este mes</span><b>${fmt(u)}</b></div>
-                    <div><span class="text-slate-400 block">Cuota a pagar</span><b class="text-indigo-600">${fmt(cu.ok ? 0 : Math.max(0, cu.cq - cu.ab))}</b></div>
+                    <div><span class="text-slate-400 block">Cuota a pagar</span><b class="text-indigo-600">${fmt(cu.ok ? 0 : Math.max(0, owe))}</b></div>
                     <div><span class="text-slate-400 block">Abonado este mes</span><b class="text-emerald-600">${fmt(cu.ab)}</b></div>
                     <div><span class="text-slate-400 block">Intereses en la cuota</span><b class="${it > 0 ? "text-amber-500" : ""}">${fmt(it)}</b></div>
                 </div>
+                ${c.mf > 0 || c.mr > 0 ? `<div class="grid grid-cols-2 gap-2 text-xs mb-4 -mt-1">
+                    ${c.mf > 0 ? `<div><span class="text-slate-400 block">Cuota de manejo (${c.mt == "a" ? "anual" : "mensual"})</span><b>${fmt(c.mf)}</b>${cu.fee > 0 ? `<span class="text-[10px] text-amber-500 ml-1.5">va en esta cuota</span>` : ""}</div>` : ""}
+                    ${c.mr > 0 ? `<div><span class="text-slate-400 block">Interés de mora (${tf(c.mr)}% mensual)</span><b class="${cu.mora > 0 ? "text-rose-500" : ""}">${fmt(cu.mora)}</b>${cu.mora > 0 ? `<span class="text-[10px] text-rose-400 ml-1.5">estimado</span>` : ""}</div>` : ""}
+                </div>` : ""}
+                ${cu.ext > 0 && !cu.ok ? `<p class="text-[11px] text-slate-400 -mt-2 mb-3">La cuota a pagar incluye ${cu.fee > 0 ? fmt(cu.fee) + " de cuota de manejo" : ""}${cu.fee > 0 && cu.mora > 0 ? " y " : ""}${cu.mora > 0 ? fmt(cu.mora) + " de mora" : ""}.</p>` : ""}
+                ${over > 0.5 && !c.paid[n] ? `<p class="text-[11px] text-emerald-600 dark:text-emerald-400 -mt-2 mb-3"><i class="fa-solid fa-circle-check mr-1"></i>Pagaste ${fmt(over)} por encima de la cuota de este mes: se aplica a la cuota siguiente (y lo que sobre, a capital).</p>` : ""}
                 ${cn.m != n && cn.due > 0 ? `<p class="text-[11px] text-slate-400 -mt-2 mb-3"><i class="fa-regular fa-calendar mr-1"></i>Próximo pago: <b class="text-slate-600 dark:text-slate-300">${dmy(payDateIn(c.p, cn.m))}</b> · ${fmt(cn.due)}</p>` : ""}
                 ${c.c ? `
                 <div class="flex items-end justify-between mb-1.5">
@@ -513,6 +521,7 @@ function vTar() {
                 <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
                     <button onclick="payCard(${c.id})" class="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-xl text-xs font-semibold">Abonar</button>
                     <button onclick="paidCard(${c.id})" class="px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-xl text-xs font-semibold">${cu.ok ? "Desmarcar pago" : "Marcar pagada"}</button>
+                    <button onclick="openExtract(${c.id})" class="px-3 py-1.5 bg-violet-50 text-violet-600 rounded-xl text-xs font-semibold"><i class="fa-solid fa-receipt mr-1"></i>Extracto</button>
                     <button onclick="editCard(${c.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold">Editar</button>
                     <button onclick="delCard(${c.id})" class="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-xl text-xs font-semibold">Borrar</button>
                 </div>
@@ -538,6 +547,99 @@ function vTar() {
         ${summary}
         ${cardsList || '<p class="text-xs text-slate-400 text-center py-6">Aún no tienes tarjetas registradas.</p>'}
     `;
+}
+
+// ---------- Extracto de una tarjeta (contenido del modal) ----------
+function extractUI(c, i, b) {
+    const s = stmt(c, i);
+    const nw = s.rows.filter(r => r.e == 1), old = s.rows.filter(r => r.e > 1);
+    const row = r => {
+        const x = r.x;
+        return `<div class="flex items-start justify-between gap-3 py-2.5 border-b border-slate-100 dark:border-slate-800 last:border-0">
+            <div class="min-w-0">
+                <strong class="text-xs font-semibold text-slate-800 dark:text-white block truncate">${esc(x.n || x.c)}</strong>
+                <small class="text-[11px] text-slate-400">${dmy(x.d)}${x.n ? " · " + esc(x.c) : ""}${r.q > 1 ? " · compra de " + fmt(x.a) + " · cuota " + r.e + " de " + r.q : ""}${r.it > 0 ? " · intereses " + fmt(r.it) : ""}</small>
+            </div>
+            <b class="text-xs shrink-0">${fmt(r.cu)}</b>
+        </div>`;
+    };
+    const line = (l, v, cl) => `<div class="flex justify-between text-xs py-1.5"><span class="text-slate-500 dark:text-slate-400">${l}</span><b class="${cl || ""}">${v}</b></div>`;
+    const sec = (t, n, body) => body ? `<div class="mb-4"><p class="text-[10px] uppercase tracking-wider font-bold text-slate-400 mb-1">${t} · ${n}</p>${body}</div>` : "";
+    let badge;
+    if (s.open) badge = ["bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400", "Abierto · cierra el " + dmy(s.close).slice(0, 5)];
+    else if (s.total <= 0) badge = ["bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400", "Sin cuotas"];
+    else if (s.pend <= 0) badge = ["bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400", "Pagado ✓"];
+    else if (s.pay < today()) badge = ["bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400", "Vencido"];
+    else badge = ["bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400", "Por pagar"];
+    const nav = (dis, to, ic) => `<button onclick="openExtract(${c.id}, ${to})" ${dis ? "disabled" : ""} class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold ${dis ? "opacity-30" : ""}">${ic}</button>`;
+    return `
+        <div class="flex justify-between items-center mb-3">
+            <h3 class="text-base font-bold text-slate-800 dark:text-white">💳 ${esc(c.n)} · Extracto</h3>
+            <button onclick="closeModal()" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 flex items-center justify-center transition"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="flex items-center justify-between gap-2 mb-1">
+            ${nav(i <= b.lo, i - 1, "‹")}
+            <div class="text-center min-w-0">
+                <p class="text-sm font-bold text-slate-800 dark:text-white">Se paga el ${dmy(s.pay)}</p>
+                <p class="text-[11px] text-slate-400">Compras del ${dmy(s.from).slice(0, 5)} al ${dmy(s.close).slice(0, 5)} (corte ${dmy(s.close)})</p>
+            </div>
+            ${nav(i >= b.hi, i + 1, "›")}
+        </div>
+        <div class="text-center mb-4"><span class="inline-block px-2.5 py-1 rounded-lg text-[11px] font-semibold ${badge[0]}">${badge[1]}</span></div>
+        <div class="grid grid-cols-3 gap-2 mb-4">
+            ${[["Compras del corte", fmt(s.news), ""], ["Total del extracto", fmt(s.total), ""], [s.pend > 0 ? "Falta pagar" : "Pagado", fmt(s.pend > 0 ? s.pend : s.paid), s.pend > 0 ? "text-indigo-500" : "text-emerald-500"]].map(([l, v, cl]) => `<div class="p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800"><span class="text-[10px] uppercase tracking-wider text-slate-400 block leading-tight">${l}</span><b class="text-xs ${cl}">${v}</b></div>`).join("")}
+        </div>
+        ${s.open ? `<p class="text-[11px] text-slate-400 mb-3"><i class="fa-regular fa-clock mr-1"></i>Este corte todavía está abierto: entran las compras que hagas hasta el ${dmy(s.close)}.</p>` : ""}
+        ${sec("Compras de este corte", nw.length, nw.map(row).join(""))}
+        ${sec("Cuotas de compras anteriores", old.length, old.map(row).join(""))}
+        ${!s.rows.length && !s.fee && !s.mora ? '<p class="text-xs text-slate-400 text-center py-4">No hay compras ni cuotas en este extracto.</p>' : ""}
+        <div class="pt-2 border-t border-slate-100 dark:border-slate-800">
+            ${line("Suma de cuotas", fmt(s.base))}
+            ${Math.abs(s.adj) > 0.5 ? line("Abonos a capital anteriores (acortan el plazo)", fmt(s.adj), "text-emerald-500") : ""}
+            ${s.fee > 0 ? line("Cuota de manejo", fmt(s.fee)) : ""}
+            ${s.mora > 0 ? line("Interés de mora (estimado)", fmt(s.mora), "text-rose-500") : ""}
+            ${line("Total del extracto", fmt(s.total), "text-slate-800 dark:text-white")}
+            ${s.paid > 0 ? line("Pagos aplicados", "-" + fmt(s.paid), "text-emerald-500") : ""}
+        </div>
+        <button onclick="closeModal()" class="w-full mt-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-semibold text-xs">Cerrar</button>`;
+}
+
+// ---------- Detalle de una categoría (contenido del modal) ----------
+function catUI() {
+    const d = cdet, r = catDetail(d.c, d.from, d.to), R = catRanges(), bud = (S.bud || {})[d.c];
+    const chip = (k, l) => `<button onclick="catQuick('${k}')" class="shrink-0 px-3 py-1.5 text-[11px] rounded-xl font-semibold whitespace-nowrap transition ${R[k][0] == d.from && R[k][1] == d.to ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/25" : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"}">${l}</button>`;
+    const oneMonth = d.from && d.to && d.from.slice(0, 7) == d.to.slice(0, 7) && d.from.slice(8) == "01" && d.to == ymd(new Date(+d.to.slice(0, 4), +d.to.slice(5, 7), 0));
+    const bad = d.from && d.to && d.from > d.to;
+    const tile = (l, v, cl) => `<div class="flex-1 min-w-0 p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800"><span class="text-[10px] uppercase tracking-wider text-slate-400 block truncate">${l}</span><b class="text-xs ${cl || ""}">${v}</b></div>`;
+    const list = r.rows.map(x => `
+        <div class="flex items-center justify-between gap-3 py-2.5 border-b border-slate-100 dark:border-slate-800 last:border-0">
+            <div class="min-w-0">
+                <strong class="text-xs font-semibold text-slate-800 dark:text-white block truncate">${esc(x.n || x.c)}</strong>
+                <small class="text-[11px] text-slate-400">${dmy(x.d)}${x.k ? " · 💳 " + esc(x.k) : x.w ? " · " + esc(x.w) : ""}${x.sav ? " · 🎯 meta" : ""}${x.q > 1 ? " · " + x.q + " cuotas" : ""}</small>
+            </div>
+            <b class="text-xs shrink-0">${fmt(x.a)}</b>
+        </div>`).join("");
+    return `
+        <div class="flex justify-between items-center mb-3">
+            <h3 class="text-base font-bold text-slate-800 dark:text-white">${esc(d.c)}</h3>
+            <button onclick="closeModal()" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 flex items-center justify-center transition"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="flex gap-2 overflow-x-auto no-scrollbar pb-1 mb-3">
+            ${chip("m0", "Este mes")}${chip("m1", "Mes pasado")}${chip("d30", "30 días")}${chip("m3", "3 meses")}${chip("y0", "Este año")}${chip("all", "Todo")}
+        </div>
+        <div class="grid grid-cols-2 gap-2 mb-3">
+            <div><label class="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Desde</label><input id="cdFrom" type="date" value="${d.from}" onchange="setCatDates()" class="${INP}"></div>
+            <div><label class="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Hasta</label><input id="cdTo" type="date" value="${d.to}" onchange="setCatDates()" class="${INP}"></div>
+        </div>
+        ${bad ? '<p class="text-xs text-rose-500 mb-3">La fecha «desde» es posterior a «hasta».</p>' : ""}
+        <div class="flex gap-2 mb-3">
+            ${tile("Total", fmt(r.tot))}${tile("Compras", r.rows.length)}${tile("Promedio", fmt(r.avg))}
+        </div>
+        ${oneMonth && bud ? `<p class="text-[11px] mb-3 ${r.tot > bud ? "text-rose-500 font-semibold" : "text-slate-500 dark:text-slate-400"}"><i class="fa-solid fa-bullseye mr-1"></i>${Math.round(r.tot / bud * 100)}% de tu presupuesto de ${fmt(bud)}</p>` : ""}
+        ${r.big && r.rows.length > 1 ? `<p class="text-[11px] text-slate-500 dark:text-slate-400 mb-2">Mayor gasto: <b>${esc(r.big.n || r.big.c)}</b> · ${fmt(r.big.a)}</p>` : ""}
+        <div>${list || '<p class="text-xs text-slate-400 text-center py-6">No hay compras en esta categoría para ese rango.</p>'}</div>
+        ${r.hid ? `<p class="text-[11px] text-slate-400 mt-2">${r.hid} movimiento${r.hid == 1 ? "" : "s"} marcado${r.hid == 1 ? "" : "s"} como «fuera del resumen» no se muestra${r.hid == 1 ? "" : "n"}.</p>` : ""}
+        <button onclick="closeModal()" class="w-full mt-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-semibold text-xs">Cerrar</button>`;
 }
 
 // ---------- Deudas ----------

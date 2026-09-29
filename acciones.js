@@ -123,6 +123,22 @@ function togAll(v) { sall = v; draw(); }
 function setFlt(k, v) { flt = { k, v: v ?? null }; draw(); }
 function setCmp(v) { cmp = +v || 1; draw(); }
 
+// ---------- Detalle de categoría (toca una categoría para ver sus compras) ----------
+let cdet = null; // { c: nombre, from, to } ("" = sin límite)
+function openCat(c) {
+    const y = cur.getFullYear(), m = cur.getMonth(); // arranca en el mes que estás viendo
+    cdet = { c, from: ymd(new Date(y, m, 1)), to: ymd(new Date(y, m + 1, 0)) };
+    const modal = document.getElementById("generalModal"), container = document.getElementById("modalContainer");
+    container.innerHTML = catUI();
+    modal.classList.remove("hidden");
+    setTimeout(() => { modal.classList.remove("opacity-0"); container.classList.remove("scale-95"); container.classList.add("scale-100"); }, 10);
+}
+function catQuick(k) { const r = catRanges()[k]; cdet.from = r[0]; cdet.to = r[1]; document.getElementById("modalContainer").innerHTML = catUI(); }
+function setCatDates() {
+    cdet.from = document.getElementById("cdFrom").value; cdet.to = document.getElementById("cdTo").value;
+    document.getElementById("modalContainer").innerHTML = catUI();
+}
+
 // ---------- Movimientos ----------
 function setType(t) {
     const g = id => document.getElementById(id), a = g("amt") ? g("amt").value : "", n = g("note") ? g("note").value : "";
@@ -425,16 +441,38 @@ function setTrmVal() {
 }
 
 // ---------- Tarjetas ----------
+const FEE_KINDS = ["Cada mes", "Cada año"];
+// Valida los datos de la cuota de manejo antes de guardar nada
+function feeErr(amt, kind, mon) {
+    if (!num(amt)) return "";
+    if (kind == FEE_KINDS[1] && !(num(mon) >= 1 && num(mon) <= 12)) return "Escribe el mes del cobro anual (1 a 12).";
+    return "";
+}
+// Guarda o quita la cuota de manejo. Empieza a contar desde el próximo pago (no cambia meses ya pasados).
+function setFee(c, amt, kind, mon) {
+    const a = num(amt);
+    if (!a) { delete c.mf; delete c.mt; delete c.mm; delete c.mfs; return; }
+    c.mf = a; c.mt = kind == FEE_KINDS[1] ? "a" : "m";
+    if (c.mt == "a") c.mm = num(mon); else delete c.mm;
+    if (!c.mfs) c.mfs = nextPayYm(c.p);
+}
 function newCard() {
     openCustomModal("Nueva Tarjeta", [
         { l: "Nombre" },
         { l: "Cupo total", m: "numeric" },
         { l: "Día de corte (1-31)", v: "15", m: "numeric" },
         { l: "Día límite pago (1-31)", v: "30", m: "numeric" },
-        { l: "Tasa de interés mensual % (opcional, ej. 2,1)", m: "decimal" }
+        { l: "Tasa de interés mensual % (opcional, ej. 2,1)", m: "decimal" },
+        { l: "Tasa de mora mensual % (opcional, ej. 2,6)", m: "decimal" },
+        { l: "Cuota de manejo en pesos (opcional)", m: "numeric" },
+        { l: "La cuota de manejo se cobra", o: FEE_KINDS },
+        { l: "Mes del cobro anual, 1-12 (solo si es anual)", m: "numeric" }
     ], v => {
         if (!v[0]) return "Escribe un nombre.";
-        S.cards.push({ id: Date.now(), n: v[0], c: num(v[1]), k: +v[2] || 15, p: +v[3] || 30, ir: pr(v[4]) || 0, paid: {} });
+        const e = feeErr(v[6], v[7], v[8]); if (e) return e;
+        const c = { id: Date.now(), n: v[0], c: num(v[1]), k: +v[2] || 15, p: +v[3] || 30, ir: pr(v[4]) || 0, mr: pr(v[5]) || 0, paid: {} };
+        setFee(c, v[6], v[7], v[8]);
+        S.cards.push(c);
         save();
     });
 }
@@ -444,11 +482,27 @@ function editCard(id) {
         { l: "Cupo total", v: c.c || "", m: "numeric" },
         { l: "Día de corte (1-31)", v: c.k, m: "numeric" },
         { l: "Día límite pago (1-31)", v: c.p, m: "numeric" },
-        { l: "Tasa mensual % (aplica a compras nuevas)", v: c.ir ? tf(c.ir) : "", m: "decimal" }
+        { l: "Tasa mensual % (aplica a compras nuevas)", v: c.ir ? tf(c.ir) : "", m: "decimal" },
+        { l: "Tasa de mora mensual % (opcional)", v: c.mr ? tf(c.mr) : "", m: "decimal" },
+        { l: "Cuota de manejo en pesos (vacío = sin cuota)", v: c.mf || "", m: "numeric" },
+        { l: "La cuota de manejo se cobra", o: FEE_KINDS, v: FEE_KINDS[c.mt == "a" ? 1 : 0] },
+        { l: "Mes del cobro anual, 1-12 (solo si es anual)", v: c.mm || "", m: "numeric" }
     ], v => {
-        c.c = num(v[0]); c.k = +v[1] || c.k; c.p = +v[2] || c.p; c.ir = pr(v[3]) || 0;
+        const e = feeErr(v[5], v[6], v[7]); if (e) return e;
+        c.c = num(v[0]); c.k = +v[1] || c.k; c.p = +v[2] || c.p; c.ir = pr(v[3]) || 0; c.mr = pr(v[4]) || 0;
+        setFee(c, v[5], v[6], v[7]);
         save();
     });
+}
+// Extracto por corte: qué compras y cuotas entran en cada uno. Se recorre con ‹ ›
+function openExtract(id, i) {
+    const c = S.cards.find(x => x.id == id); if (!c) return;
+    const modal = document.getElementById("generalModal"), container = document.getElementById("modalContainer"), b = stmtBounds(c);
+    if (i == null) i = mIdx(cardNext(c).m);
+    i = Math.max(b.lo, Math.min(b.hi, i));
+    container.innerHTML = extractUI(c, i, b);
+    modal.classList.remove("hidden");
+    setTimeout(() => { modal.classList.remove("opacity-0"); container.classList.remove("scale-95"); container.classList.add("scale-100"); }, 10);
 }
 function payCard(id) {
     const c = S.cards.find(x => x.id == id), nm = ym(new Date());
