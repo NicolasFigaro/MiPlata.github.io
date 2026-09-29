@@ -180,6 +180,27 @@ function dailyUI(disp) {
         </div>`;
 }
 
+function projUI(disp) {
+    const p = monthProjection(disp);
+    if (!p) return "";
+    const box = "mt-3 p-3 rounded-2xl bg-white/10 flex items-center justify-between gap-3";
+    if (p.few) return `<div class="${box}"><div class="text-[11px] text-indigo-200 leading-snug"><i class="fa-solid fa-chart-line mr-1.5"></i>Proyección del mes: registra tus gastos unos días más y te diré cómo vas a cerrar.</div></div>`;
+    const bad = p.end < 0;
+    let sub;
+    if (p.left == 0) sub = "Hoy es el último día del mes";
+    else if (p.room <= 0) sub = "Ya no te alcanza para lo que resta del mes, ni sin gastar más";
+    else if (bad) sub = "Gastas ≈ " + fmt(p.pace) + " por día. Para cerrar en $0 baja a ≈ " + fmt(p.fit) + " por día";
+    else sub = "Gastas ≈ " + fmt(p.pace) + " por día · tu tope es ≈ " + fmt(p.fit) + " por día";
+    return `
+        <div class="${box}">
+            <div class="min-w-0">
+                <small class="text-[10px] text-indigo-200 block uppercase"><i class="fa-solid fa-chart-line mr-1"></i>${bad ? "Te faltarían para cerrar el mes" : "A este ritmo terminas el mes con"}</small>
+                <b class="text-xl font-extrabold ${bad ? "text-rose-300" : ""}">${fmt(bad ? -p.end : p.end)}</b>
+            </div>
+            <div class="text-right text-[11px] text-indigo-200 leading-snug">${sub}<br><span class="opacity-80">sin contar compras con tarjeta${p.fixed > 0 ? "; ya descontados " + fmt(p.fixed) + " de gastos fijos por venir" : ""}</span></div>
+        </div>`;
+}
+
 // ---------- Inicio ----------
 function vHome() {
     if (flt.k == "c" && !S.cards.some(c => c.id == flt.v)) flt = { k: "cards", v: null };
@@ -217,6 +238,7 @@ function vHome() {
                 </div>
             </div>
             ${dailyUI(disp)}
+            ${projUI(disp)}
             <div class="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-white/10">
                 <div><small class="text-[10px] text-indigo-200 block uppercase">En mano</small><b class="text-xs sm:text-sm font-bold">${fmt(have)}</b></div>
                 <div><small class="text-[10px] text-indigo-200 block uppercase">Tarjetas</small><b class="text-xs sm:text-sm font-bold">${fmt(due)}</b></div>
@@ -489,12 +511,12 @@ function vTar() {
         lastPct[c.id] = { b: cu.pct, n: cu.raw };
         const pop = cu.ok && lastOk[c.id] === false; lastOk[c.id] = cu.ok;
         if (c.c) { tc += c.c; tu += cu.used; }
-        const cn = cardNext(c), owe = cu.cq + cu.ext - cu.ab, late = !cu.ok && owe > 0 && d < 0, nd = cn.due > 0 ? daysTo(payDateIn(c.p, cn.m)) : nextPay(c.p), over = cu.ab - (cu.cq + cu.ext);
+        const cn = cardNext(c), owe = cu.cq + cu.atr + cu.ext - cu.ab, late = !cu.ok && owe > 0 && (d < 0 || cu.atrLeft > 0), nd = cn.due > 0 ? daysTo(payDateIn(c.p, cn.m)) : nextPay(c.p), over = cu.ab - (cu.cq + cu.atr + cu.ext);
         return `
             <div class="lift ${CARD} p-5 mb-4">
                 <div class="flex justify-between items-center mb-2">
                     <div><b class="text-sm font-bold text-slate-800 dark:text-white">💳 ${esc(c.n)}</b>${c.ir > 0 ? `<span class="text-[11px] text-slate-400 ml-2">${tf(c.ir)}% mensual</span>` : ""}</div>
-                    <span class="text-xs font-semibold ${cu.ok ? "text-emerald-500" : late || (cn.due > 0 && nd <= 5) ? "text-rose-500" : "text-slate-400"}">${cu.ok ? `<span class="${pop ? "pop" : ""}">Pagada ✓</span>` : late ? "Venció hace " + (-d) + " d" : cn.due > 0 ? "Vence en " + nd + " d" : "Sin cuota pendiente"}</span>
+                    <span class="text-xs font-semibold ${cu.ok ? "text-emerald-500" : late || (cn.due > 0 && nd <= 5) ? "text-rose-500" : "text-slate-400"}">${cu.ok ? `<span class="${pop ? "pop" : ""}">Pagada ✓</span>` : late ? (d < 0 ? "Venció hace " + (-d) + " d" : "Con saldo vencido") : cn.due > 0 ? "Vence en " + nd + " d" : "Sin cuota pendiente"}</span>
                 </div>
                 <div class="grid grid-cols-2 gap-2 text-xs mb-4">
                     <div><span class="text-slate-400 block">Compras este mes</span><b>${fmt(u)}</b></div>
@@ -506,7 +528,7 @@ function vTar() {
                     ${c.mf > 0 ? `<div><span class="text-slate-400 block">Cuota de manejo (${c.mt == "a" ? "anual" : "mensual"})</span><b>${fmt(c.mf)}</b>${cu.fee > 0 ? `<span class="text-[10px] text-amber-500 ml-1.5">va en esta cuota</span>` : ""}</div>` : ""}
                     ${c.mr > 0 ? `<div><span class="text-slate-400 block">Interés de mora (${tf(c.mr)}% mensual)</span><b class="${cu.mora > 0 ? "text-rose-500" : ""}">${fmt(cu.mora)}</b>${cu.mora > 0 ? `<span class="text-[10px] text-rose-400 ml-1.5">estimado</span>` : ""}</div>` : ""}
                 </div>` : ""}
-                ${cu.ext > 0 && !cu.ok ? `<p class="text-[11px] text-slate-400 -mt-2 mb-3">La cuota a pagar incluye ${cu.fee > 0 ? fmt(cu.fee) + " de cuota de manejo" : ""}${cu.fee > 0 && cu.mora > 0 ? " y " : ""}${cu.mora > 0 ? fmt(cu.mora) + " de mora" : ""}.</p>` : ""}
+                ${(cu.ext > 0 || cu.atrLeft > 0) && !cu.ok ? `<p class="text-[11px] ${cu.atrLeft > 0 ? "text-rose-500" : "text-slate-400"} -mt-2 mb-3">La cuota a pagar incluye ${[cu.atrLeft > 0 ? fmt(cu.atrLeft) + " vencidos de meses anteriores" : "", cu.fee > 0 ? fmt(cu.fee) + " de cuota de manejo" : "", cu.mora > 0 ? fmt(cu.mora) + " de mora" : ""].filter(Boolean).join(", ").replace(/, ([^,]*)$/, " y $1")}.</p>` : ""}
                 ${over > 0.5 && !c.paid[n] ? `<p class="text-[11px] text-emerald-600 dark:text-emerald-400 -mt-2 mb-3"><i class="fa-solid fa-circle-check mr-1"></i>Pagaste ${fmt(over)} por encima de la cuota de este mes: se aplica a la cuota siguiente (y lo que sobre, a capital).</p>` : ""}
                 ${cn.m != n && cn.due > 0 ? `<p class="text-[11px] text-slate-400 -mt-2 mb-3"><i class="fa-regular fa-calendar mr-1"></i>Próximo pago: <b class="text-slate-600 dark:text-slate-300">${dmy(payDateIn(c.p, cn.m))}</b> · ${fmt(cn.due)}</p>` : ""}
                 ${c.c ? `
@@ -592,11 +614,12 @@ function extractUI(c, i, b) {
         ${s.open ? `<p class="text-[11px] text-slate-400 mb-3"><i class="fa-regular fa-clock mr-1"></i>Este corte todavía está abierto: entran las compras que hagas hasta el ${dmy(s.close)}.</p>` : ""}
         ${sec("Compras de este corte", nw.length, nw.map(row).join(""))}
         ${sec("Cuotas de compras anteriores", old.length, old.map(row).join(""))}
-        ${!s.rows.length && !s.fee && !s.mora ? '<p class="text-xs text-slate-400 text-center py-4">No hay compras ni cuotas en este extracto.</p>' : ""}
+        ${!s.rows.length && !s.fee && !s.mora && !s.atr ? '<p class="text-xs text-slate-400 text-center py-4">No hay compras ni cuotas en este extracto.</p>' : ""}
         <div class="pt-2 border-t border-slate-100 dark:border-slate-800">
             ${line("Suma de cuotas", fmt(s.base))}
             ${Math.abs(s.adj) > 0.5 ? line("Abonos a capital anteriores (acortan el plazo)", fmt(s.adj), "text-emerald-500") : ""}
             ${s.fee > 0 ? line("Cuota de manejo", fmt(s.fee)) : ""}
+            ${s.atr > 0 ? line("Vencido de extractos anteriores", fmt(s.atr), "text-rose-500") : ""}
             ${s.mora > 0 ? line("Interés de mora (estimado)", fmt(s.mora), "text-rose-500") : ""}
             ${line("Total del extracto", fmt(s.total), "text-slate-800 dark:text-white")}
             ${s.paid > 0 ? line("Pagos aplicados", "-" + fmt(s.paid), "text-emerald-500") : ""}

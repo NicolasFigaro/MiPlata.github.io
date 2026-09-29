@@ -142,7 +142,9 @@ const dayDiff = (a, b) => Math.max(0, daysBetween(new Date(a + "T00:00:00"), new
 //     futuras; acorta el plazo (se cancelan las últimas cuotas).
 // Mora: si pagas después del día de pago (o no pagas), se calcula un interés diario sobre lo que quedó sin pagar,
 // con la tasa de mora de la tarjeta. Es un estimado (el banco puede cobrarlo distinto).
-// Devuelve: cuota del mes ya ajustada por abonos a capital (cuota), cuota de manejo (fee), mora (mora), fee+mora (ext),
+// Lo que no pagaste de un mes (cuota + manejo, y su mora) NO se olvida: pasa al mes siguiente como "vencido" (atr) y sigue generando mora.
+//    Un pago va primero a lo vencido, luego a la cuota del mes y luego a la mora.
+// Devuelve: cuota del mes ya ajustada por abonos a capital (cuota), vencido de meses anteriores (atr), cuota de manejo (fee), mora total (mora), fee+mora (ext),
 // lo pagado en el mes (av), lo que ya cubre este mes contando adelantos del mes anterior (got) y el abono a capital acumulado (pool).
 const cardFlow = (c, nm) => {
     const its = S.items.filter(x => x.k == c.n), ps = S.items.filter(x => x.t == "p" && x.pc == c.n);
@@ -155,37 +157,50 @@ const cardFlow = (c, nm) => {
     });
     ps.forEach(x => { const i = mIdx(x.d.slice(0, 7)); (byM[i] = byM[i] || []).push(x); if (start === null || i < start) start = i; });
     if (c.mf > 0 && c.mfs) { const i = mIdx(c.mfs); if (start === null || i < start) start = i; }
-    const zero = { cuota: 0, fee: 0, mora: 0, ext: 0, av: 0, got: 0, pool: 0 };
+    const zero = { cuota: 0, fee: 0, mora: 0, atr: 0, ext: 0, av: 0, got: 0, pool: 0 };
     if (start === null || start > n0) return zero;
     let total = 0; Object.keys(sch).forEach(i => { total += sch[i]; });
-    let pool = 0, run = 0, cin = 0, out = zero;
+    // arr = cuota vencida y sin pagar que viene de meses anteriores; mor = mora sin pagar que viene de meses anteriores
+    let pool = 0, run = 0, cin = 0, arr = 0, mor = 0, out = zero;
     for (let i = start; i <= n0; i++) {
-        const base = sch[i] || 0, fee = feeAt(c, i), m = idxYm(i), P = payDateIn(c.p, m), pool0 = pool, cin0 = cin;
+        const base = sch[i] || 0, fee = feeAt(c, i), m = idxYm(i), P = payDateIn(c.p, m), pool0 = pool, cin0 = cin, arr0 = arr, mor0 = mor;
         run += base;
         const eff = base - Math.max(0, Math.min(base, pool - (total - run))); // el abono a capital borra primero las últimas cuotas
         const D = eff + fee;
         const evs = (byM[i] || []).slice().sort((a, b) => a.d.localeCompare(b.d) || a.id - b.id), av = evs.reduce((s, x) => s + x.a, 0);
-        let got = cin; const late = [];
-        evs.forEach(x => { if (x.d <= P) got += x.a; else late.push(x); });   // a tiempo = hasta el día de pago
-        let bal = Math.max(0, D - got), xs = Math.max(0, got - D), mora = 0, mp = 0, prev = P;
         const eom = payDateIn(31, m), lim = td < eom ? td : eom;              // la mora corre hasta hoy (o fin de ese mes)
-        late.forEach(x => {
+        // A = vencido de meses anteriores (la mora corre desde el 1.º del mes), cB = cuota de este mes (la mora corre desde su día de pago)
+        let A = arr, cB = Math.max(0, D - cin), xs = Math.max(0, cin - D), mora = 0, mp = 0, aA = payDateIn(31, idxYm(i - 1)), aC = P;
+        const acc = dt => {
+            if (rd > 0) { if (A > 0) mora += A * rd * dayDiff(aA, dt); if (dt > P && cB > 0) mora += cB * rd * dayDiff(aC, dt); }
+            if (dt > aA) aA = dt;
+            if (dt > P && dt > aC) aC = dt;
+        };
+        evs.forEach(x => {
             const dt = x.d < lim ? x.d : lim;
-            if (bal > 0 && rd > 0) mora += bal * rd * dayDiff(prev, dt);
-            if (dt > prev) prev = dt;
-            const pb = Math.min(x.a, bal); bal -= pb;                            // un pago tardío cubre primero la cuota...
-            const pm = Math.min(x.a - pb, mora - mp); mp += pm;                 // ...y luego la mora causada hasta ese día
-            xs += x.a - pb - pm;
+            acc(dt);
+            let r = x.a;
+            const payA = () => { const v = Math.min(r, A); A -= v; r -= v; };                             // lo vencido de meses anteriores
+            const payC = () => { const v = Math.min(r, cB); cB -= v; r -= v; };                           // la cuota de este mes
+            const payM = () => { const v = Math.min(r, Math.max(0, mor0 + mora - mp)); mp += v; r -= v; }; // la mora causada hasta ese día
+            payA();
+            if (dt <= P) { payM(); payC(); } else { payC(); payM(); } // antes del día de pago la cuota de este mes aún no está vencida: la mora va primero
+            xs += r;
         });
-        if (bal > 0 && rd > 0) mora += bal * rd * dayDiff(prev, lim);
-        if (c.paid && c.paid[m]) mora = 0;                                       // marcada como pagada: sin mora
-        if (i == n0) out = { cuota: eff, fee, mora, ext: fee + mora, av, got: av + cin0, pool: pool0 };
+        acc(lim);
+        const flagged = !!(c.paid && c.paid[m]);                                 // marcada como pagada: se borra lo vencido y la mora
+        if (flagged) { A = 0; cB = 0; mora = 0; mp = 0; }
+        const moraTot = flagged ? 0 : mor0 + mora;                               // mora bruta: la que venía sin pagar + la de este mes
+        if (i == n0) out = { cuota: eff, fee, mora: moraTot, atr: arr0, ext: fee + moraTot, av, got: av + cin0, pool: pool0 };
         const need = (sch[i + 1] || 0) + feeAt(c, i + 1), sp = Math.min(xs, need); // lo que sobra adelanta la cuota siguiente
         pool += xs - sp; cin = sp;
+        // Lo que quedó sin pagar pasa al mes siguiente como vencido (solo si su día de pago ya pasó)
+        arr = A + (P < td ? cB : 0);
+        mor = flagged ? 0 : Math.max(0, mor0 + mora - mp);
     }
     return out;
 };
-const cardDue = (c, nm) => { if (c.paid[nm]) return 0; const f = cardFlow(c, nm); return Math.max(0, f.cuota + f.ext - f.got); };
+const cardDue = (c, nm) => { if (c.paid[nm]) return 0; const f = cardFlow(c, nm); return Math.max(0, f.cuota + f.atr + f.ext - f.got); };
 const nextPay = p => {
     const n = new Date(), d = new Date(n.getFullYear(), n.getMonth(), Math.min(p, 28));
     if (p > 28) d.setDate(p);
@@ -195,12 +210,12 @@ const nextPay = p => {
 // Cupo real: lo que debes menos lo que ya pagaste
 const cardUse = (c, nm) => {
     const its = S.items.filter(x => x.k == c.n);
-    const f = cardFlow(c, nm), cq = f.cuota, ext = f.ext, tot = cq + ext, ab = f.got, us = its.reduce((t, x) => t + pend(x, nm), 0); // ab = pagado que cubre este mes; f.pool = abonos a capital anteriores
+    const f = cardFlow(c, nm), cq = f.cuota, atr = f.atr, ext = f.ext, tot = cq + atr + ext, ab = f.got, us = its.reduce((t, x) => t + pend(x, nm), 0); // ab = pagado que cubre este mes; f.pool = abonos a capital anteriores
     const ok = !!c.paid[nm] || (tot > 0 && tot - ab <= 0);
     const cap = Math.max(0, ab - ext); // la cuota de manejo y la mora no bajan la deuda: solo lo demás libera cupo
-    const used = Math.max(0, us - f.pool - (ok ? Math.max(cap, cq) : cap));
+    const used = Math.max(0, us + atr - f.pool - (ok ? Math.max(cap, cq + atr) : cap)); // lo vencido sin pagar sigue ocupando cupo (aprox.)
     const raw = c.c ? used / c.c * 100 : 0;
-    return { cq, ext, fee: f.fee, mora: f.mora, us, ab, ok, used, raw, pct: Math.min(100, raw), avail: Math.max(0, (c.c || 0) - used) };
+    return { cq, atr, atrLeft: Math.max(0, atr - ab), ext, fee: f.fee, mora: f.mora, us, ab, ok, used, raw, pct: Math.min(100, raw), avail: Math.max(0, (c.c || 0) - used) };
 };
 const useTone = p => p < 30 ? { bar: "bg-emerald-500", txt: "text-emerald-500", lbl: "Uso saludable" } : p < 70 ? { bar: "bg-amber-500", txt: "text-amber-500", lbl: "Uso moderado" } : { bar: "bg-rose-500", txt: "text-rose-500", lbl: "Uso alto" };
 
@@ -222,8 +237,8 @@ function stmt(c, i) {
     const f = cardFlow(c, nm), k = c.k || c.p, cl = i - (c.k && c.p && c.p <= c.k ? 1 : 0); // mes en que cierra (corte)
     const close = payDateIn(k, idxYm(cl)), prev = payDateIn(k, idxYm(cl - 1));
     const from = ymd(new Date(+prev.slice(0, 4), +prev.slice(5, 7) - 1, +prev.slice(8) + 1));
-    const total = f.cuota + f.ext, flagged = !!c.paid[nm];
-    return { nm, rows, news, base, adj: f.cuota - base, fee: f.fee, mora: f.mora, total, paid: f.got, flagged,
+    const total = f.cuota + f.atr + f.ext, flagged = !!c.paid[nm];
+    return { nm, rows, news, base, adj: f.cuota - base, atr: f.atr, fee: f.fee, mora: f.mora, total, paid: f.got, flagged,
         pend: flagged ? 0 : Math.max(0, total - f.got), from, close, pay: payDateIn(c.p, nm), open: close >= today() };
 }
 // Extractos que se pueden recorrer: desde el primer pago de una compra hasta el último, y siempre el que está abierto hoy
@@ -348,6 +363,21 @@ function dailyInfo(disp) {
     return { left, spent, fixed, avail, none: avail <= 0, perDay, rest: perDay - spent, later: left > 1 ? avail / (left - 1) : 0 };
 }
 
+// ---------- Proyección del mes ----------
+// "A este ritmo, ¿con cuánto cierro el mes?" Solo tiene sentido en el mes actual.
+// Ritmo = gasto variable que salió de una billetera (sin gastos fijos, deudas ni ahorro) dividido entre los días transcurridos.
+// Cierre = disponible de hoy (ya sin cuotas de tarjeta) - gastos fijos por venir - ritmo × días que faltan.
+function monthProjection(disp) {
+    const n = new Date();
+    if (ym(n) != ym(cur)) return null;
+    const nm = ym(n), td = n.getDate(), left = new Date(n.getFullYear(), n.getMonth() + 1, 0).getDate() - td;
+    const isFixed = x => (S.rec || []).some(r => r.n == x.n && r.a == x.a && r.c == x.c && x.d == nm + "-" + String(r.day).padStart(2, "0"));
+    const spent = S.items.filter(x => x.t == "g" && x.d.startsWith(nm) && x.d <= today() && !x.k && !x.s && !x.sav && !x.dbt && x.c != "Ahorro" && vis(x) && !isFixed(x)).reduce((s, x) => s + x.a, 0);
+    const fixed = (S.rec || []).filter(r => r.last != nm && r.day > td && !r.k).reduce((s, r) => s + r.a, 0);
+    const pace = spent / td, proj = pace * left, end = disp - fixed - proj, room = disp - fixed;
+    return { few: td < 3, td, left, spent, pace, proj, fixed, end, room, fit: left > 0 ? Math.max(0, room / left) : 0 };
+}
+
 // ---------- Presupuestos ----------
 const catSpent = (c, k) => S.items.filter(x => x.d.startsWith(k) && x.t == "g" && x.c == c && !x.s && vis(x)).reduce((s, x) => s + x.a, 0);
 
@@ -372,7 +402,7 @@ const cardNext = c => {
 // Así: pagas la cuota → queda en $0 → pasa la fecha de pago → recién ahí empieza a contar la siguiente.
 const cardSoon = c => {
     const nm = ym(new Date()), d = cardDue(c, nm);
-    return dueIn(c.p) < 0 ? d + cardDue(c, nextMonth(nm)) : d;
+    return dueIn(c.p) < 0 ? Math.max(d, cardDue(c, nextMonth(nm))) : d; // lo que quedó sin pagar ya viaja dentro de la cuota siguiente
 };
 // Días que faltan para el pago de ESTE mes (negativo = ya pasó)
 const dueIn = p => daysTo(payDate(p));
@@ -427,6 +457,7 @@ function tipsList(by) {
         const u = cardUse(c, nm), pc = Math.round(u.raw), nx = cardNext(c), d = daysTo(payDateIn(c.p, nx.m));
         intTot += cardInt(c, nm);
         if (u.mora > 0) add(0, "fa-triangle-exclamation", c.n + " ya está generando mora", "Van ≈ " + fmt(u.mora) + " de interés de mora. Págala hoy para que no siga subiendo.");
+        else if (u.atrLeft > 0) add(0, "fa-triangle-exclamation", c.n + " tiene " + fmt(u.atrLeft) + " vencidos de meses anteriores", "Ponte al día cuanto antes: ese saldo sigue acumulando intereses de mora.");
         if (nx.due > 0 && d <= 5 && d >= -30) add(0, "fa-calendar-day", c.n + " " + dueTxt(d), "Te faltan " + fmt(nx.due) + " de la cuota. " + (d < 0 ? "Págala cuanto antes para frenar los intereses de mora." : "Págala a tiempo y evita intereses de mora."));
         if (u.raw >= 70) add(0, "fa-credit-card", c.n + " está al " + pc + "% del cupo", "Abona para liberar cupo. Lo ideal es mantener cada tarjeta por debajo del 30%.");
         else if (u.raw >= 30) add(1, "fa-credit-card", c.n + " va en " + pc + "% del cupo", "Antes de otra compra a cuotas, abona un poco. Meta: menos del 30% utilizado.");
