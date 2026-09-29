@@ -159,14 +159,22 @@ function bkUI() {
 function dailyUI(disp) {
     const dy = dailyInfo(disp);
     if (!dy) return "";
-    const over = dy.rest < 0, none = dy.pool <= 0;
-    const sub = none ? "Lo disponible no alcanza para lo que resta del mes"
-        : "≈ " + fmt(dy.perDay) + " por día · " + (dy.left == 1 ? "último día del mes" : "quedan " + dy.left + " días");
+    const over = !dy.none && dy.rest < 0;
+    let lbl = "Hoy puedes gastar", val = fmt(Math.max(0, dy.rest)), sub, red = false;
+    if (dy.none) {
+        val = fmt(0); red = true;
+        sub = "Ya no te queda disponible para lo que resta del mes" + (dy.spent > 0 ? " · hoy llevas " + fmt(dy.spent) : "");
+    } else if (over) {
+        lbl = "Hoy te pasaste por"; val = fmt(-dy.rest); red = true;
+        sub = dy.left > 1 ? "Para los " + (dy.left - 1) + (dy.left == 2 ? " día que sigue" : " días que siguen") + " quedan ≈ " + fmt(dy.later) + " por día" : "";
+    } else {
+        sub = "≈ " + fmt(dy.perDay) + " por día · " + (dy.left == 1 ? "último día del mes" : "quedan " + dy.left + " días");
+    }
     return `
         <div class="mt-4 p-3 rounded-2xl bg-white/10 flex items-center justify-between gap-3">
             <div class="min-w-0">
-                <small class="text-[10px] text-indigo-200 block uppercase">${over && !none ? "Hoy te pasaste por" : "Hoy puedes gastar"}</small>
-                <b class="text-xl font-extrabold ${over || none ? "text-rose-300" : ""}">${none ? fmt(0) : fmt(over ? -dy.rest : dy.rest)}</b>
+                <small class="text-[10px] text-indigo-200 block uppercase">${lbl}</small>
+                <b class="text-xl font-extrabold ${red ? "text-rose-300" : ""}">${val}</b>
             </div>
             <div class="text-right text-[11px] text-indigo-200 leading-snug">${sub}${dy.fixed > 0 ? `<br>ya descontados ${fmt(dy.fixed)} de gastos fijos por venir` : ""}</div>
         </div>`;
@@ -181,7 +189,7 @@ function vHome() {
 
     const hasW = S.items.some(x => x.w) || Object.keys(S.ini).length > 0, nm = ym(cur);
     const have = hasW ? WH.filter(w => !(S.hide || {})[w]).reduce((s, w) => s + bal(w, nm), 0) : sob;
-    const due = S.cards.filter(c => !(S.hide || {})[c.n]).reduce((s, c) => s + cardDue(c, nm), 0);
+    const due = S.cards.filter(c => !(S.hide || {})[c.n]).reduce((s, c) => s + (nm == ym(new Date()) ? cardNext(c).due : cardDue(c, nm)), 0);
     const svt = S.acc.reduce((s, a) => s + svb(a.id, nm) * (a.u ? S.trm : 1), 0), disp = have - due;
     const P = invPortfolio(), invT = P.T, invC = P.C;
     const totAcc = S.acc.filter(a => !a.f).reduce((s, a) => s + goalTotal(a) * (a.u ? S.trm : 1), 0);
@@ -479,7 +487,7 @@ function vTar() {
         lastPct[c.id] = { b: cu.pct, n: cu.raw };
         const pop = cu.ok && lastOk[c.id] === false; lastOk[c.id] = cu.ok;
         if (c.c) { tc += c.c; tu += cu.used; }
-        const late = !cu.ok && cu.cq - cu.ab > 0 && d < 0, nd = d < 0 && !late ? nextPay(c.p) : d;
+        const late = !cu.ok && cu.cq - cu.ab > 0 && d < 0, nd = d < 0 && !late ? nextPay(c.p) : d, cn = cardNext(c);
         return `
             <div class="lift ${CARD} p-5 mb-4">
                 <div class="flex justify-between items-center mb-2">
@@ -492,6 +500,7 @@ function vTar() {
                     <div><span class="text-slate-400 block">Abonado este mes</span><b class="text-emerald-600">${fmt(cu.ab)}</b></div>
                     <div><span class="text-slate-400 block">Intereses en la cuota</span><b class="${it > 0 ? "text-amber-500" : ""}">${fmt(it)}</b></div>
                 </div>
+                ${cn.m != n && cn.due > 0 ? `<p class="text-[11px] text-slate-400 -mt-2 mb-3"><i class="fa-regular fa-calendar mr-1"></i>Próximo pago: <b class="text-slate-600 dark:text-slate-300">${dmy(payDateIn(c.p, cn.m))}</b> · ${fmt(cn.due)}</p>` : ""}
                 ${c.c ? `
                 <div class="flex items-end justify-between mb-1.5">
                     <div><span class="cupo-pct text-2xl font-extrabold ${tn.txt}" data-from="${fn}" data-to="${cu.raw}">${Math.round(fn)}%</span><span class="text-xs text-slate-400 ml-1.5">del cupo utilizado</span></div>

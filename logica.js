@@ -232,9 +232,9 @@ function dailyInfo(disp) {
     // Lo gastado hoy que salió de una billetera (ya está restado de "disp")
     const spent = S.items.filter(x => x.d == today() && x.t == "g" && !x.k && !x.sav && vis(x)).reduce((s, x) => s + x.a, 0);
     const fixed = (S.rec || []).filter(r => r.last != nm && r.day > td && !r.k).reduce((s, r) => s + r.a, 0);
-    const pool = disp + spent - fixed;   // lo que había al empezar el día, menos lo que ya viene
-    const perDay = pool / left;
-    return { left, spent, fixed, pool, perDay, rest: perDay - spent };
+    const avail = disp - fixed;                 // lo que realmente te queda, descontando gastos fijos por venir
+    const perDay = (avail + spent) / left;      // lo que tocaba por día al empezar hoy
+    return { left, spent, fixed, avail, none: avail <= 0, perDay, rest: perDay - spent, later: left > 1 ? avail / (left - 1) : 0 };
 }
 
 // ---------- Presupuestos ----------
@@ -243,7 +243,16 @@ const catSpent = (c, k) => S.items.filter(x => x.d.startsWith(k) && x.t == "g" &
 // ---------- Fechas de pago y avisos ----------
 const REM_WIN = { g: 7, c: 3, d: 3 }; // cuántos días antes empieza a avisar: metas, tarjetas, deudas
 const daysTo = date => daysBetween(midnight(), new Date(date + "T00:00:00"));
-const payDate = p => { const n = new Date(), dim = new Date(n.getFullYear(), n.getMonth() + 1, 0).getDate(); return ymd(new Date(n.getFullYear(), n.getMonth(), Math.min(p, dim))); };
+const payDateIn = (p, m) => { const y = +m.slice(0, 4), mo = +m.slice(5) - 1, dim = new Date(y, mo + 1, 0).getDate(); return ymd(new Date(y, mo, Math.min(p, dim))); };
+const payDate = p => payDateIn(p, ym(new Date()));
+const nextMonth = m => ym(new Date(+m.slice(0, 4), +m.slice(5), 1));
+// Próximo pago pendiente de una tarjeta: la cuota de este mes si aún falta; si ya la pagaste, la del mes siguiente
+// (ej. con corte 28 y pago 18, el 29 de sept. ya está cerrado el extracto que se paga el 18 de oct.)
+const cardNext = c => {
+    const nm = ym(new Date()), d = cardDue(c, nm);
+    if (d > 0) return { m: nm, due: d };
+    const nx = nextMonth(nm); return { m: nx, due: cardDue(c, nx) };
+};
 // Días que faltan para el pago de ESTE mes (negativo = ya pasó)
 const dueIn = p => daysTo(payDate(p));
 const dueTxt = d => d < 0 ? "venció hace " + (-d) + (d == -1 ? " día" : " días") : d == 0 ? "vence hoy" : "vence en " + d + (d == 1 ? " día" : " días");
@@ -261,8 +270,8 @@ function reminderEvents() {
         E.push({ key: "g" + a.id, title: "Mi Plata · " + a.n, what: "Tu meta", date: a.dl, win: REM_WIN.g, extra: "Faltan " + fm(a, gi.falta) + "." });
     });
     S.cards.filter(c => !(S.hide || {})[c.n]).forEach(c => {
-        const due = cardDue(c, nm); if (!(due > 0)) return;
-        E.push({ key: "c" + c.id, title: "Mi Plata · " + c.n, what: "El pago de la tarjeta", date: payDate(c.p), win: REM_WIN.c, extra: "Te faltan " + fmt(due) + " de la cuota." });
+        const nx = cardNext(c); if (!(nx.due > 0)) return;
+        E.push({ key: "c" + c.id, title: "Mi Plata · " + c.n, what: "El pago de la tarjeta", date: payDateIn(c.p, nx.m), win: REM_WIN.c, extra: "Te faltan " + fmt(nx.due) + " de la cuota." });
     });
     S.dbt.filter(d => d.dd).forEach(d => {
         const due = dbtDue(d, nm); if (!(due > 0)) return;
@@ -294,9 +303,9 @@ function tipsList(by) {
     // Tarjetas
     let goodCard = false, intTot = 0;
     S.cards.filter(c => c.c && !(S.hide || {})[c.n]).forEach(c => {
-        const u = cardUse(c, nm), pc = Math.round(u.raw), d = dueIn(c.p);
+        const u = cardUse(c, nm), pc = Math.round(u.raw), nx = cardNext(c), d = daysTo(payDateIn(c.p, nx.m));
         intTot += cardInt(c, nm);
-        if (!u.ok && u.cq - u.ab > 0 && d <= 5 && d >= -30) add(0, "fa-calendar-day", c.n + " " + dueTxt(d), "Te faltan " + fmt(u.cq - u.ab) + " de la cuota. " + (d < 0 ? "Págala cuanto antes para frenar los intereses de mora." : "Págala a tiempo y evita intereses de mora."));
+        if (nx.due > 0 && d <= 5 && d >= -30) add(0, "fa-calendar-day", c.n + " " + dueTxt(d), "Te faltan " + fmt(nx.due) + " de la cuota. " + (d < 0 ? "Págala cuanto antes para frenar los intereses de mora." : "Págala a tiempo y evita intereses de mora."));
         if (u.raw >= 70) add(0, "fa-credit-card", c.n + " está al " + pc + "% del cupo", "Abona para liberar cupo. Lo ideal es mantener cada tarjeta por debajo del 30%.");
         else if (u.raw >= 30) add(1, "fa-credit-card", c.n + " va en " + pc + "% del cupo", "Antes de otra compra a cuotas, abona un poco. Meta: menos del 30% utilizado.");
         else if (!goodCard) { goodCard = true; add(3, "fa-circle-check", "Buen manejo de " + c.n, "Solo usas el " + pc + "% del cupo. Eso cuida tu historial crediticio."); }
