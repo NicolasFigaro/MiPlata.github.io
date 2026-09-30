@@ -205,7 +205,7 @@ function addMov() {
         db = S.dbt.find(x => x.id == g("debtSel").value); pa = Math.min(a, da || dbtLeft(db));
         if (!(pa > 0)) return er("Esa deuda ya está pagada.");
     }
-    const bud = type == "g" ? (S.bud || {})[cat] : 0, bk = d.slice(0, 7), before = bud ? catSpent(cat, bk) : 0;
+    const bk = d.slice(0, 7), bud = type == "g" ? budOf(cat, bk) : 0, before = bud ? catSpent(cat, bk) : 0;
     S.items.push({ id: Date.now(), d, t: type, c: cat, n: note, a, k: card, w: wh, q: cq, ni, ir, sav: savAcc ? savAcc.id : undefined });
     if (ds == "card") S.items.push({ id: Date.now() + 1, d, t: "p", c: "Pago tarjeta", n: "Pago " + pcSel, a: pa, k: "", pc: pcSel, w: wh, q: 1 });
     if (ds == "save") S.sv.push({ id: Date.now() + 1, a: ac.id, d, v: ac.u ? pa / S.trm : pa, cp: pa, w: wh });
@@ -275,6 +275,8 @@ function editCat(id) {
             S.items.forEach(x => { if (x.t == "g" && x.c == c.n) x.c = v[0]; });
             S.rec.forEach(r => { if (r.c == c.n) r.c = v[0]; });
             if (S.bud[c.n]) { S.bud[v[0]] = S.bud[c.n]; delete S.bud[c.n]; }
+            if (S.budr[c.n]) { S.budr[v[0]] = S.budr[c.n]; delete S.budr[c.n]; }
+            Object.keys(S.budm).forEach(k => { if (S.budm[k][c.n]) { S.budm[k][v[0]] = S.budm[k][c.n]; delete S.budm[k][c.n]; } });
             c.n = v[0];
         }
         c.k = v[1].startsWith("Nec") ? "n" : "g";
@@ -287,7 +289,8 @@ function delCat(id) {
     confirmAction("¿Borrar la categoría " + esc(c.n) + "?" + (n ? " Sus " + n + " movimientos pasarán a «Otros»." : ""), () => {
         S.items.forEach(x => { if (x.t == "g" && x.c == c.n) x.c = "Otros"; });
         S.rec.forEach(r => { if (r.c == c.n) r.c = "Otros"; });
-        delete S.bud[c.n];
+        delete S.bud[c.n]; delete S.budr[c.n];
+        Object.keys(S.budm).forEach(k => { delete S.budm[k][c.n]; });
         S.cat = S.cat.filter(x => x.id != id);
         syncG(); save();
     });
@@ -545,29 +548,57 @@ function payDbt(id) {
 function delDbt(id) { confirmAction("¿Borrar deuda? Los abonos ya hechos quedan como gastos.", () => { S.dbt = S.dbt.filter(x => x.id != id); save(); }); }
 
 // ---------- Ajustes ----------
-function setBud(c, v) { const n = num(v); if (n) S.bud[c] = n; else delete S.bud[c]; save(); }
+function setBud(c, v) { const n = num(v), had = S.bud[c] > 0; if (n) S.bud[c] = n; else delete S.bud[c]; save(); if (had != !!n) setTimeout(draw, 0); }
+// Presupuesto solo para el mes actual (el fijo de siempre no se toca). Vacío = vuelve al fijo.
+function setBudMonth(c, v) {
+    const k = ym(new Date()), n = num(v);
+    if (n) { (S.budm[k] = S.budm[k] || {})[c] = n; } else if (S.budm[k]) { delete S.budm[k][c]; if (!Object.keys(S.budm[k]).length) delete S.budm[k]; }
+    save();
+}
+// Acumular lo que sobre: desde este mes, lo que no gastes se suma al presupuesto del mes siguiente
+function togBudRoll(c) { if (S.budr[c]) delete S.budr[c]; else S.budr[c] = ym(new Date()); save(); draw(); }
 function setIni(i, v) { const n = num(v); if (n) S.ini[WH[i]] = n; else delete S.ini[WH[i]]; save(); }
 function togHide(i) { const n = hideNames()[i]; if (S.hide[n]) delete S.hide[n]; else S.hide[n] = true; save(); }
+const RECV = ["No, siempre es igual", "Sí, pregúntame el valor cada mes"];
 function newRec() {
     const cs = G.filter(g => g[0] != "Ahorro").map(g => g[0]);
-    openCustomModal("Nuevo gasto fijo", [{ l: "Nombre (ej. Arriendo)" }, { l: "Monto", m: "numeric" }, { l: "Día del mes (1-28)", v: "1", m: "numeric" }, { l: "Categoría", o: cs }, { l: "Se paga con", o: WH.concat(S.cards.map(c => c.n)) }], v => {
+    openCustomModal("Nuevo gasto fijo", [{ l: "Nombre (ej. Arriendo)" }, { l: "Monto (si cambia, uno aproximado)", m: "numeric" }, { l: "Día del mes (1-28)", v: "1", m: "numeric" }, { l: "Categoría", o: cs }, { l: "Se paga con", o: WH.concat(S.cards.map(c => c.n)) }, { l: "¿El monto cambia cada mes? (luz, agua, celular…)", o: RECV }], v => {
         const a = num(v[1]), day = Math.min(28, Math.max(1, num(v[2]) || 1)), isW = WH.includes(v[4]);
         if (!v[0] || !a) return "Escribe nombre y monto.";
-        S.rec.push({ id: Date.now(), n: v[0], a, day, c: v[3], k: isW ? "" : v[4], w: isW ? v[4] : "", last: "" });
+        S.rec.push({ id: Date.now(), n: v[0], a, day, c: v[3], k: isW ? "" : v[4], w: isW ? v[4] : "", last: "", vr: v[5] == RECV[1] });
         genRec();
     });
 }
+function editRec(id) {
+    const r = S.rec.find(x => x.id == id); if (!r) return;
+    openCustomModal("Editar gasto fijo", [{ l: "Nombre", v: esc(r.n) }, { l: "Monto", v: Math.round(r.a), m: "numeric" }, { l: "Día del mes (1-28)", v: r.day, m: "numeric" }, { l: "¿El monto cambia cada mes?", o: RECV, v: RECV[r.vr ? 1 : 0] }], v => {
+        const a = num(v[1]), day = Math.min(28, Math.max(1, num(v[2]) || 1));
+        if (!v[0] || !a) return "Escribe nombre y monto.";
+        Object.assign(r, { n: v[0], a, day, vr: v[3] == RECV[1] });
+        genRec(); // si ya pasó su día y no está registrado este mes, lo registra (o lo pide, si es variable)
+    });
+}
 function delRec(id) { confirmAction("¿Borrar gasto fijo?", () => { S.rec = S.rec.filter(r => r.id != id); save(); }); }
+// Los de monto fijo se registran solos el día que toca. Los de monto variable esperan a que confirmes cuánto llegó (ver recUI en Inicio).
 function genRec() {
     const nm = ym(new Date()), td = new Date().getDate();
     (S.rec || []).forEach(r => {
-        if (r.last != nm && td >= r.day) {
-            S.items.push({ id: Date.now() * 1000 + Math.floor(Math.random() * 1000), d: nm + "-" + String(r.day).padStart(2, "0"), t: "g", c: r.c, n: r.n, a: r.a, k: r.k, w: r.w, q: 1 });
+        if (r.last != nm && td >= r.day && !r.vr) {
+            S.items.push({ id: Date.now() * 1000 + Math.floor(Math.random() * 1000), d: nm + "-" + String(r.day).padStart(2, "0"), t: "g", c: r.c, n: r.n, a: r.a, k: r.k, w: r.w, q: 1, rid: r.id });
             r.last = nm;
         }
     });
     save();
 }
+function confirmRec(id) {
+    const r = S.rec.find(x => x.id == id); if (!r) return;
+    const el = document.getElementById("rc" + id), a = num(el && el.value), nm = ym(new Date());
+    if (!a) return showToast("Escribe un monto válido", true);
+    S.items.push({ id: Date.now() * 1000 + Math.floor(Math.random() * 1000), d: nm + "-" + String(r.day).padStart(2, "0"), t: "g", c: r.c, n: r.n, a, k: r.k, w: r.w, q: 1, rid: r.id });
+    r.a = a; r.last = nm; // el valor confirmado queda como referencia para el mes que viene
+    save(); showToast(r.n + " registrado por " + fmt(a)); draw();
+}
+function skipRec(id) { const r = S.rec.find(x => x.id == id); if (!r) return; r.last = ym(new Date()); save(); showToast(r.n + ": omitido este mes"); draw(); }
 
 // ---------- Copias de seguridad ----------
 function markBackup() { S.bk = today(); delete S.bkz; save(); }

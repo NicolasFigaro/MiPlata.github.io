@@ -201,12 +201,36 @@ function projUI(disp) {
         </div>`;
 }
 
+function recUI() {
+    const P = recPend();
+    if (!P.length) return "";
+    return `
+        <section class="${CARD} p-4 !border-amber-300 dark:!border-amber-500/40 bg-amber-50/60 dark:bg-amber-500/5">
+            <div class="flex items-start gap-3">
+                <div class="w-9 h-9 shrink-0 rounded-xl flex items-center justify-center text-sm bg-amber-100 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400"><i class="fa-solid fa-file-invoice-dollar"></i></div>
+                <div class="min-w-0 flex-1">
+                    <p class="text-xs font-bold text-slate-800 dark:text-white">Confirma tus gastos fijos de este mes</p>
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">Su valor cambia cada mes. Escribe cuánto llegó (te dejé el del mes pasado). Mientras no lo confirmes, ese valor ya se descuenta de lo que te queda para gastar.</p>
+                    <div class="space-y-2 mt-3">
+                        ${P.map(r => `
+                        <div class="flex items-center gap-2">
+                            <div class="min-w-0 flex-1"><b class="text-xs text-slate-800 dark:text-white block truncate">${esc(r.n)}</b><small class="text-[10px] text-slate-400">día ${r.day} · ${esc(r.c)}</small></div>
+                            <input id="rc${r.id}" inputmode="numeric" value="${Math.round(r.a).toLocaleString("es-CO")}" oninput="fa(this)" onkeydown="if(event.key==='Enter')confirmRec(${r.id})" class="w-28 px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-right text-slate-800 dark:text-white">
+                            <button onclick="confirmRec(${r.id})" class="px-3 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold">Listo</button>
+                            <button onclick="skipRec(${r.id})" title="Omitir este mes" class="px-2.5 py-2 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-xl text-xs"><i class="fa-solid fa-forward"></i></button>
+                        </div>`).join("")}
+                    </div>
+                </div>
+            </div>
+        </section>`;
+}
+
 // ---------- Inicio ----------
 function vHome() {
     if (flt.k == "c" && !S.cards.some(c => c.id == flt.v)) flt = { k: "cards", v: null };
     const m = mon(), ing = sum(m, x => x.t == "i"), aho = svm(), gas = sum(m, x => x.t == "g"), sob = ing - gas - aho;
     const cats = (type == "g" ? G.filter(x => x[0] != "Ahorro").map(x => x[0]) : I).map(c => `<option>${c}</option>`).join("") + (type == "g" ? '<option value="__new">＋ Nueva categoría…</option>' : "");
-    const by = G.map(([c]) => [c, sum(m, x => x.t == "g" && x.c == c && !x.s)]).filter(x => x[1] > 0 || (S.bud || {})[x[0]]).sort((a, b) => b[1] - a[1]), mx = (by[0] ? by[0][1] : 1) || 1;
+    const by = G.map(([c]) => [c, sum(m, x => x.t == "g" && x.c == c && !x.s)]).filter(x => x[1] > 0 || budOf(x[0], ym(cur))).sort((a, b) => b[1] - a[1]), mx = (by[0] ? by[0][1] : 1) || 1;
 
     const hasW = S.items.some(x => x.w) || Object.keys(S.ini).length > 0, nm = ym(cur);
     const have = hasW ? WH.filter(w => !(S.hide || {})[w]).reduce((s, w) => s + bal(w, nm), 0) : sob;
@@ -224,6 +248,7 @@ function vHome() {
     const sel = "w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-white";
     return `
         ${bkUI()}
+        ${recUI()}
         <section class="relative overflow-hidden bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-800 text-white p-6 rounded-3xl shadow-xl shadow-indigo-500/10 flex flex-col justify-between">
             <div class="absolute -right-10 -bottom-10 w-40 h-40 bg-white/10 rounded-full blur-2xl pointer-events-none float-slow"></div>
             <div class="flex justify-between items-start">
@@ -299,10 +324,10 @@ function vHome() {
             <p class="text-[11px] text-slate-400 mt-0.5 mb-3">Toca una categoría para ver sus compras y filtrar por fechas</p>
             <div class="space-y-3">
                 ${by.map(([c, v]) => {
-                    const b = (S.bud || {})[c], r = b ? v / b : v / mx;
+                    const bi = budInfo(c, ym(cur)), b = bi.tot, r = b ? v / b : v / mx;
                     return `<div class="text-xs cursor-pointer rounded-xl -mx-2 px-2 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition" role="button" tabindex="0" onclick="openCat('${esc(c)}')" onkeydown="if(event.key==='Enter')openCat('${esc(c)}')" title="Ver las compras de ${esc(c)}">
                         <div class="flex justify-between mb-1 font-medium"><span>${esc(c)}<i class="fa-solid fa-chevron-right text-[8px] text-slate-300 ml-1.5"></i></span><span>${fmt(v)}${b ? " de " + fmt(b) : ""}</span></div>
-                        <div class="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden"><div class="h-full rounded-full ${b && r >= 1 ? "bg-rose-500" : b && r >= 0.8 ? "bg-amber-500" : "bg-indigo-600"}" style="width:${Math.min(100, r * 100)}%"></div></div>
+                        <div class="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden"><div class="h-full rounded-full ${b && r >= 1 ? "bg-rose-500" : b && r >= 0.8 ? "bg-amber-500" : "bg-indigo-600"}" style="width:${Math.min(100, r * 100)}%"></div></div>${b && (bi.carry > 0 || bi.ov) ? `<div class="text-[10px] text-slate-400 mt-1">${[bi.ov ? "ajustado solo este mes" : "", bi.carry > 0 ? "incluye " + fmt(bi.carry) + " que sobraron del mes anterior" : ""].filter(Boolean).join(" · ")}</div>` : ""}
                     </div>`;
                 }).join("") || '<p class="text-xs text-slate-400 text-center py-4">Aún no hay gastos este mes.</p>'}
             </div>
@@ -629,9 +654,10 @@ function extractUI(c, i, b) {
 
 // ---------- Detalle de una categoría (contenido del modal) ----------
 function catUI() {
-    const d = cdet, r = catDetail(d.c, d.from, d.to), R = catRanges(), bud = (S.bud || {})[d.c];
+    const d = cdet, r = catDetail(d.c, d.from, d.to), R = catRanges();
     const chip = (k, l) => `<button onclick="catQuick('${k}')" class="shrink-0 px-3 py-1.5 text-[11px] rounded-xl font-semibold whitespace-nowrap transition ${R[k][0] == d.from && R[k][1] == d.to ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/25" : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"}">${l}</button>`;
     const oneMonth = d.from && d.to && d.from.slice(0, 7) == d.to.slice(0, 7) && d.from.slice(8) == "01" && d.to == ymd(new Date(+d.to.slice(0, 4), +d.to.slice(5, 7), 0));
+    const bud = oneMonth ? budOf(d.c, d.from.slice(0, 7)) : 0;
     const bad = d.from && d.to && d.from > d.to;
     const tile = (l, v, cl) => `<div class="flex-1 min-w-0 p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800"><span class="text-[10px] uppercase tracking-wider text-slate-400 block truncate">${l}</span><b class="text-xs ${cl || ""}">${v}</b></div>`;
     const list = r.rows.map(x => `
@@ -695,16 +721,26 @@ function hidUI() { return hideNames().map((n, i) => `<label class="flex items-ce
 function vSet() {
     const card = CARD + " p-6 space-y-4";
     const inp = "w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono";
-    const bud = G.filter(g => g[0] != "Ahorro").map(([c]) => `<div class="flex items-center justify-between gap-3 text-xs"><span class="font-medium">${c}</span><input inputmode="numeric" value="${S.bud[c] ? Number(S.bud[c]).toLocaleString("es-CO") : ""}" placeholder="Sin límite" oninput="fa(this)" onchange="setBud('${c}', this.value)" class="w-36 px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-right"></div>`).join("");
+    const bmk = ym(new Date()), mlab = new Date().toLocaleDateString("es-CO", { month: "long" });
+    const bud = G.filter(g => g[0] != "Ahorro").map(([c]) => {
+        const has = S.bud[c] > 0, ov = ((S.budm || {})[bmk] || {})[c], on = !!(S.budr || {})[c];
+        return `<div class="text-xs">
+            <div class="flex items-center justify-between gap-3"><span class="font-medium">${c}</span><input inputmode="numeric" value="${S.bud[c] ? Number(S.bud[c]).toLocaleString("es-CO") : ""}" placeholder="Sin límite" oninput="fa(this)" onchange="setBud('${c}', this.value)" class="w-36 px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-right"></div>
+            ${has || ov ? `<div class="flex items-center justify-between gap-3 mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+                <label class="flex items-center gap-1.5"><input type="checkbox" ${on ? "checked" : ""} onchange="togBudRoll('${c}')" class="w-3.5 h-3.5 accent-indigo-600">Acumular lo que sobre</label>
+                <span class="flex items-center gap-1.5">Solo ${mlab}<input inputmode="numeric" value="${ov ? Number(ov).toLocaleString("es-CO") : ""}" placeholder="igual" oninput="fa(this)" onchange="setBudMonth('${c}', this.value)" class="w-24 px-2 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-right"></span>
+            </div>` : ""}
+        </div>`;
+    }).join("");
     const ini = WH.map((w, i) => `<div class="flex items-center justify-between gap-3 text-xs"><span class="font-medium">${w}</span><input inputmode="numeric" value="${S.ini[w] ? Number(S.ini[w]).toLocaleString("es-CO") : ""}" placeholder="0" oninput="fa(this)" onchange="setIni(${i}, this.value)" class="w-36 px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-right"></div>`).join("");
-    const rec = S.rec.map(r => `<div class="flex justify-between items-center text-xs py-1"><span>${esc(r.n)} · día ${r.day} · ${fmt(r.a)}</span><button onclick="delRec(${r.id})" class="text-rose-500 font-semibold">Borrar</button></div>`).join("") || '<p class="text-xs text-slate-400">Sin gastos fijos.</p>';
+    const rec = S.rec.map(r => `<div class="flex justify-between items-center gap-2 text-xs py-1"><span class="min-w-0">${esc(r.n)} · día ${r.day} · ${r.vr ? "≈ " : ""}${fmt(r.a)}${r.vr ? ' <span class="text-amber-500">· cambia cada mes</span>' : ""}</span><span class="flex gap-3 shrink-0"><button onclick="editRec(${r.id})" class="text-indigo-600 font-semibold">Editar</button><button onclick="delRec(${r.id})" class="text-rose-500 font-semibold">Borrar</button></span></div>`).join("") || '<p class="text-xs text-slate-400">Sin gastos fijos.</p>';
     const np = typeof Notification == "undefined" ? "no" : Notification.permission;
     const bgOk = typeof ServiceWorkerRegistration != "undefined" && "periodicSync" in ServiceWorkerRegistration.prototype;
     const cats = S.cat.map(c => `<div class="flex justify-between items-center text-xs py-1"><span>${esc(c.n)} · <span class="text-slate-400">${c.k == "n" ? "Necesidad" : "Gusto"}</span></span><span class="flex gap-3"><button onclick="editCat(${c.id})" class="text-indigo-600 font-semibold">Editar</button><button onclick="delCat(${c.id})" class="text-rose-500 font-semibold">Borrar</button></span></div>`).join("") || '<p class="text-xs text-slate-400">Aún no has creado categorías propias.</p>';
     return `
         <section class="${card}"><div class="flex justify-between items-center"><h3 class="text-base font-bold">Mis categorías</h3><button onclick="newCat()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold">+ Nueva</button></div>
             <p class="text-xs text-slate-400">Además de las 8 de siempre. El tipo (necesidad o gusto) define en qué parte de la regla 50/30/20 cuenta. También puedes crearlas desde Inicio, al anotar un gasto.</p>${cats}</section>
-        <section class="${card}"><h3 class="text-base font-bold">Presupuestos mensuales</h3>${bud}</section>
+        <section class="${card}"><h3 class="text-base font-bold">Presupuestos mensuales</h3><p class="text-xs text-slate-400">El valor de arriba se repite cada mes. «Solo ${mlab}» lo cambia únicamente este mes. «Acumular» suma al mes siguiente lo que no gastes (si te pasas, no se descuenta).</p>${bud}</section>
         <section class="${card}"><div class="flex justify-between items-center"><h3 class="text-base font-bold">Gastos fijos</h3><button onclick="newRec()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold">+ Agregar</button></div>${rec}</section>
         <section class="${card}"><h3 class="text-base font-bold">Saldos iniciales</h3><p class="text-xs text-slate-400">Lo que ya tenías en cada billetera antes de empezar a anotar.</p>${ini}</section>
         <section class="${card}"><h3 class="text-base font-bold">Ocultar del resumen</h3><p class="text-xs text-slate-400">Lo que ocultes no suma en “En mano” ni en “Tarjetas”, y sus gastos no salen en el resumen ni en las gráficas.</p>${hidUI()}</section>

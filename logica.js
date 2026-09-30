@@ -40,6 +40,8 @@ S.sv = S.sv || [];
 S.rec = S.rec || [];
 S.dbt = S.dbt || [];
 S.bud = S.bud || {};
+S.budm = S.budm || {}; // presupuesto de un mes puntual (reemplaza al fijo solo ese mes): { "2026-09": { Comida: 600000 } }
+S.budr = S.budr || {}; // categorías que acumulan lo que sobra, con el mes desde el que rige: { Comida: "2026-09" }
 S.th = S.th || { m: "auto", p: 0, pv: false };
 S.hide = S.hide || {};
 S.ini = S.ini || {};
@@ -357,7 +359,7 @@ function dailyInfo(disp) {
     const nm = ym(n), td = n.getDate(), left = new Date(n.getFullYear(), n.getMonth() + 1, 0).getDate() - td + 1;
     // Lo gastado hoy que salió de una billetera (ya está restado de "disp")
     const spent = S.items.filter(x => x.d == today() && x.t == "g" && !x.k && !x.sav && vis(x)).reduce((s, x) => s + x.a, 0);
-    const fixed = (S.rec || []).filter(r => r.last != nm && r.day > td && !r.k).reduce((s, r) => s + r.a, 0);
+    const fixed = (S.rec || []).filter(r => r.last != nm && (r.day > td || r.vr) && !r.k).reduce((s, r) => s + r.a, 0); // los de monto variable pesan con su último valor hasta que los confirmes
     const avail = disp - fixed;                 // lo que realmente te queda, descontando gastos fijos por venir
     const perDay = (avail + spent) / left;      // lo que tocaba por día al empezar hoy
     return { left, spent, fixed, avail, none: avail <= 0, perDay, rest: perDay - spent, later: left > 1 ? avail / (left - 1) : 0 };
@@ -371,14 +373,33 @@ function monthProjection(disp) {
     const n = new Date();
     if (ym(n) != ym(cur)) return null;
     const nm = ym(n), td = n.getDate(), left = new Date(n.getFullYear(), n.getMonth() + 1, 0).getDate() - td;
-    const isFixed = x => (S.rec || []).some(r => r.n == x.n && r.a == x.a && r.c == x.c && x.d == nm + "-" + String(r.day).padStart(2, "0"));
+    const isFixed = x => !!x.rid || (S.rec || []).some(r => r.n == x.n && r.a == x.a && r.c == x.c && x.d == nm + "-" + String(r.day).padStart(2, "0"));
     const spent = S.items.filter(x => x.t == "g" && x.d.startsWith(nm) && x.d <= today() && !x.k && !x.s && !x.sav && !x.dbt && x.c != "Ahorro" && vis(x) && !isFixed(x)).reduce((s, x) => s + x.a, 0);
-    const fixed = (S.rec || []).filter(r => r.last != nm && r.day > td && !r.k).reduce((s, r) => s + r.a, 0);
+    const fixed = (S.rec || []).filter(r => r.last != nm && (r.day > td || r.vr) && !r.k).reduce((s, r) => s + r.a, 0); // los de monto variable pesan con su último valor hasta que los confirmes
     const pace = spent / td, proj = pace * left, end = disp - fixed - proj, room = disp - fixed;
     return { few: td < 3, td, left, spent, pace, proj, fixed, end, room, fit: left > 0 ? Math.max(0, room / left) : 0 };
 }
 
 // ---------- Presupuestos ----------
+// Presupuesto de la categoría c en el mes k ("2026-09"):
+//  - base: el del mes puntual si lo hay; si no, el fijo de siempre
+//  - carry: lo que sobró de los meses anteriores (solo si la categoría acumula sobrante). Si te pasas, no se descuenta del siguiente.
+//  - tot: base + carry (0 = sin presupuesto ese mes)
+const budBase = (c, k) => { const o = (S.budm || {})[k]; return o && o[c] > 0 ? o[c] : ((S.bud || {})[c] || 0); };
+function budInfo(c, k) {
+    const b = budBase(c, k), st = (S.budr || {})[c], ov = !!(((S.budm || {})[k] || {})[c] > 0);
+    let carry = 0;
+    if (b > 0 && st && k > st) {
+        let m = st, n = 0;
+        while (m < k && n++ < 120) {
+            const bm = budBase(c, m);
+            carry = bm > 0 ? Math.max(0, bm + carry - catSpent(c, m)) : 0;
+            m = nextMonth(m);
+        }
+    }
+    return { base: b, carry, tot: b > 0 ? b + carry : 0, ov, roll: !!st };
+}
+const budOf = (c, k) => budInfo(c, k).tot;
 const catSpent = (c, k) => S.items.filter(x => x.d.startsWith(k) && x.t == "g" && x.c == c && !x.s && vis(x)).reduce((s, x) => s + x.a, 0);
 
 // ---------- Fechas de pago y avisos ----------
@@ -428,8 +449,13 @@ function reminderEvents() {
         const due = dbtDue(d, nm); if (!(due > 0)) return;
         E.push({ key: "d" + d.id, title: "Mi Plata · " + d.n, what: "El pago de la deuda", date: payDate(d.dd), win: REM_WIN.d, extra: d.cu > 0 ? "Te faltan " + fmt(due) + " de la cuota." : "Debes " + fmt(due) + " y aún no abonas este mes." });
     });
+    (S.rec || []).filter(r => r.vr && r.last != nm).forEach(r => {
+        E.push({ key: "r" + r.id, title: "Mi Plata · " + r.n, what: "Tu gasto fijo", date: payDate(r.day), win: 0, extra: "Confirma cuánto llegó este mes (el último fue " + fmt(r.a) + ")." });
+    });
     return E;
 }
+// Gastos fijos de monto variable a los que ya les llegó la fecha y aún no confirmas el valor de este mes
+const recPend = () => { const nm = ym(new Date()), td = new Date().getDate(); return (S.rec || []).filter(r => r.vr && r.last != nm && td >= r.day); };
 const remindBody = (e, days) => e.what + " " + dueTxt(days) + ". " + e.extra;
 
 // ---------- Consejos automáticos ----------
@@ -479,7 +505,7 @@ function tipsList(by) {
     }
     // Presupuestos: avisa desde el 80% (antes de pasarte) y cuando ya te pasaste. Máx. 2, los más críticos.
     const nowM = ym(cur) == nm, dLeft = new Date(cur.getFullYear(), cur.getMonth() + 1, 0).getDate() - new Date().getDate() + 1;
-    by.filter(([c]) => (S.bud || {})[c]).map(([c, v]) => [c, v, S.bud[c], v / S.bud[c]]).filter(x => x[3] >= 0.8).sort((a, b) => b[3] - a[3]).slice(0, 2).forEach(([c, v, b, r]) => {
+    by.map(([c, v]) => [c, v, budOf(c, ym(cur))]).filter(x => x[2] > 0).map(([c, v, b]) => [c, v, b, v / b]).filter(x => x[3] >= 0.8).sort((a, b) => b[3] - a[3]).slice(0, 2).forEach(([c, v, b, r]) => {
         if (r >= 1) add(1, "fa-bullseye", "Te pasaste en " + c, "Llevas " + fmt(v) + " de un presupuesto de " + fmt(b) + ". Frena esta categoría lo que queda del mes.");
         else add(1, "fa-gauge-high", "Vas al " + Math.floor(r * 100) + "% de tu presupuesto en " + c, "Te quedan " + fmt(b - v) + (nowM && dLeft > 0 ? " para " + dLeft + (dLeft == 1 ? " día" : " días") + " (≈ " + fmt((b - v) / dLeft) + " por día)." : "."));
     });
