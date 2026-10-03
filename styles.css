@@ -37,7 +37,14 @@ input, select, textarea, button { font-family: inherit; }
 .col-closed .col-chev { transform: none; }
 .col-body { display: grid; grid-template-rows: 1fr; transition: grid-template-rows .34s cubic-bezier(.22, 1, .36, 1), opacity .25s ease; }
 .col-closed .col-body { grid-template-rows: 0fr; opacity: 0; visibility: hidden; transition: grid-template-rows .34s cubic-bezier(.22, 1, .36, 1), opacity .2s ease, visibility 0s .34s; }
-.col-inner { overflow: hidden; min-height: 0; }
+.col-inner { overflow: hidden; min-height: 0; contain: paint; }
+/* Al plegar una sección el navegador no debe "saltar" el scroll para compensar el cambio de altura */
+#appMain { overflow-anchor: none; }
+/* Táctil: sin :hover pegado y sin el círculo animado con blur (pesado para el GPU del celular y causa parpadeos) */
+@media (hover: none) {
+    .lift:hover { transform: none; }
+    .float-slow { animation: none; }
+}
 .col-pad { padding: 12px 6px 6px; margin: 0 -6px -6px; }
 .col-peek { max-height: 0; opacity: 0; overflow: hidden; transition: max-height .3s ease, opacity .25s ease; }
 .col-closed .col-peek { max-height: 3rem; opacity: 1; }

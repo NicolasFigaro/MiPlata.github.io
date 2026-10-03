@@ -163,15 +163,18 @@ function fa(e) { const v = e.value.replace(/\D/g, ""); e.value = v ? Number(v).t
 
 // ---------- Secciones colapsables de Inicio ----------
 // Pliega o despliega en el mismo lugar (solo cambia una clase; el CSS hace la animación). Sin redibujar nada.
+let colSaveT = null;
 function togCol(id) {
     S.th.col = S.th.col || {};
     const closed = !S.th.col[id];
     if (closed) S.th.col[id] = 1; else delete S.th.col[id];
-    save();
     const el = document.querySelector('[data-col="' + id + '"]');
-    if (!el) return draw();
+    if (!el) { save(); return draw(); }
+    // Primero la animación; el guardado (pesado en el celular) se hace después, cuando ya terminó
     el.classList.toggle("col-closed", closed);
     const h = el.querySelector("[aria-expanded]"); if (h) h.setAttribute("aria-expanded", closed ? "false" : "true");
+    clearTimeout(colSaveT);
+    colSaveT = setTimeout(save, 500);
 }
 
 // ---------- Buscador y filtros ----------
