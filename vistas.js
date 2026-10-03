@@ -235,7 +235,8 @@ function vHome() {
     const hasW = S.items.some(x => x.w) || Object.keys(S.ini).length > 0, nm = ym(cur);
     const have = hasW ? WH.filter(w => !(S.hide || {})[w]).reduce((s, w) => s + bal(w, nm), 0) : sob;
     const due = S.cards.filter(c => !(S.hide || {})[c.n]).reduce((s, c) => s + (nm == ym(new Date()) ? cardSoon(c) : cardDue(c, nm)), 0);
-    const svt = S.acc.reduce((s, a) => s + svb(a.id, nm) * (a.u ? S.trm : 1), 0), disp = have - due;
+    // Apartado = lo ahorrado + el rendimiento ganado hasta hoy (el rendimiento solo se suma en el mes actual: de meses pasados no hay foto)
+    const svt = S.acc.reduce((s, a) => s + (svb(a.id, nm) + (nm == ym(new Date()) ? Math.max(0, yieldOf(a.id, a.r)) : 0)) * (a.u ? S.trm : 1), 0), disp = have - due;
     const P = invPortfolio(), invT = P.T, invC = P.C;
     const totAcc = S.acc.filter(a => !a.f).reduce((s, a) => s + goalTotal(a) * (a.u ? S.trm : 1), 0);
 
@@ -382,7 +383,7 @@ function goalBlock(a, p) {
 function vAho() {
     let T = 0, Y = 0;
     const A = S.acc.filter(a => !a.f).map(a => {
-        const s = svb(a.id), y = Math.max(0, yieldOf(a.id, a.r));
+        const s = svb(a.id), y = Math.max(0, yieldOf(a.id, a.r)), gy = goalYield(a);
         T += a.u ? s * S.trm : s; Y += a.u ? y * S.trm : y;
         const t = s + y, p = a.g ? Math.min(100, t / a.g * 100) : 0, gb = goalBlock(a, p);
         return `
@@ -393,10 +394,12 @@ function vAho() {
                 </div>
                 <div class="text-2xl font-extrabold text-slate-800 dark:text-white mb-1">${fm(a, t)}</div>
                 ${a.u ? `<small class="text-xs text-slate-400 block mb-2">≈ ${fmt(t * S.trm)} (TRM ${fmt(S.trm)})</small>` : ""}
+                ${a.r > 0 ? `<div class="grid grid-cols-3 gap-2 mb-1">${[["Hoy", gy.daily], ["Este mes", gy.month], ["Total ganado", gy.total]].map(([l, v]) => `<div class="p-2.5 rounded-2xl bg-emerald-50 dark:bg-emerald-500/10"><span class="text-[10px] uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block leading-tight">${l}</span><b class="text-xs text-emerald-600 dark:text-emerald-400">+${fm(a, v)}</b></div>`).join("")}</div><p class="text-[10px] text-slate-400 mb-3"><i class="fa-solid fa-seedling mr-1"></i>Rendimiento estimado, ya incluido en el saldo. Crece cada día con interés compuesto (${tf(a.r)}% E.A.).</p>` : ""}
                 ${a.g ? `${gb.bar}<div class="flex justify-between text-[11px] text-slate-400 mb-3"><span>${p.toFixed(0)}% de ${fm(a, a.g)}</span><span>${t >= a.g ? "¡Meta lograda!" : "Faltan " + fm(a, a.g - t)}</span></div>${gb.info}` : ""}
                 <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
                     <button onclick="mov(${a.id}, 1)" class="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-xl text-xs font-semibold">＋ Meter</button>
                     <button onclick="mov(${a.id}, -1)" class="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-xl text-xs font-semibold">－ Sacar</button>
+                    ${t > 0.5 ? `<button onclick="mov(${a.id}, -1, 1)" class="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-xl text-xs font-semibold">Sacar todo</button>` : ""}
                     <button onclick="editAcc(${a.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold">Editar</button>
                     <button onclick="archAcc(${a.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold">Archivar</button>
                     <button onclick="delAcc(${a.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-rose-500 rounded-xl text-xs font-semibold">Borrar</button>
@@ -408,6 +411,7 @@ function vAho() {
         <section class="bg-gradient-to-br from-emerald-600 to-teal-700 text-white p-6 rounded-3xl shadow-xl shadow-emerald-500/10 mb-6">
             <small class="text-xs text-emerald-100 font-medium uppercase tracking-wider">Total Ahorrado</small>
             <div class="text-3xl font-extrabold mt-1">${fmt(T + Y)}</div>
+            ${Y > 0.5 ? `<p class="text-xs text-emerald-100 mt-1">Incluye ${fmt(Y)} de rendimiento ganado (estimado)</p>` : ""}
         </section>
         <div class="flex justify-between items-center mb-4"><h3 class="text-base font-bold">Mis Metas</h3><button onclick="newAcc()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold shadow-md">+ Nueva meta</button></div>
         ${A || '<p class="text-xs text-slate-400 text-center py-6">Crea tu primera meta de ahorro.</p>'}${arcUI()}

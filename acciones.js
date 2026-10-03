@@ -381,11 +381,13 @@ function editAcc(id) {
 }
 function delAcc(id) { confirmAction("¿Borrar meta y sus movimientos?", () => { S.acc = S.acc.filter(x => x.id != id); S.sv = S.sv.filter(x => x.a != id); save(); }); }
 function archAcc(id) { const a = S.acc.find(x => x.id == id); a.f = a.f ? 0 : 1; save(); draw(); }
-function mov(id, s) {
+// all = 1: "Sacar todo", deja escrito el saldo completo (lo ahorrado + el rendimiento ganado)
+function mov(id, s, all) {
     const a = S.acc.find(x => x.id == id), U = a.u, K = U ? S.trm : 1;
-    openCustomModal(s > 0 ? "Meter a " + esc(a.n) : "Sacar de " + esc(a.n), [
+    const full = all ? (U ? Math.floor(goalTotal(a) * 100) / 100 : Math.floor(goalTotal(a))) : 0;
+    openCustomModal(s > 0 ? "Meter a " + esc(a.n) : (all ? "Sacar todo de " : "Sacar de ") + esc(a.n), [
         { l: s > 0 ? "¿De dónde sale?" : "¿A dónde regresa?", o: WH.map(w => w) },
-        { l: U ? "Monto en USD" : "Monto", m: "decimal" }
+        { l: U ? "Monto en USD" : "Monto", v: full > 0 ? tf(full) : "", m: "decimal" }
     ], v => {
         const w = WH.find(p => v[0].startsWith(p)), n = U ? pr(v[1]) : num(v[1]);
         if (!(n > 0)) return "Escribe un monto válido.";

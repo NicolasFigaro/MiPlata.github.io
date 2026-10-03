@@ -101,6 +101,20 @@ const yieldOf = (id, r) => {
     }, 0);
 };
 const goalTotal = a => svb(a.id) + Math.max(0, yieldOf(a.id, a.r));
+// Meta como una "cajita" de Nu: el rendimiento se acumula día a día (interés compuesto sobre la tasa E.A.) y se suma al saldo.
+// Saldo de la meta en una fecha ("YYYY-MM-DD"): cada depósito o retiro crece desde su fecha hasta esa fecha.
+const goalBalAt = (a, k) => S.sv.filter(x => x.a == a.id && x.d <= k).reduce((s, x) => s + x.v * Math.pow(1 + (a.r || 0) / 100, dayDiff(x.d, k) / 365), 0);
+// Cuánto rinde la meta: hoy (lo que gana en un día con el saldo actual), este mes (lo ganado desde el día 1, sin contar lo que metiste o sacaste) y en total.
+function goalYield(a) {
+    const td = today(), prevEnd = ymd(new Date(+td.slice(0, 4), +td.slice(5, 7) - 1, 0)), m0 = td.slice(0, 8) + "01";
+    const now = goalBalAt(a, td), start = goalBalAt(a, prevEnd);
+    const flow = S.sv.filter(x => x.a == a.id && x.d >= m0 && x.d <= td).reduce((s, x) => s + x.v, 0);
+    return {
+        total: Math.max(0, yieldOf(a.id, a.r)),
+        month: Math.max(0, now - start - flow),
+        daily: now > 0 && a.r > 0 ? now * (Math.pow(1 + a.r / 100, 1 / 365) - 1) : 0
+    };
+}
 
 // ---------- Tarjetas: cuotas con interés ----------
 // Mes en que se paga la PRIMERA cuota de una compra (año*12 + mes), según el corte y el día de pago de su tarjeta:
@@ -595,7 +609,7 @@ function tipsList(by) {
         else add(1, "fa-gauge-high", "Vas al " + Math.floor(r * 100) + "% de tu presupuesto en " + c, "Te quedan " + fmt(b - v) + (nowM && dLeft > 0 ? " para " + dLeft + (dLeft == 1 ? " día" : " días") + " (≈ " + fmt((b - v) / dLeft) + " por día)." : "."));
     });
 
-    const ah = S.acc.filter(a => !a.f).reduce((t, a) => t + svb(a.id) * (a.u ? S.trm : 1), 0);
+    const ah = S.acc.filter(a => !a.f).reduce((t, a) => t + goalTotal(a) * (a.u ? S.trm : 1), 0); // ahorrado + rendimiento
     if (gas > 0 && ah < gas * 3) add(2, "fa-shield-halved", "Arma tu fondo de emergencia", "Meta: 3 meses de gastos (≈ " + fmt(gas * 3) + "). Llevas " + Math.round(ah / (gas * 3) * 100) + "%.");
     if (!T.length) add(3, "fa-wand-magic-sparkles", "Todo en orden", "Sigue registrando tus movimientos y aquí aparecerán sugerencias a tu medida.");
     return { list: T.sort((a, b) => a.lv - b.lv).slice(0, 4), ing, nec, gus, aho };
