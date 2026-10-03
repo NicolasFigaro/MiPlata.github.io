@@ -427,7 +427,7 @@ function vInv() {
                 <div class="flex items-center justify-between">
                     <div class="min-w-0 pr-2">
                         <strong class="text-sm font-semibold text-slate-800 dark:text-white block truncate">${esc(x.n)}</strong>
-                        <small class="text-xs text-slate-400">${x.c} · Invertido ${x.c == "USD" ? fu(x.i) : fmt(x.i)}</small>
+                        <small class="text-xs text-slate-400">${x.c} · Invertido ${x.c == "USD" ? fu(x.i) : fmt(x.i)}${x.k ? " · " + invLabel(x.k) : ""}</small>
                     </div>
                     <div class="text-right shrink-0">
                         <b class="text-sm font-bold text-slate-800 dark:text-white block">${x.c == "USD" ? fu(x.v) : fmt(x.v)}</b>
@@ -461,8 +461,84 @@ function vInv() {
         </div>
         <div class="flex justify-between items-center mb-4"><h3 class="text-base font-bold">Mis Inversiones</h3><button onclick="newInv()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold shadow-md">+ Nueva Inversión</button></div>
         ${R || '<p class="text-xs text-slate-400 text-center py-6">Agrega tu primera inversión.</p>'}
+        ${rbUI()}
         <p class="text-[11px] text-slate-400 mt-2">El rendimiento anual se calcula con la fecha de inicio y el valor actual, y solo aparece después de 30 días (antes exagera). Es una estimación: no descuenta comisiones ni impuestos.</p>
     `;
+}
+
+// ---------- Rebalanceo del portafolio ----------
+function rbUI() {
+    if (!S.inv.length) return "";
+    const inp = ([k, n]) => `<div><label class="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1 truncate">${n} %</label><input inputmode="decimal" value="${tf(S.rb[k] ?? 0)}" onchange="setRb('${k}', this.value)" class="${INP} pct text-right"></div>`;
+    return `
+        <section class="${CARD} p-5 mt-6">
+            <h3 class="text-sm font-bold text-slate-800 dark:text-white"><i class="fa-solid fa-scale-balanced text-violet-500 mr-1.5"></i>Rebalanceo del portafolio</h3>
+            <p class="text-[11px] text-slate-400 mt-0.5 mb-3">Elige cuánto quieres en cada tipo de activo. Clasifica cada inversión con el lápiz (campo «Tipo de activo») y aquí verás cuánto comprar o vender.</p>
+            <div class="grid grid-cols-3 gap-2 mb-3">${CL.map(inp).join("")}</div>
+            <label class="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Aporte nuevo (opcional)</label>
+            <input id="rbAp" inputmode="numeric" placeholder="Si vas a invertir más y no quieres vender nada" oninput="fa(this);rbCalc()" class="${INP} mb-3" autocomplete="off">
+            <div id="rbRes">${rbResUI(0)}</div>
+        </section>`;
+}
+function rbResUI(ap) {
+    const r = rebalance(ap);
+    if (!r.ok) return `<p class="text-xs text-amber-500 font-semibold"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Tus porcentajes suman ${tf(Math.round(r.sumT * 100) / 100)}%. Deben sumar 100%.</p>`;
+    const un = r.un > 0 ? `<p class="text-[11px] text-amber-500 mb-2"><i class="fa-solid fa-circle-info mr-1"></i>${fmt(r.un)} en inversiones sin clasificar no entran en este cálculo.</p>` : "";
+    if (!r.tot) return un + '<p class="text-xs text-slate-400 text-center py-3">Clasifica al menos una inversión (lápiz → Tipo de activo) o escribe un aporte para ver la sugerencia.</p>';
+    const rows = r.rows.map(x => {
+        let act, cl;
+        if (r.ap > 0) { act = x.delta > 0.5 ? "Comprar " + fmt(x.delta) : "Nada"; cl = x.delta > 0.5 ? "text-emerald-500" : "text-slate-400"; }
+        else if (x.delta > 0.5) { act = "Comprar " + fmt(x.delta); cl = "text-emerald-500"; }
+        else if (x.delta < -0.5) { act = "Vender " + fmt(-x.delta); cl = "text-rose-500"; }
+        else { act = "En su objetivo ✓"; cl = "text-slate-400"; }
+        return `<div class="flex items-center justify-between gap-2 py-2.5 border-b border-slate-100 dark:border-slate-800 last:border-0 text-xs">
+            <div class="min-w-0"><b class="text-slate-800 dark:text-white">${x.n}</b><small class="text-[11px] text-slate-400 block">${fmt(x.cur)} · hoy ${Math.round(x.pct)}% · objetivo ${tf(x.tgt)}%${r.ap > 0 ? " · quedaría " + Math.round(x.apct) + "%" : ""}</small></div>
+            <b class="shrink-0 ${cl}">${act}</b></div>`;
+    }).join("");
+    return `${un}<div>${rows}</div>
+        <p class="text-[11px] text-slate-400 mt-2">Sugerencia matemática sobre lo que tienes clasificado (${fmt(r.T)}${r.ap > 0 ? " + aporte " + fmt(r.ap) : ""}). No incluye comisiones ni impuestos por vender, ni es asesoría financiera.</p>`;
+}
+
+// ---------- Plan para salir de deudas ----------
+function planUI() {
+    const ds = debtList();
+    if (!ds.length) return "";
+    const mins = ds.reduce((s, d) => s + d.min, 0), B = S.dp.b || 0;
+    return `
+        <section class="${CARD} p-5 mt-6">
+            <h3 class="text-sm font-bold text-slate-800 dark:text-white"><i class="fa-solid fa-route text-rose-500 mr-1.5"></i>Plan para salir de deudas</h3>
+            <p class="text-[11px] text-slate-400 mt-0.5 mb-3"><b>Avalancha</b> paga primero la de mayor tasa (menos intereses). <b>Bola de nieve</b> paga primero la de menor saldo (logros rápidos). Cuenta solo las deudas de esta pestaña, no las tarjetas. Para que Avalancha tenga sentido, añade la tasa mensual en cada deuda (Editar).</p>
+            <label class="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">¿Cuánto puedes pagar al mes en total?</label>
+            <input id="dpB" inputmode="numeric" value="${B ? B.toLocaleString("es-CO") : ""}" placeholder="${mins ? "Mínimo: " + fmt(mins) : "Ej. 500.000"}" oninput="fa(this);dpCalc()" onchange="setDp(this.value)" class="${INP} mb-3" autocomplete="off">
+            <div id="dpRes">${planResUI(B)}</div>
+        </section>`;
+}
+function planResUI(B) {
+    const p = debtPlan(B);
+    if (!(p.B > 0)) return '<p class="text-xs text-slate-400 text-center py-3">Escribe cuánto puedes pagar al mes (o registra la cuota mensual de tus deudas) para ver el plan.</p>';
+    const n0 = new Date(), when = m => monLabel(ym(new Date(n0.getFullYear(), n0.getMonth() + m, 1)));
+    const cell = s => s.done ? `<b class="capitalize">${when(s.months)}</b><small class="text-[10px] text-slate-400 block">${s.months} ${s.months == 1 ? "mes" : "meses"}</small>` : '<b class="text-rose-500">No se paga</b>';
+    const intr = s => s.done ? fmt(s.interest) : "—";
+    const save = s => s.done && p.mn.done ? fmt(p.mn.interest - s.interest) : "—";
+    const both = p.av.done && p.bn.done, diff = both ? p.bn.interest - p.av.interest : 0;
+    const best = both && diff > 1 ? "av" : "";
+    const head = (t, k) => `<span class="font-bold text-[10px] uppercase tracking-wider ${best == k ? "text-emerald-500" : "text-slate-400"}">${t}${best == k ? " ★" : ""}</span>`;
+    const row = (l, a, b, c) => `<div class="grid grid-cols-4 gap-2 py-2 border-b border-slate-100 dark:border-slate-800 text-[11px] items-start"><span class="text-slate-400">${l}</span><span class="text-right">${a}</span><span class="text-right">${b}</span><span class="text-right">${c}</span></div>`;
+    const names = s => s.order.map(d => d.n).join("|");
+    const ord = (t, s) => `<div><p class="text-[10px] uppercase tracking-wider font-bold text-slate-400 mb-1">${t}</p>${s.order.map((d, i) => `<div class="flex justify-between gap-2 text-xs py-1"><span class="truncate">${i + 1}. ${esc(d.n)}</span><b class="shrink-0 capitalize">${d.paidAt ? when(d.paidAt) : "—"}</b></div>`).join("")}</div>`;
+    let note = "";
+    if (p.low) note += `<p class="text-[11px] text-amber-500 mb-2"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Lo que escribiste es menos que la suma de tus cuotas (${fmt(p.mins)}); usé esa suma.</p>`;
+    if (!p.rates) note += '<p class="text-[11px] text-slate-400 mb-2">Ninguna deuda tiene tasa registrada, así que ambas estrategias salen con $0 de intereses y solo cambia el orden. Edita cada deuda y añade su tasa mensual para ver la diferencia real.</p>';
+    if (p.ds.some(d => !d.min)) note += '<p class="text-[11px] text-slate-400 mb-2">Alguna deuda no tiene cuota mensual: recibe pagos solo cuando le toca por prioridad.</p>';
+    const verdict = both && p.rates ? (diff > 1 ? `Avalancha te ahorra ${fmt(diff)} en intereses frente a Bola de nieve.` : "Con tus números las dos estrategias cuestan casi lo mismo: elige la que más te motive.") : "";
+    return `${note}
+        <div class="grid grid-cols-4 gap-2 pb-2 border-b border-slate-100 dark:border-slate-800"><span></span><span class="text-right">${head("Avalancha", "av")}</span><span class="text-right">${head("Bola de nieve", "bn")}</span><span class="text-right">${head("Solo cuotas", "mn")}</span></div>
+        ${row("Libre de deudas", cell(p.av), cell(p.bn), cell(p.mn))}
+        ${row("Intereses", intr(p.av), intr(p.bn), intr(p.mn))}
+        ${row("Ahorro vs. solo cuotas", save(p.av), save(p.bn), "—")}
+        ${verdict ? `<p class="text-[11px] text-emerald-600 dark:text-emerald-400 mt-3"><i class="fa-solid fa-circle-check mr-1"></i>${verdict}</p>` : ""}
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">${names(p.av) == names(p.bn) ? ord("Orden de pago (igual en ambas)", p.av) : ord("Orden · Avalancha", p.av) + ord("Orden · Bola de nieve", p.bn)}</div>
+        <p class="text-[11px] text-slate-400 mt-3">Estimado: asume que pagas el total cada mes y que el dinero de una deuda ya pagada pasa a la siguiente. «Solo cuotas» no reasigna nada. Las fechas cuentan desde el próximo mes.</p>`;
 }
 
 // ---------- Gráficas ----------
@@ -784,7 +860,7 @@ function vDeu() {
             <div class="flex justify-between items-center mb-2"><b class="text-sm font-bold">${esc(d.n)}</b><span class="text-xs font-semibold ${left <= 0 ? "text-emerald-500" : "text-slate-400"}">${left <= 0 ? "Pagada ✓" : p.toFixed(0) + "% pagado"}</span></div>
             <div class="text-2xl font-extrabold mb-1">${fmt(Math.max(0, left))}</div>
             <div class="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden mb-1"><div class="bg-rose-500 h-full rounded-full" style="width:${p}%"></div></div>
-            <div class="text-[11px] text-slate-400 ${d.dd && left > 0 ? "mb-1" : "mb-3"}">Pagado ${fmt(done)} de ${fmt(d.t)}</div>
+            <div class="text-[11px] text-slate-400 ${d.dd && left > 0 ? "mb-1" : "mb-3"}">Pagado ${fmt(done)} de ${fmt(d.t)}${d.ir > 0 ? " · " + tf(d.ir) + "% mensual" : ""}</div>
             ${d.dd && left > 0 ? (() => { const due = dbtDue(d, ym(new Date())), dt = dueIn(d.dd); return `<div class="text-[11px] mb-3 ${due > 0 && dt <= 3 ? "text-rose-500 font-semibold" : "text-slate-400"}">${d.cu > 0 ? "Cuota " + fmt(d.cu) + " · " : ""}pago el día ${d.dd} · ${due > 0 ? dueTxt(dt) : "al día este mes ✓"}</div>`; })() : ""}
             <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
                 ${left > 0 ? `<button onclick="payDbt(${d.id})" class="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-xl text-xs font-semibold">Abonar</button>` : ""}
@@ -794,7 +870,8 @@ function vDeu() {
     }).join("");
     return `<section class="bg-gradient-to-br from-rose-600 to-red-800 text-white p-6 rounded-3xl shadow-xl shadow-rose-500/10 mb-6"><small class="text-xs text-rose-100 font-medium uppercase tracking-wider">Total que debo</small><div class="text-3xl font-extrabold mt-1">${fmt(T)}</div></section>
         <div class="flex justify-between items-center mb-4"><h3 class="text-base font-bold">Mis Deudas</h3><button onclick="newDbt()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold shadow-md">+ Nueva deuda</button></div>
-        ${L || '<p class="text-xs text-slate-400 text-center py-6">Aquí anotas préstamos y deudas que no son de tarjeta.</p>'}`;
+        ${L || '<p class="text-xs text-slate-400 text-center py-6">Aquí anotas préstamos y deudas que no son de tarjeta.</p>'}
+        ${planUI()}`;
 }
 
 // ---------- Ajustes ----------

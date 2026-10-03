@@ -49,6 +49,8 @@ S.hide = S.hide || {};
 S.ini = S.ini || {};
 S.nwh = S.nwh || {};   // historial del patrimonio neto (una foto por mes)
 S.nt = S.nt || {};     // avisos ya mostrados (para no repetir el mismo día)
+S.rb = S.rb || { v: 50, f: 30, e: 20 }; // objetivo del portafolio en %: renta variable, renta fija, efectivo
+S.dp = S.dp || {};     // plan de deudas: { b: lo que puedes pagar al mes }
 S.cat = S.cat || [];   // categorías propias: { id, n: nombre, k: "n" necesidad | "g" gusto }
 // "Ahorro" siempre queda de última
 const syncG = () => { G.length = 0; G0.slice(0, -1).forEach(x => G.push(x)); S.cat.forEach(c => G.push([c.n, c.k])); G.push(G0[G0.length - 1]); };
@@ -277,6 +279,32 @@ function catDetail(c, from, to) {
 // ---------- Deudas ----------
 const dbtLeft = d => d.t - (d.p0 || 0) - S.items.filter(x => x.dbt == d.id).reduce((s, x) => s + x.a, 0);
 
+// ---------- Plan para salir de deudas (Avalancha vs Bola de nieve) ----------
+// Solo deudas de la pestaña Deudas con saldo. min = cuota mensual (0 si no se registró), r = tasa mensual.
+const debtList = () => S.dbt.map(d => ({ id: d.id, n: d.n, bal: Math.max(0, dbtLeft(d)), min: d.cu > 0 ? d.cu : 0, r: (d.ir || 0) / 100 })).filter(d => d.bal > 0.5);
+// Simula mes a mes. mode: "av" mayor tasa primero, "bn" menor saldo primero, "min" solo cuotas mínimas sin reasignar.
+// Cada mes: se cobra el interés, se pagan las cuotas mínimas y lo que sobra del presupuesto B va a la deuda prioritaria.
+// Lo que se libera al terminar una deuda se reasigna solo (el presupuesto no baja).
+function debtSim(ds, B, mode) {
+    const L = ds.map(d => Object.assign({ paidAt: 0 }, d));
+    const prio = () => L.filter(d => d.bal > 0.5).sort(mode == "av" ? (a, b) => b.r - a.r || a.bal - b.bal : (a, b) => a.bal - b.bal || b.r - a.r);
+    let m = 0, interest = 0;
+    while (L.some(d => d.bal > 0.5) && m < 600) {
+        m++;
+        L.forEach(d => { if (d.bal > 0.5) { const i = d.bal * d.r; d.bal += i; interest += i; } });
+        let pool = B;
+        L.forEach(d => { if (d.bal > 0.5) { const p = Math.min(d.min, d.bal); d.bal -= p; pool -= p; } });
+        if (mode != "min") prio().forEach(d => { if (pool > 0.5) { const p = Math.min(pool, d.bal); d.bal -= p; pool -= p; } });
+        L.forEach(d => { if (d.bal <= 0.5 && !d.paidAt) { d.paidAt = m; d.bal = 0; } });
+    }
+    const done = !L.some(d => d.bal > 0.5);
+    return { done, months: done ? m : null, interest, order: L.slice().sort((a, b) => (a.paidAt || 1e9) - (b.paidAt || 1e9)) };
+}
+function debtPlan(B) {
+    const ds = debtList(), mins = ds.reduce((s, d) => s + d.min, 0), Bf = Math.max(B || 0, mins);
+    return { ds, mins, B: Bf, low: B > 0 && B < mins, rates: ds.some(d => d.r > 0), av: debtSim(ds, Bf, "av"), bn: debtSim(ds, Bf, "bn"), mn: debtSim(ds, mins, "min") };
+}
+
 // ---------- Metas con fecha límite ----------
 const goalStart = a => {
     const ds = S.sv.filter(x => x.a == a.id).map(x => x.d);
@@ -307,6 +335,29 @@ function invPortfolio() {
     const avg = C ? w / C : 0;
     const ann = C > 0 && T > 0 && avg >= 30 ? Math.pow(T / C, 365 / avg) - 1 : null;
     return { T, C, avg, ann };
+}
+
+// ---------- Rebalanceo del portafolio ----------
+// Tipos de activo: [clave, nombre, ejemplos]. Una inversión sin tipo (x.k vacío) no entra en el cálculo.
+const CL = [["v", "Renta variable", "ETFs, acciones"], ["f", "Renta fija", "CDT, bonos"], ["e", "Efectivo", "liquidez, cuentas"]];
+const INV_KINDS = CL.map(c => c[1]).concat("Sin clasificar");
+const invK = l => (CL.find(c => c[1] == l) || [])[0] || "";
+const invLabel = k => (CL.find(c => c[0] == k) || [])[1] || "Sin clasificar";
+// ap = aporte nuevo. Sin aporte: cuánto comprar/vender de cada tipo para llegar al objetivo.
+// Con aporte: reparte solo compras (sin vender nada) hacia lo que más se quedó corto.
+function rebalance(ap) {
+    const val = { v: 0, f: 0, e: 0 }; let un = 0;
+    S.inv.forEach(x => { const v = cop(x.v, x.c); if (val[x.k] !== undefined) val[x.k] += v; else un += v; });
+    const T = val.v + val.f + val.e, tg = S.rb, sumT = (tg.v || 0) + (tg.f || 0) + (tg.e || 0), ok = Math.abs(sumT - 100) < 0.01;
+    const rows = CL.map(([k, n, h]) => ({ k, n, h, cur: val[k], pct: T ? val[k] / T * 100 : 0, tgt: tg[k] || 0, delta: 0, after: val[k], apct: 0 }));
+    const tot = T + (ap || 0);
+    if (!ok || tot <= 0) return { rows, T, un, ok, sumT, tot: 0, ap: ap || 0 };
+    if (ap > 0) {
+        const need = rows.map(r => Math.max(0, tot * r.tgt / 100 - r.cur)), ns = need.reduce((a, b) => a + b, 0);
+        rows.forEach((r, i) => { r.delta = ns > 0 ? need[i] / ns * ap : 0; });
+    } else rows.forEach(r => { r.delta = tot * r.tgt / 100 - r.cur; });
+    rows.forEach(r => { r.after = r.cur + r.delta; r.apct = r.after / tot * 100; });
+    return { rows, T, un, ok, sumT, tot, ap: ap || 0 };
 }
 
 // ---------- Patrimonio neto ----------

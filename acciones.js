@@ -441,12 +441,13 @@ function newInv() {
         { l: "Nombre (ej. ETF S&P 500)" },
         { l: "Moneda", o: ["COP", "USD"] },
         { l: "Monto invertido", m: "decimal" },
-        { l: "Fecha de inicio", v: today(), t: "date" }
+        { l: "Fecha de inicio", v: today(), t: "date" },
+        { l: "Tipo de activo (para el rebalanceo)", o: INV_KINDS, v: "Sin clasificar" }
     ], v => {
         const i = pr(v[2]);
         if (!v[0] || !(i > 0)) return "Escribe nombre y monto.";
         if (v[3] > today()) return "La fecha de inicio no puede ser futura.";
-        S.inv.push({ id: Date.now(), n: v[0], c: v[1], i, v: i, d: v[3] || today() }); save();
+        S.inv.push({ id: Date.now(), n: v[0], c: v[1], i, v: i, d: v[3] || today(), k: invK(v[4]) }); save();
     });
 }
 function editInv(id) {
@@ -454,12 +455,13 @@ function editInv(id) {
     openCustomModal("Editar inversión", [
         { l: "Nombre", v: esc(x.n) },
         { l: "Monto invertido en " + x.c, v: tf(x.i), m: "decimal" },
-        { l: "Fecha de inicio", v: x.d, t: "date" }
+        { l: "Fecha de inicio", v: x.d, t: "date" },
+        { l: "Tipo de activo (para el rebalanceo)", o: INV_KINDS, v: invLabel(x.k) }
     ], v => {
         const i = pr(v[1]);
         if (!v[0] || !(i > 0)) return "Escribe nombre y monto.";
         if (v[2] > today()) return "La fecha de inicio no puede ser futura.";
-        x.n = v[0]; x.i = i; x.d = v[2] || x.d; save();
+        x.n = v[0]; x.i = i; x.d = v[2] || x.d; x.k = invK(v[3]); save();
     });
 }
 function upInv(id) {
@@ -469,6 +471,12 @@ function upInv(id) {
     });
 }
 function delInv(id) { confirmAction("¿Borrar inversión?", () => { S.inv = S.inv.filter(x => x.id != id); save(); }); }
+// Rebalanceo: guarda el objetivo y recalcula solo la tabla (sin redibujar la pantalla, para no perder lo que escribes)
+function rbCalc() {
+    const el = document.getElementById("rbRes"), ap = document.getElementById("rbAp");
+    if (el) el.innerHTML = rbResUI(ap ? num(ap.value) : 0);
+}
+function setRb(k, v) { S.rb[k] = Math.max(0, Math.min(100, pr(v) || 0)); save(); rbCalc(); }
 function setTrmVal() {
     const v = pr(document.getElementById("trmInput").value);
     if (v > 0) { S.trm = v; save(); showToast("TRM actualizada"); draw(); }
@@ -555,18 +563,18 @@ function delCard(id) { confirmAction("¿Borrar tarjeta?", () => { S.cards = S.ca
 
 // ---------- Deudas ----------
 function newDbt() {
-    openCustomModal("Nueva deuda", [{ l: "Nombre (ej. Préstamo moto)" }, { l: "Monto total", m: "numeric" }, { l: "Ya pagado antes (opcional)", m: "numeric" }, { l: "Cuota mensual (opcional)", m: "numeric" }, { l: "Día de pago del mes 1-31 (opcional, activa avisos)", m: "numeric" }], v => {
+    openCustomModal("Nueva deuda", [{ l: "Nombre (ej. Préstamo moto)" }, { l: "Monto total", m: "numeric" }, { l: "Ya pagado antes (opcional)", m: "numeric" }, { l: "Cuota mensual (opcional)", m: "numeric" }, { l: "Día de pago del mes 1-31 (opcional, activa avisos)", m: "numeric" }, { l: "Tasa de interés mensual % (opcional, para el plan de deudas)", m: "decimal" }], v => {
         const t = num(v[1]); if (!v[0] || !t) return "Escribe nombre y monto.";
         const dd = num(v[4]); if (v[4] && (dd < 1 || dd > 31)) return "El día de pago va entre 1 y 31.";
-        S.dbt.push({ id: Date.now(), n: v[0], t, p0: num(v[2]), cu: num(v[3]), dd }); save();
+        S.dbt.push({ id: Date.now(), n: v[0], t, p0: num(v[2]), cu: num(v[3]), dd, ir: pr(v[5]) || 0 }); save();
     });
 }
 function editDbt(id) {
     const d = S.dbt.find(x => x.id == id);
-    openCustomModal("Editar deuda", [{ l: "Nombre", v: esc(d.n) }, { l: "Monto total", v: d.t, m: "numeric" }, { l: "Cuota mensual (opcional)", v: d.cu || "", m: "numeric" }, { l: "Día de pago del mes 1-31 (opcional, activa avisos)", v: d.dd || "", m: "numeric" }], v => {
+    openCustomModal("Editar deuda", [{ l: "Nombre", v: esc(d.n) }, { l: "Monto total", v: d.t, m: "numeric" }, { l: "Cuota mensual (opcional)", v: d.cu || "", m: "numeric" }, { l: "Día de pago del mes 1-31 (opcional, activa avisos)", v: d.dd || "", m: "numeric" }, { l: "Tasa de interés mensual % (opcional, para el plan de deudas)", v: d.ir ? tf(d.ir) : "", m: "decimal" }], v => {
         const t = num(v[1]); if (!v[0] || !t) return "Escribe nombre y monto.";
         const dd = num(v[3]); if (v[3] && (dd < 1 || dd > 31)) return "El día de pago va entre 1 y 31.";
-        d.n = v[0]; d.t = t; d.cu = num(v[2]); d.dd = dd; save();
+        d.n = v[0]; d.t = t; d.cu = num(v[2]); d.dd = dd; d.ir = pr(v[4]) || 0; save();
     });
 }
 function payDbt(id) {
@@ -576,6 +584,12 @@ function payDbt(id) {
         S.items.push({ id: Date.now(), d: today(), t: "g", c: "Deudas/Tarjeta", n: "Pago deuda: " + d.n, a, k: "", w: v[0], q: 1, dbt: d.id }); save();
     });
 }
+// Plan de deudas: guarda el presupuesto mensual al salir del campo y recalcula solo la tabla mientras escribes
+function dpCalc() {
+    const el = document.getElementById("dpRes"), b = document.getElementById("dpB");
+    if (el) el.innerHTML = planResUI(b ? num(b.value) : 0);
+}
+function setDp(v) { const n = num(v); if (n) S.dp.b = n; else delete S.dp.b; save(); dpCalc(); }
 function delDbt(id) { confirmAction("¿Borrar deuda? Los abonos ya hechos quedan como gastos.", () => { S.dbt = S.dbt.filter(x => x.id != id); save(); }); }
 
 // ---------- Ajustes ----------
