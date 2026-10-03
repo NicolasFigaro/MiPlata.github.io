@@ -267,7 +267,7 @@ function vHome() {
             ${projUI(disp)}
             <div class="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-white/10">
                 <div><small class="text-[10px] text-indigo-200 block uppercase">En mano</small><b class="text-xs sm:text-sm font-bold">${fmt(have)}</b></div>
-                <div><small class="text-[10px] text-indigo-200 block uppercase">Tarjetas</small><b class="text-xs sm:text-sm font-bold">${fmt(due)}</b></div>
+                <div><small class="text-[10px] text-indigo-200 block uppercase">Tarjetas</small><b class="text-xs sm:text-sm font-bold">${fmt(due)}</b>${due <= 0.5 && nm == ym(new Date()) ? (() => { const x = S.cards.filter(c => !(S.hide || {})[c.n]).reduce((s, c) => s + (cardNext(c).due || 0), 0); return x > 0.5 ? `<small class="text-[10px] text-indigo-200 block font-normal">próx. ${fmt(x)}</small>` : ""; })() : ""}</div>
                 <div><small class="text-[10px] text-indigo-200 block uppercase">Apartado</small><b class="text-xs sm:text-sm font-bold">${fmt(svt)}</b></div>
             </div>
         </section>
@@ -628,7 +628,7 @@ function vTar() {
         lastPct[c.id] = { b: cu.pct, n: cu.raw };
         const pop = cu.ok && lastOk[c.id] === false; lastOk[c.id] = cu.ok;
         if (c.c) { tc += c.c; tu += cu.used; }
-        const cn = cardNext(c), owe = cu.cq + cu.atr + cu.ext - cu.ab, late = !cu.ok && owe > 0 && (d < 0 || cu.atrLeft > 0), nd = cn.due > 0 ? daysTo(payDateIn(c.p, cn.m)) : nextPay(c.p), over = cu.ab - (cu.cq + cu.atr + cu.ext);
+        const cn = cardNext(c), owe = cu.cq + cu.atr + cu.ext - cu.ab, late = !cu.ok && owe > 0 && (d < 0 || cu.atrLeft > 0), nd = cn.due > 0 ? daysTo(payDateIn(c.p, cn.m)) : nextPay(c.p), over = cu.ab - (cu.cq + cu.atr + cu.ext), nextOnly = !cu.ok && owe <= 0.5 && cn.m != n && cn.due > 0, sx = nextOnly ? stmt(c, mIdx(cn.m)) : null; // nextOnly: este mes no hay cuota, pero sí una en el extracto que viene
         return `
             <div class="lift ${CARD} p-5 mb-4">
                 <div class="flex justify-between items-center mb-2">
@@ -637,7 +637,7 @@ function vTar() {
                 </div>
                 <div class="grid grid-cols-2 gap-2 text-xs mb-4">
                     <div><span class="text-slate-400 block">Compras este mes</span><b>${fmt(u)}</b></div>
-                    <div><span class="text-slate-400 block">Cuota a pagar</span><b class="text-indigo-600">${fmt(cu.ok ? 0 : Math.max(0, owe))}</b></div>
+                    <div><span class="text-slate-400 block">${nextOnly ? "Próxima cuota · " + dmy(payDateIn(c.p, cn.m)).slice(0, 5) : "Cuota a pagar"}</span><b class="text-indigo-600">${nextOnly ? fmt(cn.due) : fmt(cu.ok ? 0 : Math.max(0, owe))}</b></div>
                     <div><span class="text-slate-400 block">Abonado este mes</span><b class="text-emerald-600">${fmt(cu.ab)}</b></div>
                     <div><span class="text-slate-400 block">Intereses en la cuota</span><b class="${it > 0 ? "text-amber-500" : ""}">${fmt(it)}</b></div>
                 </div>
@@ -647,7 +647,7 @@ function vTar() {
                 </div>` : ""}
                 ${(cu.ext > 0 || cu.atrLeft > 0) && !cu.ok ? `<p class="text-[11px] ${cu.atrLeft > 0 ? "text-rose-500" : "text-slate-400"} -mt-2 mb-3">La cuota a pagar incluye ${[cu.atrLeft > 0 ? fmt(cu.atrLeft) + " vencidos de meses anteriores" : "", cu.fee > 0 ? fmt(cu.fee) + " de cuota de manejo" : "", cu.mora > 0 ? fmt(cu.mora) + " de mora" : ""].filter(Boolean).join(", ").replace(/, ([^,]*)$/, " y $1")}.</p>` : ""}
                 ${over > 0.5 && !c.paid[n] ? `<p class="text-[11px] text-emerald-600 dark:text-emerald-400 -mt-2 mb-3"><i class="fa-solid fa-circle-check mr-1"></i>Pagaste ${fmt(over)} por encima de la cuota de este mes: se aplica a la cuota siguiente (y lo que sobre, a capital).</p>` : ""}
-                ${cn.m != n && cn.due > 0 ? `<p class="text-[11px] text-slate-400 -mt-2 mb-3"><i class="fa-regular fa-calendar mr-1"></i>Próximo pago: <b class="text-slate-600 dark:text-slate-300">${dmy(payDateIn(c.p, cn.m))}</b> · ${fmt(cn.due)}</p>` : ""}
+                ${nextOnly ? `<p class="text-[11px] text-slate-500 dark:text-slate-400 -mt-2 mb-3"><i class="fa-regular fa-calendar mr-1"></i>Este mes no tienes cuota por pagar: tus compras entran en el extracto que cierra el <b class="text-slate-600 dark:text-slate-300">${dmy(sx.close).slice(0, 5)}</b> y se paga el <b class="text-slate-600 dark:text-slate-300">${dmy(sx.pay)}</b>.</p>` : cn.m != n && cn.due > 0 ? `<p class="text-[11px] text-slate-400 -mt-2 mb-3"><i class="fa-regular fa-calendar mr-1"></i>Próximo pago: <b class="text-slate-600 dark:text-slate-300">${dmy(payDateIn(c.p, cn.m))}</b> · ${fmt(cn.due)}</p>` : ""}
                 ${c.c ? `
                 <div class="flex items-end justify-between mb-1.5">
                     <div><span class="cupo-pct text-2xl font-extrabold ${tn.txt}" data-from="${fn}" data-to="${cu.raw}">${Math.round(fn)}%</span><span class="text-xs text-slate-400 ml-1.5">del cupo utilizado</span></div>
