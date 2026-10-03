@@ -593,23 +593,23 @@ function drawCharts() {
     Chart.defaults.plugins.tooltip.enabled = !masked();
     const hy = masked() ? { scales: { y: { ticks: { display: false } } } } : {};
     const m = mon(), by = G.map(([c]) => [c, sum(m, x => x.t == "g" && x.c == c && !x.s)]).filter(x => x[1] > 0);
-    charts.push(new Chart(document.getElementById("chCat"), { type: "doughnut", options: { onClick: (ev, els) => { if (els.length) openCat(by[els[0].index][0]); } }, data: { labels: by.map(x => x[0]), datasets: [{ data: by.map(x => x[1]), backgroundColor: by.map((_, i) => ["#6366f1","#8b5cf6","#10b981","#f59e0b","#ef4444","#06b6d4","#ec4899","#64748b","#84cc16","#f97316","#14b8a6","#a855f7","#0ea5e9","#e11d48","#65a30d","#78716c"][i % 16]) }] } }));
+    charts.push(new Chart(document.getElementById("chCat"), { type: "doughnut", options: { onClick: (ev, els) => { if (els.length) openCat(by[els[0].index][0]); } }, data: { labels: by.map(x => x[0]), datasets: [{ data: by.map(x => x[1]), backgroundColor: by.map((_, i) => [accent(500),accent(500,1,"s"),"#10b981","#f59e0b","#ef4444","#06b6d4","#ec4899","#64748b","#84cc16","#f97316","#14b8a6","#a855f7","#0ea5e9","#e11d48","#65a30d","#78716c"][i % 16]) }] } }));
 
     const cc = document.getElementById("chCmp");
     if (cc) {
         const mk = ym(cur), ok = monthKey(cmp), A = catTotals(mk), B = catTotals(ok);
         const idx = G.map((_, i) => i).filter(i => A[i][1] > 0 || B[i][1] > 0);
-        charts.push(new Chart(cc, { type: "bar", options: hy, data: { labels: idx.map(i => G[i][0]), datasets: [{ label: monLabel(ok), data: idx.map(i => B[i][1]), backgroundColor: "#94a3b8" }, { label: monLabel(mk), data: idx.map(i => A[i][1]), backgroundColor: "#6366f1" }] } }));
+        charts.push(new Chart(cc, { type: "bar", options: hy, data: { labels: idx.map(i => G[i][0]), datasets: [{ label: monLabel(ok), data: idx.map(i => B[i][1]), backgroundColor: "#94a3b8" }, { label: monLabel(mk), data: idx.map(i => A[i][1]), backgroundColor: accent(500) }] } }));
     }
 
     const ms = [...Array(6)].map((_, i) => ym(new Date(cur.getFullYear(), cur.getMonth() - 5 + i, 1)));
     const tot = (k, t) => S.items.filter(x => x.d.startsWith(k) && x.t == t && vis(x)).reduce((s, x) => s + x.a, 0);
-    charts.push(new Chart(document.getElementById("chMon"), { type: "bar", options: hy, data: { labels: ms, datasets: [{ label: "Ingresos", data: ms.map(k => tot(k, "i")), backgroundColor: "#10b981" }, { label: "Gastos", data: ms.map(k => tot(k, "g")), backgroundColor: "#6366f1" }] } }));
+    charts.push(new Chart(document.getElementById("chMon"), { type: "bar", options: hy, data: { labels: ms, datasets: [{ label: "Ingresos", data: ms.map(k => tot(k, "i")), backgroundColor: "#10b981" }, { label: "Gastos", data: ms.map(k => tot(k, "g")), backgroundColor: accent(500) }] } }));
 
     const nw = document.getElementById("chNW");
     if (nw) {
         const ks = Object.keys(S.nwh).sort().slice(-12);
-        charts.push(new Chart(nw, { type: "line", options: hy, data: { labels: ks, datasets: [{ label: "Patrimonio neto", data: ks.map(k => S.nwh[k]), borderColor: "#6366f1", backgroundColor: "rgba(99,102,241,.15)", fill: true, tension: .3 }] } }));
+        charts.push(new Chart(nw, { type: "line", options: hy, data: { labels: ks, datasets: [{ label: "Patrimonio neto", data: ks.map(k => S.nwh[k]), borderColor: accent(500), backgroundColor: accent(500, .15), fill: true, tension: .3 }] } }));
     }
 }
 
@@ -878,6 +878,27 @@ function vDeu() {
 const hideNames = () => WH.concat(S.cards.map(c => c.n));
 function hidUI() { return hideNames().map((n, i) => `<label class="flex items-center justify-between text-xs"><span class="font-medium">${esc(n)}</span><input type="checkbox" ${S.hide[n] ? "checked" : ""} onchange="togHide(${i})" class="w-4 h-4 accent-indigo-600"></label>`).join(""); }
 
+// Apariencia: modo (claro/oscuro/automático) + tema de color + color propio
+function themeUI() {
+    const cur = S.th.t || "indigo", md = S.th.m || "auto", on = "border-indigo-500 bg-indigo-50/60 dark:bg-indigo-500/10", off = "border-transparent bg-slate-50 dark:bg-slate-800/60 hover:border-slate-300 dark:hover:border-slate-600";
+    const mb = (v, l, ic) => `<button onclick="setMode('${v}')" class="flex-1 py-2.5 rounded-xl text-xs font-semibold transition ${md == v ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/25" : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"}"><i class="fa-solid ${ic} mr-1.5"></i>${l}</button>`;
+    const sw = t => `<button onclick="setTheme('${t.id}')" class="p-2.5 rounded-2xl border-2 transition text-center ${cur == t.id ? on : off}"><span class="block h-9 rounded-xl" style="background:linear-gradient(135deg,${t.p},${t.s})"></span><span class="block text-[11px] font-semibold mt-1.5 text-slate-700 dark:text-slate-200">${t.n}</span></button>`;
+    const ct = customTheme(S.th.c);
+    return `
+        <section class="${CARD} p-6 space-y-4">
+            <div><h3 class="text-base font-bold">Apariencia</h3><p class="text-xs text-slate-400 mt-1">Elige claro u oscuro y el tema de color de toda la app. Se guarda en este dispositivo.</p></div>
+            <div class="flex gap-2">${mb("auto", "Automático", "fa-circle-half-stroke")}${mb("light", "Claro", "fa-sun")}${mb("dark", "Oscuro", "fa-moon")}</div>
+            <div class="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                ${THEMES.map(sw).join("")}
+                <label class="relative p-2.5 rounded-2xl border-2 transition text-center cursor-pointer ${cur == "custom" ? on : off}">
+                    <span class="block h-9 rounded-xl" style="background:${cur == "custom" ? "linear-gradient(135deg," + ct.p + "," + ct.s + ")" : "conic-gradient(#ef4444,#f59e0b,#10b981,#06b6d4,#6366f1,#d946ef,#ef4444)"}"></span>
+                    <span class="block text-[11px] font-semibold mt-1.5 text-slate-700 dark:text-slate-200">Tu color</span>
+                    <input type="color" value="${S.th.c || "#4f46e5"}" oninput="previewCustom(this.value)" onchange="setCustom(this.value)" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" aria-label="Elegir un color propio">
+                </label>
+            </div>
+        </section>`;
+}
+
 function vSet() {
     const card = CARD + " p-6 space-y-4";
     const inp = "w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono";
@@ -898,6 +919,7 @@ function vSet() {
     const bgOk = typeof ServiceWorkerRegistration != "undefined" && "periodicSync" in ServiceWorkerRegistration.prototype;
     const cats = S.cat.map(c => `<div class="flex justify-between items-center text-xs py-1"><span>${esc(c.n)} · <span class="text-slate-400">${c.k == "n" ? "Necesidad" : "Gusto"}</span></span><span class="flex gap-3"><button onclick="editCat(${c.id})" class="text-indigo-600 font-semibold">Editar</button><button onclick="delCat(${c.id})" class="text-rose-500 font-semibold">Borrar</button></span></div>`).join("") || '<p class="text-xs text-slate-400">Aún no has creado categorías propias.</p>';
     return `
+        ${themeUI()}
         <section class="${card}"><div class="flex justify-between items-center"><h3 class="text-base font-bold">Mis categorías</h3><button onclick="newCat()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold">+ Nueva</button></div>
             <p class="text-xs text-slate-400">Además de las 8 de siempre. El tipo (necesidad o gusto) define en qué parte de la regla 50/30/20 cuenta. También puedes crearlas desde Inicio, al anotar un gasto.</p>${cats}</section>
         <section class="${card}"><h3 class="text-base font-bold">Presupuestos mensuales</h3><p class="text-xs text-slate-400">El valor de arriba se repite cada mes. «Solo ${mlab}» lo cambia únicamente este mes. «Acumular» suma al mes siguiente lo que no gastes (si te pasas, no se descuenta).</p>${bud}</section>

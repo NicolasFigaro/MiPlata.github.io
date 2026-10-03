@@ -8,14 +8,19 @@
     <meta name="theme-color" content="#4f46e5">
     <link rel="apple-touch-icon" href="icon-192.png">
     <link rel="stylesheet" href="styles.css">
+    <!-- Temas de color: se aplica antes de pintar para que no parpadee -->
+    <script src="tema.js"></script>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
+        // indigo, violet y slate leen variables CSS (ver tema.js y styles.css): así todo el diseño cambia de tema sin tocar las clases
+        const sc = v => Object.fromEntries([50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950].map(k => [k, 'rgb(var(--' + v + '-' + k + ') / <alpha-value>)']));
         tailwind.config = {
             darkMode: 'class',
             theme: {
                 extend: {
                     colors: {
+                        indigo: sc('p'), violet: sc('s'), slate: sc('n'),
                         brand: { 50: '#eef2ff', 100: '#e0e7ff', 500: '#6366f1', 600: '#4f46e5', 700: '#4338ca' }
                     }
                 }

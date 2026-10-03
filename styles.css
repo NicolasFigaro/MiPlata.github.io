@@ -1,4 +1,15 @@
 /* ===== Mi Plata · styles.css ===== */
+
+/* Colores del tema "Índigo" (los originales de Tailwind). tema.js los reemplaza al elegir otro tema.
+   --p = principal (indigo), --s = secundario (violet), --n = neutros (slate). Formato: "R G B". */
+:root {
+    --p-50: 238 242 255; --p-100: 224 231 255; --p-200: 199 210 254; --p-300: 165 180 252; --p-400: 129 140 248; --p-500: 99 102 241;
+    --p-600: 79 70 229; --p-700: 67 56 202; --p-800: 55 48 163; --p-900: 49 46 129; --p-950: 30 27 75;
+    --s-50: 245 243 255; --s-100: 237 233 254; --s-200: 221 214 254; --s-300: 196 181 253; --s-400: 167 139 250; --s-500: 139 92 246;
+    --s-600: 124 58 237; --s-700: 109 40 217; --s-800: 91 33 182; --s-900: 76 29 149; --s-950: 46 16 101;
+    --n-50: 248 250 252; --n-100: 241 245 249; --n-200: 226 232 240; --n-300: 203 213 225; --n-400: 148 163 184; --n-500: 100 116 139;
+    --n-600: 71 85 105; --n-700: 51 65 85; --n-800: 30 41 59; --n-900: 15 23 42; --n-950: 2 6 23;
+}
 body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { scrollbar-width: none; }
@@ -26,7 +37,7 @@ input, select, textarea, button { font-family: inherit; }
 .cupo-bar { transition: width .9s cubic-bezier(.22, 1, .36, 1), background-color .3s; }
 
 /* Marcador "dónde deberías ir hoy" en las metas */
-.goal-marker { position: absolute; top: -2px; bottom: -2px; width: 2px; border-radius: 2px; background: #6366f1; box-shadow: 0 0 0 1px rgba(255, 255, 255, .6); }
+.goal-marker { position: absolute; top: -2px; bottom: -2px; width: 2px; border-radius: 2px; background: rgb(var(--p-500)); box-shadow: 0 0 0 1px rgba(255, 255, 255, .6); }
 
 /* "Pagada ✓" */
 @keyframes pop { 0% { transform: scale(.6); opacity: 0; } 60% { transform: scale(1.25); } 100% { transform: scale(1); opacity: 1; } }
@@ -43,7 +54,7 @@ input, select, textarea, button { font-family: inherit; }
 header { padding-top: env(safe-area-inset-top, 0px); }
 
 /* Modo incógnito: los campos con montos se desenfocan hasta que los tocas */
-body.mask :is(#appMain, #modalContainer) :is(input[inputmode="numeric"], input[inputmode="decimal"], textarea):not(:focus):not(#cq):not(#sQ) { filter: blur(6px); }
+body.mask :is(#appMain, #modalContainer) :is(input[inputmode="numeric"], input[inputmode="decimal"], textarea):not(:focus):not(#cq):not(#sQ):not(.pct) { filter: blur(6px); }
 
 /* Accesibilidad: sin animaciones si el usuario lo prefiere */
 @media (prefers-reduced-motion: reduce) {

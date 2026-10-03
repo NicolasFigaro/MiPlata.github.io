@@ -23,6 +23,12 @@ function applyTh() {
 }
 function toggleDarkMode() { S.th.m = S.th.m == "dark" ? "light" : "dark"; save(); applyTh(); draw(); }
 
+// Temas de color (las paletas viven en tema.js)
+function setMode(m) { S.th.m = m; save(); applyTh(); draw(); }
+function setTheme(id) { S.th.t = id; save(); applyTheme(S.th); draw(); }
+function previewCustom(c) { S.th.t = "custom"; S.th.c = c; applyTheme(S.th); } // mientras arrastras el selector: solo se ve, no se guarda
+function setCustom(c) { S.th.t = "custom"; S.th.c = c; save(); applyTheme(S.th); draw(); }
+
 // Modo incógnito: oculta las cifras (ver masked() en logica.js) y desenfoca los campos con montos
 function applyMask() {
     const on = masked(), i = document.getElementById("maskIcon"), b = document.getElementById("maskBtn");
@@ -706,6 +712,7 @@ function lockScreen() {
 // ---------- Arranque ----------
 window.addEventListener("DOMContentLoaded", () => {
     genRec();
+    applyTheme(S.th);
     applyTh();
     applyMask();
     draw();
