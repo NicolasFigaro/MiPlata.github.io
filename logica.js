@@ -9,8 +9,10 @@ const KEY = "miplata_advanced_v2"; // misma clave: tus datos actuales siguen fun
 
 // ---------- Utilidades ----------
 const esc = s => String(s || "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-const fmt = n => (n < 0 ? "-" : "") + "$" + Math.abs(Math.round(n || 0)).toLocaleString("es-CO");
-const fu = n => "US$" + (n || 0).toLocaleString("es-CO", { maximumFractionDigits: 2 });
+// Modo incógnito: con S.th.mask activo, todas las cifras en pesos y dólares salen ocultas
+const masked = () => !!(S.th && S.th.mask);
+const fmt = n => masked() ? "$ ••••" : (n < 0 ? "-" : "") + "$" + Math.abs(Math.round(n || 0)).toLocaleString("es-CO");
+const fu = n => masked() ? "US$ ••••" : "US$" + (n || 0).toLocaleString("es-CO", { maximumFractionDigits: 2 });
 const ym = d => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
 const ymd = d => ym(d) + "-" + String(d.getDate()).padStart(2, "0");
 const today = () => ymd(new Date());
@@ -353,9 +355,9 @@ const bkDue = () => {
 // ---------- Cuánto puedo gastar hoy ----------
 // Reparte lo disponible entre los días que faltan del mes (hoy incluido),
 // descontando los gastos fijos que todavía no han "caído" este mes.
-function dailyInfo(disp) {
+function dailyInfo(disp, any) {
     const n = new Date();
-    if (ym(n) != ym(cur)) return null; // solo tiene sentido en el mes actual
+    if (!any && ym(n) != ym(cur)) return null; // solo tiene sentido en el mes actual (el simulador lo fuerza con any)
     const nm = ym(n), td = n.getDate(), left = new Date(n.getFullYear(), n.getMonth() + 1, 0).getDate() - td + 1;
     // Lo gastado hoy que salió de una billetera (ya está restado de "disp")
     const spent = S.items.filter(x => x.d == today() && x.t == "g" && !x.k && !x.sav && vis(x)).reduce((s, x) => s + x.a, 0);
@@ -378,6 +380,38 @@ function monthProjection(disp) {
     const fixed = (S.rec || []).filter(r => r.last != nm && (r.day > td || r.vr) && !r.k).reduce((s, r) => s + r.a, 0); // los de monto variable pesan con su último valor hasta que los confirmes
     const pace = spent / td, proj = pace * left, end = disp - fixed - proj, room = disp - fixed;
     return { few: td < 3, td, left, spent, pace, proj, fixed, end, room, fit: left > 0 ? Math.max(0, room / left) : 0 };
+}
+
+// ---------- Simulador "¿Puedo permitírmelo?" ----------
+// "Disponible para gastar" de un mes real (misma fórmula que Inicio: en mano - lo que falta de tarjetas)
+function dispAt(nm, hw) {
+    const hid = n => (S.hide || {})[n];
+    let have;
+    if (hw) have = WH.filter(w => !hid(w)).reduce((s, w) => s + bal(w, nm), 0);
+    else {
+        const m = S.items.filter(x => x.d.startsWith(nm) && vis(x));
+        have = sum(m, x => x.t == "i") - sum(m, x => x.t == "g") - S.sv.filter(x => x.d.startsWith(nm) && !x.i).reduce((s, x) => s + (x.cp ?? x.v), 0);
+    }
+    return have - S.cards.filter(c => !hid(c.n)).reduce((s, c) => s + cardSoon(c), 0);
+}
+// Mete una compra imaginaria de hoy, mide antes y después, y la quita. No guarda nada.
+function simulate(a, cat, pay, q, ni) {
+    const nm = ym(new Date()), hw = S.items.some(x => x.w) || Object.keys(S.ini).length > 0;
+    const card = S.cards.find(c => c.n == pay) || null;
+    q = card ? Math.max(1, q) : 1;
+    const ir = card && q > 1 && !ni ? (card.ir || 0) : 0;
+    const x = { id: -1, d: today(), t: "g", c: cat, n: "", a, k: card ? card.n : "", w: card ? "" : pay, q, ni: ni ? 1 : 0, ir };
+    const r = { card, q, ir, x, cat, a, bud: budOf(cat, nm) };
+    const snap = () => ({ disp: dispAt(nm, hw), day: dailyInfo(dispAt(nm, hw), true), spent: catSpent(cat, nm), use: card ? cardUse(card, nm) : null });
+    if (card) { r.fp = firstPay(x); r.sched = []; for (let e = 0; e < q; e++) { const i = r.fp + e, m = idxYm(i); r.sched.push({ m, pay: payDateIn(card.p, m), cu: cm(x, m), b: cardDue(card, m), af: 0 }); } }
+    r.b = snap();
+    S.items.push(x);
+    try {
+        r.f = snap();
+        if (card) r.sched.forEach(s => { s.af = cardDue(card, s.m); });
+    } finally { S.items.pop(); }
+    r.interest = card ? Math.max(0, pmt(a, q, rate(x)) * q - a) : 0;
+    return r;
 }
 
 // ---------- Presupuestos ----------

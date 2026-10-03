@@ -23,6 +23,37 @@ function applyTh() {
 }
 function toggleDarkMode() { S.th.m = S.th.m == "dark" ? "light" : "dark"; save(); applyTh(); draw(); }
 
+// Modo incógnito: oculta las cifras (ver masked() en logica.js) y desenfoca los campos con montos
+function applyMask() {
+    const on = masked(), i = document.getElementById("maskIcon"), b = document.getElementById("maskBtn");
+    document.body.classList.toggle("mask", on);
+    if (i) i.className = "fa-solid " + (on ? "fa-eye-slash text-indigo-500" : "fa-eye");
+    if (b) b.setAttribute("aria-pressed", on ? "true" : "false");
+}
+function togMask() { S.th.mask = !S.th.mask; save(); applyMask(); draw(); showToast(masked() ? "Modo incógnito activado: cifras ocultas" : "Cifras visibles de nuevo"); }
+
+// ---------- Simulador "¿Puedo permitírmelo?" ----------
+function openSim() {
+    const modal = document.getElementById("generalModal"), container = document.getElementById("modalContainer");
+    container.innerHTML = simUI();
+    modal.classList.remove("hidden");
+    setTimeout(() => { modal.classList.remove("opacity-0"); container.classList.remove("scale-95"); container.classList.add("scale-100"); }, 10);
+    simCalc();
+}
+function simPay() {
+    const p = document.getElementById("sPay").value;
+    document.getElementById("sCardOpts").classList.toggle("hidden", WH.includes(p));
+    simCalc();
+}
+function simCalc() {
+    const g = id => document.getElementById(id), out = g("simRes");
+    if (!out) return;
+    const a = num(g("sAmt").value);
+    if (!a) { out.innerHTML = '<p class="text-xs text-slate-400 text-center py-4">Escribe el valor de la compra para ver cómo te afecta.</p>'; return; }
+    const q = Math.max(1, num(g("sQ").value) || 1), ni = g("sI").value.startsWith("Sin") ? 1 : 0;
+    out.innerHTML = simResUI(simulate(a, g("sCat").value, g("sPay").value, q, ni));
+}
+
 // Anima la barra y el % del cupo desde el valor anterior hasta el nuevo
 function runCupoAnim() {
     const rm = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -35,7 +66,7 @@ function runCupoAnim() {
     });
 }
 function countUp() {
-    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (masked() || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     document.querySelectorAll("#appMain h2.text-3xl, #appMain div.text-3xl, #appMain h4.text-lg").forEach(el => {
         const t = el.textContent.trim();
         if (!/^-?\$/.test(t)) return;
@@ -662,6 +693,7 @@ function lockScreen() {
 window.addEventListener("DOMContentLoaded", () => {
     genRec();
     applyTh();
+    applyMask();
     draw();
     lockScreen();
     checkReminders();

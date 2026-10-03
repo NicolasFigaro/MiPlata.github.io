@@ -42,6 +42,9 @@ input, select, textarea, button { font-family: inherit; }
 /* Áreas seguras (iPhone) */
 header { padding-top: env(safe-area-inset-top, 0px); }
 
+/* Modo incógnito: los campos con montos se desenfocan hasta que los tocas */
+body.mask :is(#appMain, #modalContainer) :is(input[inputmode="numeric"], input[inputmode="decimal"], textarea):not(:focus):not(#cq):not(#sQ) { filter: blur(6px); }
+
 /* Accesibilidad: sin animaciones si el usuario lo prefiere */
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation: none !important; transition: none !important; }

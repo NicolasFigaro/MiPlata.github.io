@@ -271,6 +271,15 @@ function vHome() {
             </div>
         </section>
 
+        <button onclick="openSim()" class="${CARD} w-full p-4 flex items-center gap-3 text-left hover:border-indigo-500 transition lift">
+            <div class="w-10 h-10 shrink-0 rounded-xl flex items-center justify-center bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400"><i class="fa-solid fa-circle-question"></i></div>
+            <div class="min-w-0 flex-1">
+                <p class="text-sm font-bold text-slate-800 dark:text-white">¿Puedo permitírmelo?</p>
+                <p class="text-[11px] text-slate-400 mt-0.5">Simula una compra y mira cómo cambia tu disponible antes de hacerla</p>
+            </div>
+            <i class="fa-solid fa-chevron-right text-xs text-slate-300"></i>
+        </button>
+
         ${nwUI()}
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -504,6 +513,9 @@ function drawCharts() {
     if (typeof Chart == "undefined") return;
     const dark = document.documentElement.classList.contains("dark");
     Chart.defaults.color = dark ? "#94a3b8" : "#64748b";
+    // Modo incógnito: sin cifras en los ejes ni en los globos al tocar
+    Chart.defaults.plugins.tooltip.enabled = !masked();
+    const hy = masked() ? { scales: { y: { ticks: { display: false } } } } : {};
     const m = mon(), by = G.map(([c]) => [c, sum(m, x => x.t == "g" && x.c == c && !x.s)]).filter(x => x[1] > 0);
     charts.push(new Chart(document.getElementById("chCat"), { type: "doughnut", options: { onClick: (ev, els) => { if (els.length) openCat(by[els[0].index][0]); } }, data: { labels: by.map(x => x[0]), datasets: [{ data: by.map(x => x[1]), backgroundColor: by.map((_, i) => ["#6366f1","#8b5cf6","#10b981","#f59e0b","#ef4444","#06b6d4","#ec4899","#64748b","#84cc16","#f97316","#14b8a6","#a855f7","#0ea5e9","#e11d48","#65a30d","#78716c"][i % 16]) }] } }));
 
@@ -511,17 +523,17 @@ function drawCharts() {
     if (cc) {
         const mk = ym(cur), ok = monthKey(cmp), A = catTotals(mk), B = catTotals(ok);
         const idx = G.map((_, i) => i).filter(i => A[i][1] > 0 || B[i][1] > 0);
-        charts.push(new Chart(cc, { type: "bar", data: { labels: idx.map(i => G[i][0]), datasets: [{ label: monLabel(ok), data: idx.map(i => B[i][1]), backgroundColor: "#94a3b8" }, { label: monLabel(mk), data: idx.map(i => A[i][1]), backgroundColor: "#6366f1" }] } }));
+        charts.push(new Chart(cc, { type: "bar", options: hy, data: { labels: idx.map(i => G[i][0]), datasets: [{ label: monLabel(ok), data: idx.map(i => B[i][1]), backgroundColor: "#94a3b8" }, { label: monLabel(mk), data: idx.map(i => A[i][1]), backgroundColor: "#6366f1" }] } }));
     }
 
     const ms = [...Array(6)].map((_, i) => ym(new Date(cur.getFullYear(), cur.getMonth() - 5 + i, 1)));
     const tot = (k, t) => S.items.filter(x => x.d.startsWith(k) && x.t == t && vis(x)).reduce((s, x) => s + x.a, 0);
-    charts.push(new Chart(document.getElementById("chMon"), { type: "bar", data: { labels: ms, datasets: [{ label: "Ingresos", data: ms.map(k => tot(k, "i")), backgroundColor: "#10b981" }, { label: "Gastos", data: ms.map(k => tot(k, "g")), backgroundColor: "#6366f1" }] } }));
+    charts.push(new Chart(document.getElementById("chMon"), { type: "bar", options: hy, data: { labels: ms, datasets: [{ label: "Ingresos", data: ms.map(k => tot(k, "i")), backgroundColor: "#10b981" }, { label: "Gastos", data: ms.map(k => tot(k, "g")), backgroundColor: "#6366f1" }] } }));
 
     const nw = document.getElementById("chNW");
     if (nw) {
         const ks = Object.keys(S.nwh).sort().slice(-12);
-        charts.push(new Chart(nw, { type: "line", data: { labels: ks, datasets: [{ label: "Patrimonio neto", data: ks.map(k => S.nwh[k]), borderColor: "#6366f1", backgroundColor: "rgba(99,102,241,.15)", fill: true, tension: .3 }] } }));
+        charts.push(new Chart(nw, { type: "line", options: hy, data: { labels: ks, datasets: [{ label: "Patrimonio neto", data: ks.map(k => S.nwh[k]), borderColor: "#6366f1", backgroundColor: "rgba(99,102,241,.15)", fill: true, tension: .3 }] } }));
     }
 }
 
@@ -650,6 +662,77 @@ function extractUI(c, i, b) {
             ${s.paid > 0 ? line("Pagos aplicados", "-" + fmt(s.paid), "text-emerald-500") : ""}
         </div>
         <button onclick="closeModal()" class="w-full mt-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-semibold text-xs">Cerrar</button>`;
+}
+
+// ---------- Simulador "¿Puedo permitírmelo?" (contenido del modal) ----------
+function simUI() {
+    const cats = G.filter(g => g[0] != "Ahorro").map(g => `<option>${esc(g[0])}</option>`).join("");
+    const pays = `<optgroup label="Billetera">${WH.map(w => `<option>${esc(w)}</option>`).join("")}</optgroup>${S.cards.length ? `<optgroup label="Tarjeta">${S.cards.map(c => `<option>${esc(c.n)}</option>`).join("")}</optgroup>` : ""}`;
+    return `
+        <div class="flex justify-between items-center mb-1">
+            <h3 class="text-base font-bold text-slate-800 dark:text-white">¿Puedo permitírmelo?</h3>
+            <button onclick="closeModal()" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 flex items-center justify-center transition"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <p class="text-[11px] text-slate-400 mb-3">Simula una compra de hoy. No se guarda nada.</p>
+        <div class="space-y-2.5">
+            <input id="sAmt" inputmode="numeric" placeholder="Valor de la compra" oninput="fa(this);simCalc()" class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-lg font-bold text-slate-800 dark:text-white focus:ring-2 focus:ring-indigo-500" autocomplete="off">
+            <div class="grid grid-cols-2 gap-2">
+                <select id="sCat" onchange="simCalc()" class="${INP}">${cats}</select>
+                <select id="sPay" onchange="simPay()" class="${INP}">${pays}</select>
+            </div>
+            <div id="sCardOpts" class="grid grid-cols-2 gap-2 hidden">
+                <input id="sQ" inputmode="numeric" placeholder="Cuotas (ej. 3)" oninput="simCalc()" class="${INP}" autocomplete="off">
+                <select id="sI" onchange="simCalc()" class="${INP}"><option>Con la tasa de la tarjeta</option><option>Sin interés</option></select>
+            </div>
+        </div>
+        <div id="simRes" class="mt-4"></div>
+        <button onclick="closeModal()" class="w-full mt-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-semibold text-xs">Cerrar</button>`;
+}
+
+function simResUI(r) {
+    const b = r.b, f = r.f, nm = ym(new Date());
+    const per = s => s.day ? Math.max(0, s.day.avail) / s.day.left : 0;
+    const R = []; let lv = 0;
+    const up = (l, t) => { lv = Math.max(lv, l); R.push(t); };
+    if (f.disp < 0) up(2, f.disp < b.disp - 0.5 ? "Quedarías con " + fmt(-f.disp) + " en negativo este mes" : "Ya estás en negativo este mes");
+    if (r.card && r.card.c) {
+        if (r.a > b.use.avail) up(2, "Supera el cupo disponible de la tarjeta (" + fmt(b.use.avail) + ")");
+        else if (f.use.raw >= 70) up(1, "Dejarías la tarjeta al " + Math.round(f.use.raw) + "% del cupo (ideal: menos del 30%)");
+    }
+    if (f.disp >= 0 && b.day && b.day.avail > 0 && per(f) < per(b) * 0.5) up(1, "Tu promedio diario bajaría a menos de la mitad");
+    if (r.bud > 0 && f.spent > r.bud) up(1, "Te pasarías del presupuesto de " + r.cat);
+    if (r.interest > 0) up(1, "Pagarías " + fmt(r.interest) + " en intereses");
+    const sty = [
+        ["bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400", "fa-circle-check", "Sí, te alcanza"],
+        ["bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400", "fa-triangle-exclamation", "Te alcanza, pero queda justo"],
+        ["bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400", "fa-circle-xmark", "No te conviene ahora"]
+    ][lv];
+    const sub = R.length ? R.join(". ") + "." : (r.card ? "Cabe en el cupo y no aprieta tu disponible de este mes." : "Después de comprar te quedarían " + fmt(f.disp) + " disponibles.");
+    const line = (l, a, c, bad) => `<div class="flex justify-between items-center text-xs py-1.5 gap-2"><span class="text-slate-500 dark:text-slate-400">${l}</span><span class="text-right shrink-0"><span class="text-slate-400">${a}</span><i class="fa-solid fa-arrow-right text-[8px] mx-1.5 text-slate-300"></i><b class="${bad ? "text-rose-500" : "text-slate-800 dark:text-white"}">${c}</b></span></div>`;
+    let h = `
+        <div class="flex items-start gap-3 p-3.5 rounded-2xl ${sty[0]} mb-3">
+            <i class="fa-solid ${sty[1]} text-lg mt-0.5"></i>
+            <div class="min-w-0"><p class="text-sm font-bold">${sty[2]}</p><p class="text-[11px] leading-relaxed mt-0.5 opacity-90">${esc(sub)}</p></div>
+        </div>
+        <div class="pt-1 border-t border-slate-100 dark:border-slate-800">
+            ${line("Disponible para gastar", fmt(b.disp), fmt(f.disp), f.disp < 0)}
+            ${b.day ? line("Promedio por día hasta fin de mes", fmt(per(b)), fmt(per(f)), per(f) < per(b) * 0.5) : ""}
+            ${r.bud > 0 ? line("Presupuesto de " + esc(r.cat), Math.round(b.spent / r.bud * 100) + "%", Math.round(f.spent / r.bud * 100) + "%", f.spent > r.bud) : ""}`;
+    if (r.card && r.card.c) h += line("Cupo utilizado", Math.round(b.use.raw) + "%", Math.round(f.use.raw) + "%", f.use.raw >= 70) + line("Cupo disponible", fmt(b.use.avail), fmt(f.use.avail), r.a > b.use.avail);
+    h += `</div>`;
+    if (r.card) {
+        const rows = r.sched.slice(0, 6).map(s => `<div class="flex justify-between items-center gap-2 py-2 border-b border-slate-100 dark:border-slate-800 last:border-0 text-xs">
+            <div class="min-w-0"><b class="capitalize text-slate-800 dark:text-white">${monLabel(s.m)}</b><small class="text-[11px] text-slate-400 block">paga el ${dmy(s.pay).slice(0, 5)} · extracto ${fmt(s.b)} → ${fmt(s.af)}</small></div>
+            <b class="shrink-0 text-indigo-500">+${fmt(s.cu)}</b></div>`).join("");
+        h += `
+        <div class="mt-3">
+            <p class="text-[10px] uppercase tracking-wider font-bold text-slate-400 mb-1">${r.q > 1 ? r.q + " cuotas con " + esc(r.card.n) : "Una cuota con " + esc(r.card.n)}${r.ir > 0 ? " · " + tf(r.ir) + "% mensual" : ""}</p>
+            ${rows}
+            ${r.sched.length > 6 ? `<p class="text-[11px] text-slate-400 pt-1">y ${r.sched.length - 6} cuotas más</p>` : ""}
+            <p class="text-[11px] text-slate-400 mt-2">El presupuesto de ${esc(r.cat)} cuenta la compra completa en el mes en que la haces; en los meses siguientes lo que cambia es la cuota de la tarjeta.</p>
+        </div>`;
+    }
+    return h;
 }
 
 // ---------- Detalle de una categoría (contenido del modal) ----------
