@@ -419,32 +419,51 @@ function vAho() {
 }
 
 // ---------- Inversión ----------
+let invOpen = {}; // inversiones con el historial desplegado
 function vInv() {
     const P = invPortfolio();
     const R = S.inv.map(x => {
-        const g = x.v - x.i, tot = x.i ? g / x.i : 0, ann = annOf(x.v, x.i, x.d), days = daysOf(x.d);
+        const g = x.v - x.i, tot = x.i ? g / x.i : 0, dAvg = invDays(x), ann = annDays(x.v, x.i, dAvg), days = daysOf(x.d);
+        const mf = n => x.c == "USD" ? fu(n) : fmt(n);
         const annTxt = ann !== null
             ? `<span class="${ann >= 0 ? "text-emerald-500" : "text-rose-500"} font-semibold">${pct1(ann)} anual</span>`
-            : `<span class="text-slate-400">${days < 30 ? "anual: muy pronto (" + days + " d)" : "sin datos"}</span>`;
+            : `<span class="text-slate-400">${dAvg < 30 ? "anual: muy pronto (" + dAvg + " d)" : "sin datos"}</span>`;
+        const px = x.p ? x.p * (x.c == "USD" ? 1 : S.trm) : 0, open = !!invOpen[x.id];
+        const lots = x.h.slice().reverse().map(l => {
+            const lv = px && l.q ? l.q * px : 0, lg = lv && l.i ? lv / l.i - 1 : null;
+            return `
+                <div class="flex items-center justify-between py-2 text-[11px] text-slate-500 dark:text-slate-400">
+                    <div class="min-w-0 pr-2"><span class="font-semibold text-slate-700 dark:text-slate-200">${dmy(l.d)}</span> · ${mf(l.i)}${l.q ? " · " + tf(l.q) + " acc. a " + mf(l.i / l.q) : ""}${lg !== null ? ` · <span class="${lg >= 0 ? "text-emerald-500" : "text-rose-500"} font-semibold">${pct1(lg)}</span>` : ""}</div>
+                    <div class="flex space-x-1.5 shrink-0">
+                        <button onclick="editLot(${x.id},${l.id})" class="p-1.5 bg-slate-100 dark:bg-slate-800 rounded-lg text-[10px]" title="Editar compra"><i class="fa-solid fa-pen"></i></button>
+                        <button onclick="delLot(${x.id},${l.id})" class="p-1.5 bg-rose-50 text-rose-600 rounded-lg text-[10px]" title="Borrar compra"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                </div>`;
+        }).join("");
         return `
             <div class="p-4 ${CARD} mb-3">
                 <div class="flex items-center justify-between">
                     <div class="min-w-0 pr-2">
                         <strong class="text-sm font-semibold text-slate-800 dark:text-white block truncate">${esc(x.n)}</strong>
-                        <small class="text-xs text-slate-400">${x.c} · Invertido ${x.c == "USD" ? fu(x.i) : fmt(x.i)}${x.k ? " · " + invLabel(x.k) : ""}${x.t && x.q ? " · " + tf(x.q) + " " + esc(x.t) : ""}</small>
+                        <small class="text-xs text-slate-400">${x.c} · Invertido ${mf(x.i)}${x.k ? " · " + invLabel(x.k) : ""}${x.t && x.q ? " · " + tf(x.q) + " " + esc(x.t) : ""}</small>
                     </div>
                     <div class="text-right shrink-0">
-                        <b class="text-sm font-bold text-slate-800 dark:text-white block">${x.c == "USD" ? fu(x.v) : fmt(x.v)}</b>
+                        <b class="text-sm font-bold text-slate-800 dark:text-white block">${mf(x.v)}</b>
                         <small class="text-xs ${g >= 0 ? "text-emerald-500" : "text-rose-500"}">${pct1(tot)} total</small>
                     </div>
                 </div>
                 <div class="flex items-center justify-between mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
                     <div class="text-[11px] text-slate-400">Desde ${dmy(x.d)} · ${days} d · ${annTxt}</div>
                     <div class="flex space-x-2 shrink-0">
+                        <button onclick="addLot(${x.id})" class="p-2 bg-indigo-50 dark:bg-slate-800 text-indigo-600 rounded-xl text-xs" title="Agregar compra"><i class="fa-solid fa-plus"></i></button>
                         <button onclick="upInv(${x.id})" class="p-2 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs" title="Actualizar valor"><i class="fa-solid fa-rotate"></i></button>
                         <button onclick="editInv(${x.id})" class="p-2 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs" title="Editar"><i class="fa-solid fa-pen"></i></button>
                         <button onclick="delInv(${x.id})" class="p-2 bg-rose-50 text-rose-600 rounded-xl text-xs" title="Borrar"><i class="fa-solid fa-trash"></i></button>
                     </div>
+                </div>
+                <div class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                    <button onclick="togH(${x.id})" class="w-full flex items-center justify-between text-[11px] font-semibold text-slate-500"><span><i class="fa-solid fa-clock-rotate-left mr-1.5"></i>Historial · ${x.h.length} ${x.h.length == 1 ? "compra" : "compras"}</span><i class="fa-solid fa-chevron-${open ? "up" : "down"}"></i></button>
+                    ${open ? `<div class="mt-1 divide-y divide-slate-100 dark:divide-slate-800">${lots}</div>` : ""}
                 </div>
             </div>`;
     }).join("");

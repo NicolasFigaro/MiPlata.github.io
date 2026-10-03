@@ -58,6 +58,16 @@ syncG();
 S.items.forEach(x => { if (x.t == "g") { if (WH.includes(x.k)) { x.w = x.k; x.k = ""; } else if (!x.k && !x.w) x.w = WH[0]; } });
 // Inversiones antiguas no tenían fecha: se usa el momento en que se crearon
 S.inv.forEach(x => { if (!x.d) { const d = new Date(x.id); x.d = isNaN(d) ? today() : ymd(d); } });
+// Cada inversión guarda sus compras en x.h (historial: { id, d fecha, i monto, q acciones }).
+// x.i (total invertido), x.q (total de acciones) y x.d (primera compra) siempre se calculan a partir de ese historial.
+const syncInv = x => {
+    x.h.sort((a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : 0);
+    x.i = Math.round(x.h.reduce((s, l) => s + l.i, 0) * 100) / 100;
+    x.q = Math.round(x.h.reduce((s, l) => s + (l.q || 0), 0) * 1e8) / 1e8;
+    x.d = x.h[0].d;
+};
+// Inversiones anteriores (sin historial): su dato actual pasa a ser la primera compra
+S.inv.forEach(x => { if (!Array.isArray(x.h) || !x.h.length) x.h = [{ id: x.id, d: x.d, i: x.i, q: x.q || 0 }]; syncInv(x); });
 
 // ---------- Estado de pantalla ----------
 let tab = 0;
@@ -341,11 +351,14 @@ function goalInfo(a) {
 // ---------- Inversiones: rendimiento anualizado ----------
 const daysOf = d => Math.max(0, daysBetween(new Date(d + "T00:00:00"), midnight()));
 // Rendimiento efectivo anual estimado (sirve desde 30 días; antes exagera mucho)
-const annOf = (v, i, d) => { const days = daysOf(d); if (!(i > 0) || !(v > 0) || days < 30) return null; return Math.pow(v / i, 365 / days) - 1; };
+const annDays = (v, i, days) => { if (!(i > 0) || !(v > 0) || days < 30) return null; return Math.pow(v / i, 365 / days) - 1; };
+const annOf = (v, i, d) => annDays(v, i, daysOf(d));
+// Antigüedad "promedio" de una inversión con varias compras: cada compra pesa según su monto
+const invDays = x => { const t = x.h.reduce((s, l) => s + l.i, 0); return t ? Math.round(x.h.reduce((s, l) => s + l.i * daysOf(l.d), 0) / t) : daysOf(x.d); };
 const pct1 = r => (r >= 0 ? "+" : "") + (r * 100).toFixed(1).replace(".", ",") + "%";
 function invPortfolio() {
     let T = 0, C = 0, w = 0;
-    S.inv.forEach(x => { const v = cop(x.v, x.c), i = cop(x.i, x.c); T += v; C += i; w += i * daysOf(x.d); });
+    S.inv.forEach(x => { const v = cop(x.v, x.c), i = cop(x.i, x.c); T += v; C += i; w += i * invDays(x); });
     const avg = C ? w / C : 0;
     const ann = C > 0 && T > 0 && avg >= 30 ? Math.pow(T / C, 365 / avg) - 1 : null;
     return { T, C, avg, ann };

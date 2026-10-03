@@ -451,31 +451,77 @@ function newInv() {
         { l: "Monto invertido", m: "decimal" },
         { l: "Fecha de inicio", v: today(), t: "date" },
         { l: "Tipo de activo (para el rebalanceo)", o: INV_KINDS, v: "Sin clasificar" },
-        { l: "Ticker (opcional, ej. IVV)", p: "IVV" },
+        { l: "Ticker (opcional; si ya existe, se suma como nueva compra)", p: "IVV" },
         { l: "Cantidad de acciones (opcional, ej. 0,36)", m: "decimal" }
     ], v => {
         const i = pr(v[2]), q = pq(v[6]);
         if (!v[0] || !(i > 0)) return "Escribe nombre y monto.";
         if (v[3] > today()) return "La fecha de inicio no puede ser futura.";
         if (!!v[5] != (q > 0)) return "Para precios en vivo escribe ticker y cantidad de acciones (o deja ambos vacíos).";
-        S.inv.push({ id: Date.now(), n: v[0], c: v[1], i, v: i, d: v[3] || today(), k: invK(v[4]), t: v[5].toUpperCase(), q }); save();
+        const d = v[3] || today(), t = v[5].toUpperCase(), ex = t && S.inv.find(y => y.t == t && y.c == v[1]);
+        if (ex) { pushLot(ex, d, i, q); showToast("Compra sumada a " + ex.n); refreshPrices(false); return; }
+        const x = { id: Date.now(), n: v[0], c: v[1], i, v: i, d, k: invK(v[4]), t, q, h: [{ id: Date.now(), d, i, q }] };
+        syncInv(x); S.inv.push(x); save();
     });
 }
 function editInv(id) {
-    const x = S.inv.find(y => y.id == id);
-    openCustomModal("Editar inversión", [
+    const x = S.inv.find(y => y.id == id), one = x.h.length == 1;
+    // Con una sola compra se edita todo aquí; con varias, monto/fecha/acciones se editan en el historial (lápiz de cada compra)
+    const F = [
         { l: "Nombre", v: esc(x.n) },
+        { l: "Tipo de activo (para el rebalanceo)", o: INV_KINDS, v: invLabel(x.k) },
+        { l: "Ticker (opcional, ej. IVV)", v: esc(x.t || ""), p: "IVV" }
+    ];
+    if (one) F.push(
         { l: "Monto invertido en " + x.c, v: tf(x.i), m: "decimal" },
         { l: "Fecha de inicio", v: x.d, t: "date" },
-        { l: "Tipo de activo (para el rebalanceo)", o: INV_KINDS, v: invLabel(x.k) },
-        { l: "Ticker (opcional, ej. IVV)", v: esc(x.t || ""), p: "IVV" },
-        { l: "Cantidad de acciones (opcional, ej. 0,36)", v: x.q ? tf(x.q) : "", m: "decimal" }
-    ], v => {
-        const i = pr(v[1]), q = pq(v[5]);
-        if (!v[0] || !(i > 0)) return "Escribe nombre y monto.";
-        if (v[2] > today()) return "La fecha de inicio no puede ser futura.";
-        if (!!v[4] != (q > 0)) return "Para precios en vivo escribe ticker y cantidad de acciones (o deja ambos vacíos).";
-        x.n = v[0]; x.i = i; x.d = v[2] || x.d; x.k = invK(v[3]); x.t = v[4].toUpperCase(); x.q = q; save();
+        { l: "Cantidad de acciones (opcional, ej. 0,36)", v: x.q ? tf(x.q) : "", m: "decimal" });
+    openCustomModal("Editar inversión", F, v => {
+        const t = v[2].toUpperCase();
+        if (!v[0]) return "Escribe un nombre.";
+        if (one) {
+            const i = pr(v[3]), q = pq(v[5]);
+            if (!(i > 0)) return "Escribe nombre y monto.";
+            if (v[4] > today()) return "La fecha de inicio no puede ser futura.";
+            if (!!t != (q > 0)) return "Para precios en vivo escribe ticker y cantidad de acciones (o deja ambos vacíos).";
+            Object.assign(x.h[0], { i, d: v[4] || x.d, q });
+        } else if (t && x.h.some(l => !(l.q > 0))) return "Hay compras sin acciones: edítalas en el historial antes de poner un ticker.";
+        x.n = v[0]; x.k = invK(v[1]); x.t = t; syncInv(x); save();
+    });
+}
+// ----- Historial de compras de una inversión -----
+function togH(id) { invOpen[id] = !invOpen[id]; draw(); }
+function pushLot(x, d, i, q) { x.h.push({ id: Date.now() + Math.floor(Math.random() * 1000), d, i, q }); x.v += i; syncInv(x); save(); }
+function addLot(id) {
+    const x = S.inv.find(y => y.id == id);
+    const F = [{ l: "Monto de esta compra en " + x.c, m: "decimal" }, { l: "Fecha de la compra", v: today(), t: "date" }];
+    if (x.t) F.push({ l: "Acciones compradas (solo las nuevas, ej. 0,07)", m: "decimal" });
+    openCustomModal("Agregar compra a " + esc(x.n), F, v => {
+        const i = pr(v[0]), q = x.t ? pq(v[2]) : 0;
+        if (!(i > 0)) return "Escribe el monto.";
+        if (v[1] > today()) return "La fecha no puede ser futura.";
+        if (x.t && !(q > 0)) return "Escribe cuántas acciones compraste.";
+        pushLot(x, v[1] || today(), i, q); refreshPrices(false);
+    });
+}
+function editLot(id, lid) {
+    const x = S.inv.find(y => y.id == id), l = x.h.find(y => y.id == lid);
+    const F = [{ l: "Monto en " + x.c, v: tf(l.i), m: "decimal" }, { l: "Fecha", v: l.d, t: "date" }];
+    if (x.t) F.push({ l: "Acciones de esta compra", v: l.q ? tf(l.q) : "", m: "decimal" });
+    openCustomModal("Editar compra", F, v => {
+        const i = pr(v[0]), q = x.t ? pq(v[2]) : (l.q || 0);
+        if (!(i > 0)) return "Escribe el monto.";
+        if (v[1] > today()) return "La fecha no puede ser futura.";
+        if (x.t && !(q > 0)) return "Escribe cuántas acciones fueron.";
+        x.v += i - l.i; l.i = i; l.d = v[1] || l.d; l.q = q; syncInv(x); save(); refreshPrices(false);
+    });
+}
+function delLot(id, lid) {
+    const x = S.inv.find(y => y.id == id), l = x.h.find(y => y.id == lid);
+    if (x.h.length < 2) return showToast("Es la única compra: para quitarla borra la inversión (bote de basura de la tarjeta)", true);
+    confirmAction("¿Borrar esta compra?", () => {
+        x.v = Math.max(0, x.v - (x.p && l.q ? l.q * x.p * (x.c == "USD" ? 1 : S.trm) : l.i));
+        x.h = x.h.filter(y => y.id != lid); syncInv(x); save(); refreshPrices(false);
     });
 }
 function upInv(id) {
