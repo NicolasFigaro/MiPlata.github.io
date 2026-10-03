@@ -3,6 +3,9 @@
 
 // ---------- Pintar la pantalla ----------
 function draw() {
+    // Un redibujo normal (no un cambio de pestaña) conserva el scroll y no repite la animación de entrada
+    const keepY = anim ? null : window.scrollY;
+    if (!anim) document.getElementById("appMain").classList.remove("enter");
     document.getElementById("navTabs").innerHTML = N.map((n, i) => `
         <button onclick="goTab(${i})" class="px-4 py-2 rounded-xl text-sm font-semibold transition whitespace-nowrap ${i === tab ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/25' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}">${n}</button>
     `).join("");
@@ -12,6 +15,7 @@ function draw() {
     if (tab == 3) drawCharts();
     if (tab == 4) runCupoAnim();
     if (anim) { anim = false; const m = document.getElementById("appMain"); m.classList.remove("enter"); void m.offsetWidth; m.classList.add("enter"); countUp(); }
+    if (keepY !== null) window.scrollTo(0, keepY);
 }
 function go(n) { cur.setMonth(cur.getMonth() + n); draw(); }
 function goTab(i) { tab = i; anim = true; draw(); window.scrollTo(0, 0); }
@@ -158,7 +162,17 @@ function showToast(msg, warn) {
 function fa(e) { const v = e.value.replace(/\D/g, ""); e.value = v ? Number(v).toLocaleString("es-CO") : ""; }
 
 // ---------- Secciones colapsables de Inicio ----------
-function togCol(id) { S.th.col = S.th.col || {}; if (S.th.col[id]) delete S.th.col[id]; else S.th.col[id] = 1; save(); draw(); }
+// Pliega o despliega en el mismo lugar (solo cambia una clase; el CSS hace la animación). Sin redibujar nada.
+function togCol(id) {
+    S.th.col = S.th.col || {};
+    const closed = !S.th.col[id];
+    if (closed) S.th.col[id] = 1; else delete S.th.col[id];
+    save();
+    const el = document.querySelector('[data-col="' + id + '"]');
+    if (!el) return draw();
+    el.classList.toggle("col-closed", closed);
+    const h = el.querySelector("[aria-expanded]"); if (h) h.setAttribute("aria-expanded", closed ? "false" : "true");
+}
 
 // ---------- Buscador y filtros ----------
 function refreshList() { const el = document.getElementById("movList"); if (el) el.innerHTML = movListHTML(); }

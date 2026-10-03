@@ -28,9 +28,19 @@ input, select, textarea, button { font-family: inherit; }
 .lift:hover { transform: translateY(-2px); }
 
 /* Consejos */
-.tip { animation: enter .45s cubic-bezier(.22, 1, .36, 1) both; animation-delay: calc(var(--i, 0) * 70ms); }
+#appMain.enter .tip { animation: enter .45s cubic-bezier(.22, 1, .36, 1) both; animation-delay: calc(var(--i, 0) * 70ms); }
 @keyframes pulseRing { 0% { box-shadow: 0 0 0 0 rgba(244, 63, 94, .45); } 70% { box-shadow: 0 0 0 9px rgba(244, 63, 94, 0); } 100% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0); } }
 .pulse-ring { animation: pulseRing 2s infinite; }
+
+/* Secciones colapsables de Inicio: se pliegan en el mismo lugar, sin redibujar la pantalla */
+.col-chev { transform: rotate(180deg); transition: transform .3s ease; }
+.col-closed .col-chev { transform: none; }
+.col-body { display: grid; grid-template-rows: 1fr; transition: grid-template-rows .34s cubic-bezier(.22, 1, .36, 1), opacity .25s ease; }
+.col-closed .col-body { grid-template-rows: 0fr; opacity: 0; visibility: hidden; transition: grid-template-rows .34s cubic-bezier(.22, 1, .36, 1), opacity .2s ease, visibility 0s .34s; }
+.col-inner { overflow: hidden; min-height: 0; }
+.col-pad { padding: 12px 6px 6px; margin: 0 -6px -6px; }
+.col-peek { max-height: 0; opacity: 0; overflow: hidden; transition: max-height .3s ease, opacity .25s ease; }
+.col-closed .col-peek { max-height: 3rem; opacity: 1; }
 
 /* Barras */
 .bar-seg { transition: width .8s cubic-bezier(.22, 1, .36, 1); }

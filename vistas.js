@@ -5,18 +5,18 @@ const N = ["Inicio", "Ahorro", "Inversión", "Gráficas", "Tarjetas", "Deudas", 
 const V = [vHome, vAho, vInv, vGra, vTar, vDeu, vSet];
 
 // ---------- Piezas de Inicio ----------
-// Sección que se pliega al tocar su encabezado. El estado queda guardado en S.th.col ({ id: 1 } = plegada).
+// Sección que se pliega al tocar su encabezado (se anima con CSS, sin volver a pintar la pantalla). El estado queda guardado en S.th.col ({ id: 1 } = plegada).
 // head = encabezado siempre visible, peek = resumen que se ve solo cuando está plegada, body = contenido.
 const colOpen = id => !((S.th.col || {})[id]);
 function colSec(id, head, peek, body, cls) {
     const open = colOpen(id);
     return `
-        <section class="${CARD} p-5 ${cls || ""}">
+        <section data-col="${id}" class="${CARD} p-5 ${cls || ""} ${open ? "" : "col-closed"}">
             <div class="flex items-start justify-between gap-3 cursor-pointer select-none" role="button" tabindex="0" aria-expanded="${open}" onclick="togCol('${id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();togCol('${id}')}">
-                <div class="min-w-0 flex-1">${head}${open ? "" : peek}</div>
-                <span class="shrink-0 w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 flex items-center justify-center"><i class="fa-solid fa-chevron-${open ? "up" : "down"} text-xs"></i></span>
+                <div class="min-w-0 flex-1">${head}<div class="col-peek">${peek}</div></div>
+                <span class="shrink-0 w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 flex items-center justify-center"><i class="col-chev fa-solid fa-chevron-down text-xs"></i></span>
             </div>
-            ${open ? `<div class="mt-3">${body}</div>` : ""}
+            <div class="col-body"><div class="col-inner"><div class="col-pad">${body}</div></div></div>
         </section>`;
 }
 
