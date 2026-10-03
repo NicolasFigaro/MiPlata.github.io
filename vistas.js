@@ -5,6 +5,21 @@ const N = ["Inicio", "Ahorro", "Inversión", "Gráficas", "Tarjetas", "Deudas", 
 const V = [vHome, vAho, vInv, vGra, vTar, vDeu, vSet];
 
 // ---------- Piezas de Inicio ----------
+// Sección que se pliega al tocar su encabezado. El estado queda guardado en S.th.col ({ id: 1 } = plegada).
+// head = encabezado siempre visible, peek = resumen que se ve solo cuando está plegada, body = contenido.
+const colOpen = id => !((S.th.col || {})[id]);
+function colSec(id, head, peek, body, cls) {
+    const open = colOpen(id);
+    return `
+        <section class="${CARD} p-5 ${cls || ""}">
+            <div class="flex items-start justify-between gap-3 cursor-pointer select-none" role="button" tabindex="0" aria-expanded="${open}" onclick="togCol('${id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();togCol('${id}')}">
+                <div class="min-w-0 flex-1">${head}${open ? "" : peek}</div>
+                <span class="shrink-0 w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 flex items-center justify-center"><i class="fa-solid fa-chevron-${open ? "up" : "down"} text-xs"></i></span>
+            </div>
+            ${open ? `<div class="mt-3">${body}</div>` : ""}
+        </section>`;
+}
+
 function tipsUI(by) {
     const r = tipsList(by), pc = v => r.ing > 0 ? Math.min(100, v / r.ing * 100) : 0;
     const bar = r.ing > 0 ? `
@@ -18,12 +33,11 @@ function tipsUI(by) {
                 <span><i class="fa-solid fa-circle text-[7px] text-emerald-500 mr-1"></i>Ahorro ${Math.round(r.aho / r.ing * 100)}% <span class="text-slate-400">(20)</span></span>
             </div>
         </div>` : "";
-    return `
-        <section class="${CARD} p-5">
-            <div class="flex items-center justify-between mb-4">
-                <div><h3 class="text-sm font-bold text-slate-800 dark:text-white"><i class="fa-solid fa-lightbulb text-amber-400 mr-1.5"></i>Consejos para tu plata</h3>
-                <p class="text-xs text-slate-400 mt-0.5">Según tus números de este mes</p></div>
-            </div>
+    const urg = r.list.filter(t => t.lv == 0).length;
+    const head = `<h3 class="text-sm font-bold text-slate-800 dark:text-white"><i class="fa-solid fa-lightbulb text-amber-400 mr-1.5"></i>Consejos para tu plata</h3>`;
+    const peek = `<p class="text-xs mt-0.5 ${urg ? "text-rose-500 font-semibold" : "text-slate-400"}">${r.list.length} ${r.list.length == 1 ? "consejo" : "consejos"}${urg ? " · " + urg + (urg == 1 ? " urgente" : " urgentes") : ""}</p>`;
+    const body = `
+            <p class="text-xs text-slate-400 mb-3">Según tus números de este mes</p>
             ${bar}
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 ${r.list.map((t, i) => `
@@ -34,23 +48,19 @@ function tipsUI(by) {
                             <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">${esc(t.d)}</p>
                         </div>
                     </div>`).join("")}
-            </div>
-        </section>`;
+            </div>`;
+    return colSec("tips", head, peek, body);
 }
 
 function nwUI() {
     const n = netWorth();
     const row = (ic, cl, l, v, neg) => `<div class="flex items-center justify-between text-xs py-1.5"><span class="text-slate-500 dark:text-slate-400"><i class="fa-solid ${ic} ${cl} w-4 mr-1.5"></i>${l}</span><b class="${neg ? "text-rose-500" : "text-slate-800 dark:text-white"}">${neg && v > 0 ? "-" : ""}${fmt(v)}</b></div>`;
-    return `
-        <section class="${CARD} p-5">
-            <div class="flex justify-between items-start mb-3">
-                <div>
-                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Patrimonio neto</p>
-                    <div class="text-3xl font-extrabold tracking-tight mt-1 ${n.tot < 0 ? "text-rose-500" : "text-slate-800 dark:text-white"}">${fmt(n.tot)}</div>
-                    <p class="text-[11px] text-slate-400 mt-0.5">Lo que tienes menos lo que debes, hoy (no depende del mes que estés viendo)</p>
-                </div>
-                <i class="fa-solid fa-scale-balanced text-indigo-500 text-lg"></i>
-            </div>
+    const head = `
+                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider"><i class="fa-solid fa-scale-balanced text-indigo-500 mr-1.5"></i>Patrimonio neto</p>
+                    <div class="text-3xl font-extrabold tracking-tight mt-1 ${n.tot < 0 ? "text-rose-500" : "text-slate-800 dark:text-white"}">${fmt(n.tot)}</div>`;
+    const peek = `<p class="text-[11px] text-slate-400 mt-0.5">Tienes ${fmt(n.act)} · Debes ${fmt(n.pas)}</p>`;
+    const body = `
+            <p class="text-[11px] text-slate-400 mb-3 -mt-1">Lo que tienes menos lo que debes, hoy (no depende del mes que estés viendo)</p>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1 pt-3 border-t border-slate-100 dark:border-slate-800">
                 <div>
                     <p class="text-[10px] uppercase tracking-wider text-emerald-500 font-bold mb-1">Tienes · ${fmt(n.act)}</p>
@@ -63,8 +73,8 @@ function nwUI() {
                     ${row("fa-credit-card", "text-amber-500", "Tarjetas (capital pendiente)", n.cd, 1)}
                     ${row("fa-hand-holding-dollar", "text-rose-500", "Deudas", n.db, 1)}
                 </div>
-            </div>
-        </section>`;
+            </div>`;
+    return colSec("nw", head, peek, body);
 }
 
 function fltSummary(m) {
@@ -101,7 +111,7 @@ function fltUI(m) {
 // Lista de movimientos (se redibuja sola mientras escribes en el buscador)
 function movListHTML() {
     const rows = baseItems().filter(fltMatch).filter(matchQ).sort((a, b) => b.d.localeCompare(a.d) || b.id - a.id);
-    if (!rows.length) return '<p class="text-xs text-slate-400 text-center py-4">' + (flt.k != "all" || sqry ? "No hay movimientos con este filtro." : "Anota tu primer movimiento abajo.") + '</p>';
+    if (!rows.length) return '<p class="text-xs text-slate-400 text-center py-4">' + (flt.k != "all" || sqry ? "No hay movimientos con este filtro." : "Toca el botón + para anotar tu primer movimiento.") + '</p>';
     const head = sqry || sall ? (() => {
         const g = rows.filter(x => x.t == "g").reduce((s, x) => s + x.a, 0), i = rows.filter(x => x.t == "i").reduce((s, x) => s + x.a, 0);
         return `<p class="text-[11px] text-slate-400 pb-2">${rows.length} resultado${rows.length == 1 ? "" : "s"} · gastos ${fmt(g)} · ingresos ${fmt(i)}</p>`;
@@ -225,11 +235,52 @@ function recUI() {
         </section>`;
 }
 
+// ---------- Formulario "Anotar movimiento" (vive en un modal que abre el botón flotante +) ----------
+function movFormHTML() {
+    const cats = (type == "g" ? G.filter(x => x[0] != "Ahorro").map(x => x[0]) : I).map(c => `<option>${c}</option>`).join("") + (type == "g" ? '<option value="__new">＋ Nueva categoría…</option>' : "");
+    const sel = "w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-white";
+    return `
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-base font-bold text-slate-800 dark:text-white">Anotar movimiento</h3>
+            <div class="flex items-center gap-2">
+                <button onclick="newTransfer()" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold">↔ Transferir</button>
+                <button onclick="closeModal()" aria-label="Cerrar" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 flex items-center justify-center transition"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+        </div>
+            <div class="grid grid-cols-2 gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl mb-4">
+                <button type="button" onclick="setType('g')" class="py-2 rounded-xl text-xs font-bold transition ${type == 'g' ? 'bg-white dark:bg-slate-700 text-rose-600 shadow-sm' : 'text-slate-500'}">Gasto</button>
+                <button type="button" onclick="setType('i')" class="py-2 rounded-xl text-xs font-bold transition ${type == 'i' ? 'bg-white dark:bg-slate-700 text-emerald-600 shadow-sm' : 'text-slate-500'}">Ingreso</button>
+            </div>
+            <div class="space-y-3">
+                <input id="amt" inputmode="numeric" placeholder="Monto en pesos" oninput="fa(this);cuotaPreview();metaPreview()" class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-lg font-bold text-slate-800 dark:text-white focus:ring-2 focus:ring-indigo-500" autocomplete="off">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <select id="cat" onchange="catChange(this)" class="${sel}">${cats}</select>
+                    <input id="date" type="date" value="${today()}" class="${sel}">
+                </div>
+                ${type == "g" ? `
+                    <select id="cardSel" onchange="togCardOpts()" class="${sel}">
+                        <optgroup label="Billetera">${WH.map(x => `<option>${esc(x)}</option>`).join("")}</optgroup>
+                        ${S.cards.length ? `<optgroup label="Tarjeta">${S.cards.map(c => `<option>${esc(c.n)}</option>`).join("")}</optgroup>` : ""}
+                        ${S.acc.filter(a => !a.f).length ? `<optgroup label="Meta de ahorro">${S.acc.filter(a => !a.f).map(a => `<option value="meta:${a.id}">🎯 ${esc(a.n)}</option>`).join("")}</optgroup>` : ""}
+                    </select>
+                    <div id="cardOpts" class="space-y-3 hidden">
+                        <input id="cq" inputmode="numeric" placeholder="Cuotas (ej. 3)" oninput="cuotaPreview()" class="${sel}">
+                        <select id="ci" onchange="cuotaPreview()" class="${sel}"><option>Con la tasa de la tarjeta</option><option>Sin interés</option></select>
+                        <p id="cqPrev" class="text-[11px] text-indigo-500 font-semibold min-h-[14px]"></p>
+                    </div>
+                    <p id="metaPrev" class="text-[11px] text-indigo-500 font-semibold min-h-[14px]"></p>` : `
+                    <select id="whSel" class="${sel}">${WH.map(w => `<option>${w}</option>`).join("")}</select>${destUI()}`}
+                <input id="note" placeholder="Nota o descripción (opcional)" class="${sel}" autocomplete="off">
+                <p class="text-rose-500 text-xs" id="msg"></p>
+                <button onclick="addMov()" class="w-full py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs shadow-lg shadow-indigo-500/20 transition">Guardar ${type == "g" ? "Gasto" : "Ingreso"}</button>
+            </div>
+    `;
+}
+
 // ---------- Inicio ----------
 function vHome() {
     if (flt.k == "c" && !S.cards.some(c => c.id == flt.v)) flt = { k: "cards", v: null };
     const m = mon(), ing = sum(m, x => x.t == "i"), aho = svm(), gas = sum(m, x => x.t == "g"), sob = ing - gas - aho;
-    const cats = (type == "g" ? G.filter(x => x[0] != "Ahorro").map(x => x[0]) : I).map(c => `<option>${c}</option>`).join("") + (type == "g" ? '<option value="__new">＋ Nueva categoría…</option>' : "");
     const by = G.map(([c]) => [c, sum(m, x => x.t == "g" && x.c == c && !x.s)]).filter(x => x[1] > 0 || budOf(x[0], ym(cur))).sort((a, b) => b[1] - a[1]), mx = (by[0] ? by[0][1] : 1) || 1;
 
     const hasW = S.items.some(x => x.w) || Object.keys(S.ini).length > 0, nm = ym(cur);
@@ -246,7 +297,34 @@ function vHome() {
         return `<div class="mb-3 last:mb-0"><div class="flex justify-between text-xs mb-1 font-medium"><span>${esc(a.n)}${tag}</span><span>${fm(a, t)}${a.g ? " de " + fm(a, a.g) : ""}</span></div>${a.g ? `<div class="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden"><div class="bg-emerald-500 h-full rounded-full" style="width:${p}%"></div></div>` : ""}</div>`;
     }).join("") || '<p class="text-xs text-slate-400 text-center py-2">Crea metas en la pestaña Ahorro.</p>';
 
-    const sel = "w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-white";
+    // Secciones que se pliegan (ver colSec): lo gastado por categoría y la lista de movimientos
+    const gasTot = by.reduce((s, x) => s + x[1], 0), nMov = baseItems().filter(fltMatch).filter(matchQ).length;
+    const catsBody = `
+            <p class="text-[11px] text-slate-400 mb-3">Toca una categoría para ver sus compras y filtrar por fechas</p>
+                ${by.map(([c, v]) => {
+                    const bi = budInfo(c, ym(cur)), b = bi.tot, r = b ? v / b : v / mx;
+                    return `<div class="text-xs cursor-pointer rounded-xl -mx-2 px-2 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition" role="button" tabindex="0" onclick="openCat('${esc(c)}')" onkeydown="if(event.key==='Enter')openCat('${esc(c)}')" title="Ver las compras de ${esc(c)}">
+                        <div class="flex justify-between mb-1 font-medium"><span>${esc(c)}<i class="fa-solid fa-chevron-right text-[8px] text-slate-300 ml-1.5"></i></span><span>${fmt(v)}${b ? " de " + fmt(b) : ""}</span></div>
+                        <div class="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden"><div class="h-full rounded-full ${b && r >= 1 ? "bg-rose-500" : b && r >= 0.8 ? "bg-amber-500" : "bg-indigo-600"}" style="width:${Math.min(100, r * 100)}%"></div></div>${b && (bi.carry > 0 || bi.ov) ? `<div class="text-[10px] text-slate-400 mt-1">${[bi.ov ? "ajustado solo este mes" : "", bi.carry > 0 ? "incluye " + fmt(bi.carry) + " que sobraron del mes anterior" : ""].filter(Boolean).join(" · ")}</div>` : ""}
+                    </div>`;
+                }).join("") || '<p class="text-xs text-slate-400 text-center py-4">Aún no hay gastos este mes.</p>'}`;
+    const catsSec = colSec("cats",
+        `<h3 class="text-sm font-bold text-slate-800 dark:text-white">En qué se va la plata</h3>`,
+        `<p class="text-xs text-slate-400 mt-0.5">${by.length} ${by.length == 1 ? "categoría" : "categorías"} · ${fmt(gasTot)}</p>`,
+        catsBody);
+    const movBody = `
+            ${fltUI(m)}
+            <div class="relative mb-2">
+                <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                <input id="q" placeholder="Buscar por nota, categoría, monto, tarjeta…" value="${esc(sqry)}" oninput="setQ(this.value)" class="w-full pl-9 pr-9 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-white" autocomplete="off">
+                ${sqry ? `<button onclick="clearQ()" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"><i class="fa-solid fa-xmark"></i></button>` : ""}
+            </div>
+            <label class="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400 mb-3"><input type="checkbox" ${sall ? "checked" : ""} onchange="togAll(this.checked)" class="w-3.5 h-3.5 accent-indigo-600">Buscar en todos los meses</label>
+            <div id="movList" class="space-y-1">${movListHTML()}</div>`;
+    const movSec = colSec("mov",
+        `<h3 class="text-sm font-bold text-slate-800 dark:text-white">Movimientos ${sall ? "de todos los meses" : "del mes"}</h3>`,
+        `<p class="text-xs text-slate-400 mt-0.5">${nMov} ${nMov == 1 ? "movimiento" : "movimientos"}</p>`,
+        movBody);
     return `
         ${bkUI()}
         ${recUI()}
@@ -298,64 +376,9 @@ function vHome() {
 
         ${tipsUI(by)}
 
-        <section class="${CARD} p-5">
-            <div class="flex justify-between items-center mb-3"><h3 class="text-sm font-bold text-slate-800 dark:text-white">Anotar Movimiento</h3><button onclick="newTransfer()" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold">↔ Transferir</button></div>
-            <div class="grid grid-cols-2 gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl mb-4">
-                <button type="button" onclick="setType('g')" class="py-2 rounded-xl text-xs font-bold transition ${type == 'g' ? 'bg-white dark:bg-slate-700 text-rose-600 shadow-sm' : 'text-slate-500'}">Gasto</button>
-                <button type="button" onclick="setType('i')" class="py-2 rounded-xl text-xs font-bold transition ${type == 'i' ? 'bg-white dark:bg-slate-700 text-emerald-600 shadow-sm' : 'text-slate-500'}">Ingreso</button>
-            </div>
-            <div class="space-y-3">
-                <input id="amt" inputmode="numeric" placeholder="Monto en pesos" oninput="fa(this);cuotaPreview();metaPreview()" class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-lg font-bold text-slate-800 dark:text-white focus:ring-2 focus:ring-indigo-500" autocomplete="off">
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <select id="cat" onchange="catChange(this)" class="${sel}">${cats}</select>
-                    <input id="date" type="date" value="${today()}" class="${sel}">
-                </div>
-                ${type == "g" ? `
-                    <select id="cardSel" onchange="togCardOpts()" class="${sel}">
-                        <optgroup label="Billetera">${WH.map(x => `<option>${esc(x)}</option>`).join("")}</optgroup>
-                        ${S.cards.length ? `<optgroup label="Tarjeta">${S.cards.map(c => `<option>${esc(c.n)}</option>`).join("")}</optgroup>` : ""}
-                        ${S.acc.filter(a => !a.f).length ? `<optgroup label="Meta de ahorro">${S.acc.filter(a => !a.f).map(a => `<option value="meta:${a.id}">🎯 ${esc(a.n)}</option>`).join("")}</optgroup>` : ""}
-                    </select>
-                    <div id="cardOpts" class="space-y-3 hidden">
-                        <input id="cq" inputmode="numeric" placeholder="Cuotas (ej. 3)" oninput="cuotaPreview()" class="${sel}">
-                        <select id="ci" onchange="cuotaPreview()" class="${sel}"><option>Con la tasa de la tarjeta</option><option>Sin interés</option></select>
-                        <p id="cqPrev" class="text-[11px] text-indigo-500 font-semibold min-h-[14px]"></p>
-                    </div>
-                    <p id="metaPrev" class="text-[11px] text-indigo-500 font-semibold min-h-[14px]"></p>` : `
-                    <select id="whSel" class="${sel}">${WH.map(w => `<option>${w}</option>`).join("")}</select>${destUI()}`}
-                <input id="note" placeholder="Nota o descripción (opcional)" class="${sel}" autocomplete="off">
-                <p class="text-rose-500 text-xs" id="msg"></p>
-                <button onclick="addMov()" class="w-full py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs shadow-lg shadow-indigo-500/20 transition">Guardar ${type == "g" ? "Gasto" : "Ingreso"}</button>
-            </div>
-        </section>
+        ${catsSec}
 
-        <section class="${CARD} p-5">
-            <h3 class="text-sm font-bold text-slate-800 dark:text-white">En qué se va la plata</h3>
-            <p class="text-[11px] text-slate-400 mt-0.5 mb-3">Toca una categoría para ver sus compras y filtrar por fechas</p>
-            <div class="space-y-3">
-                ${by.map(([c, v]) => {
-                    const bi = budInfo(c, ym(cur)), b = bi.tot, r = b ? v / b : v / mx;
-                    return `<div class="text-xs cursor-pointer rounded-xl -mx-2 px-2 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition" role="button" tabindex="0" onclick="openCat('${esc(c)}')" onkeydown="if(event.key==='Enter')openCat('${esc(c)}')" title="Ver las compras de ${esc(c)}">
-                        <div class="flex justify-between mb-1 font-medium"><span>${esc(c)}<i class="fa-solid fa-chevron-right text-[8px] text-slate-300 ml-1.5"></i></span><span>${fmt(v)}${b ? " de " + fmt(b) : ""}</span></div>
-                        <div class="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden"><div class="h-full rounded-full ${b && r >= 1 ? "bg-rose-500" : b && r >= 0.8 ? "bg-amber-500" : "bg-indigo-600"}" style="width:${Math.min(100, r * 100)}%"></div></div>${b && (bi.carry > 0 || bi.ov) ? `<div class="text-[10px] text-slate-400 mt-1">${[bi.ov ? "ajustado solo este mes" : "", bi.carry > 0 ? "incluye " + fmt(bi.carry) + " que sobraron del mes anterior" : ""].filter(Boolean).join(" · ")}</div>` : ""}
-                    </div>`;
-                }).join("") || '<p class="text-xs text-slate-400 text-center py-4">Aún no hay gastos este mes.</p>'}
-            </div>
-        </section>
-
-        <section class="${CARD} p-5">
-            <div class="flex justify-between items-center mb-3">
-                <h3 class="text-sm font-bold text-slate-800 dark:text-white">Movimientos ${sall ? "de todos los meses" : "del mes"}</h3>
-            </div>
-            ${fltUI(m)}
-            <div class="relative mb-2">
-                <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
-                <input id="q" placeholder="Buscar por nota, categoría, monto, tarjeta…" value="${esc(sqry)}" oninput="setQ(this.value)" class="w-full pl-9 pr-9 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-white" autocomplete="off">
-                ${sqry ? `<button onclick="clearQ()" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"><i class="fa-solid fa-xmark"></i></button>` : ""}
-            </div>
-            <label class="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400 mb-3"><input type="checkbox" ${sall ? "checked" : ""} onchange="togAll(this.checked)" class="w-3.5 h-3.5 accent-indigo-600">Buscar en todos los meses</label>
-            <div id="movList" class="space-y-1">${movListHTML()}</div>
-        </section>
+        ${movSec}
     `;
 }
 
@@ -615,6 +638,29 @@ function vGra() {
         </section>`;
 }
 
+// Texto en el centro de la dona: total de gastos; al tocar o pasar el mouse por una porción, muestra esa categoría
+function donutCenter(by) {
+    const tot = by.reduce((s, x) => s + x[1], 0);
+    return {
+        id: "donutCenter",
+        afterDraw(chart) {
+            const a = chart.chartArea; if (!a) return;
+            const ctx = chart.ctx, cx = (a.left + a.right) / 2, cy = (a.top + a.bottom) / 2;
+            const R = Math.min(a.right - a.left, a.bottom - a.top) / 2 * 0.5, maxW = R * 1.7; // radio interior (corte 50%)
+            const act = chart.getActiveElements(), i = act.length ? act[0].index : -1, hit = i >= 0 && by[i];
+            const dark = document.documentElement.classList.contains("dark"), mut = dark ? "#94a3b8" : "#64748b";
+            const label = hit ? by[i][0] : "Gastos", val = hit ? by[i][1] : tot;
+            const sub = hit && tot ? Math.round(by[i][1] / tot * 100) + "% del total" : by.length ? "este mes" : "sin gastos";
+            const fit = (txt, size, w) => { let s = size; do { ctx.font = w + " " + s + "px Inter, sans-serif"; s--; } while (ctx.measureText(txt).width > maxW && s > 8); };
+            ctx.save(); ctx.textAlign = "center"; ctx.textBaseline = "middle";
+            ctx.fillStyle = mut; fit(label, 12, "600"); ctx.fillText(label, cx, cy - R * 0.4);
+            ctx.fillStyle = dark ? "#f1f5f9" : "#0f172a"; fit(fmt(val), 22, "800"); ctx.fillText(fmt(val), cx, cy);
+            ctx.fillStyle = mut; fit(sub, 11, "500"); ctx.fillText(sub, cx, cy + R * 0.42);
+            ctx.restore();
+        }
+    };
+}
+
 function drawCharts() {
     charts.forEach(c => c.destroy()); charts = [];
     if (typeof Chart == "undefined") return;
@@ -624,7 +670,7 @@ function drawCharts() {
     Chart.defaults.plugins.tooltip.enabled = !masked();
     const hy = masked() ? { scales: { y: { ticks: { display: false } } } } : {};
     const m = mon(), by = G.map(([c]) => [c, sum(m, x => x.t == "g" && x.c == c && !x.s)]).filter(x => x[1] > 0);
-    charts.push(new Chart(document.getElementById("chCat"), { type: "doughnut", options: { onClick: (ev, els) => { if (els.length) openCat(by[els[0].index][0]); } }, data: { labels: by.map(x => x[0]), datasets: [{ data: by.map(x => x[1]), backgroundColor: by.map((_, i) => [accent(500),accent(500,1,"s"),"#10b981","#f59e0b","#ef4444","#06b6d4","#ec4899","#64748b","#84cc16","#f97316","#14b8a6","#a855f7","#0ea5e9","#e11d48","#65a30d","#78716c"][i % 16]) }] } }));
+    charts.push(new Chart(document.getElementById("chCat"), { type: "doughnut", plugins: [donutCenter(by)], options: { plugins: { tooltip: { enabled: false } }, onClick: (ev, els) => { if (els.length) openCat(by[els[0].index][0]); } }, data: { labels: by.map(x => x[0]), datasets: [{ data: by.map(x => x[1]), backgroundColor: by.map((_, i) => [accent(500),accent(500,1,"s"),"#10b981","#f59e0b","#ef4444","#06b6d4","#ec4899","#64748b","#84cc16","#f97316","#14b8a6","#a855f7","#0ea5e9","#e11d48","#65a30d","#78716c"][i % 16]) }] } }));
 
     const cc = document.getElementById("chCmp");
     if (cc) {

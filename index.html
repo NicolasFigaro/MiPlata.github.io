@@ -77,8 +77,13 @@
         <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-md p-6 shadow-2xl transform scale-95 transition-transform duration-300 max-h-[90vh] overflow-y-auto" id="modalContainer"></div>
     </div>
 
+    <!-- Botón flotante: anotar un movimiento desde cualquier pestaña -->
+    <button id="fab" onclick="openMov()" title="Anotar movimiento" aria-label="Anotar movimiento" class="fixed right-5 bottom-5 z-40 w-14 h-14 rounded-full bg-gradient-to-tr from-indigo-600 to-violet-500 text-white shadow-xl shadow-indigo-500/40 flex items-center justify-center text-xl hover:scale-105 active:scale-95 transition-transform" style="margin-bottom: env(safe-area-inset-bottom, 0px)">
+        <i class="fa-solid fa-plus"></i>
+    </button>
+
     <!-- Aviso -->
-    <div id="toast" class="fixed bottom-20 right-5 sm:bottom-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-5 py-3 rounded-2xl shadow-xl flex items-center space-x-3 text-sm font-medium">
+    <div id="toast" class="fixed bottom-24 right-5 sm:bottom-5 sm:right-24 z-50 transform translate-y-20 opacity-0 transition-all duration-300 bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-5 py-3 rounded-2xl shadow-xl flex items-center space-x-3 text-sm font-medium">
         <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400"></i>
         <span id="toastMessage">Operación exitosa</span>
     </div>

@@ -8,7 +8,7 @@ function draw() {
     `).join("");
 
     document.getElementById("appMain").innerHTML = V[tab]();
-    if (keep && tab == 0) restoreForm();
+    if (keep) { openMov(); restoreForm(); } // volvió de crear una categoría: reabre el formulario con lo que había escrito
     if (tab == 3) drawCharts();
     if (tab == 4) runCupoAnim();
     if (anim) { anim = false; const m = document.getElementById("appMain"); m.classList.remove("enter"); void m.offsetWidth; m.classList.add("enter"); countUp(); }
@@ -83,12 +83,16 @@ function countUp() {
 }
 
 // ---------- Modales ----------
-function openCustomModal(title, fields, onSubmitCallback) {
+let modalTimer = null, modalCancel = null; // modalTimer: cierre pendiente; modalCancel: qué hacer si cancelan el modal
+function cancelModal() { const f = modalCancel; modalCancel = null; closeModal(); if (f) f(); }
+function openCustomModal(title, fields, onSubmitCallback, onCancel) {
+    modalCancel = onCancel || null;
+    clearTimeout(modalTimer);
     const modal = document.getElementById("generalModal"), container = document.getElementById("modalContainer");
     container.innerHTML = `
         <div class="flex justify-between items-center mb-4">
             <h3 class="text-base font-bold text-slate-800 dark:text-white">${title}</h3>
-            <button onclick="closeModal()" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 flex items-center justify-center transition"><i class="fa-solid fa-xmark"></i></button>
+            <button onclick="cancelModal()" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 flex items-center justify-center transition"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <form id="customForm" class="space-y-3">
             ${fields.map((f, i) => `
@@ -105,7 +109,7 @@ function openCustomModal(title, fields, onSubmitCallback) {
             `).join("")}
             <p class="text-rose-500 text-xs min-h-[16px]" id="modalError"></p>
             <div class="grid grid-cols-2 gap-3 pt-2">
-                <button type="button" onclick="closeModal()" class="py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-semibold text-xs transition">Cancelar</button>
+                <button type="button" onclick="cancelModal()" class="py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-semibold text-xs transition">Cancelar</button>
                 <button type="submit" class="py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs shadow-md shadow-indigo-500/20 transition">Aceptar</button>
             </div>
         </form>
@@ -119,14 +123,15 @@ function openCustomModal(title, fields, onSubmitCallback) {
         const vals = fields.map((f, i) => form.elements["f" + i].value.trim());
         const res = onSubmitCallback(vals);
         if (typeof res === "string") document.getElementById("modalError").textContent = res;
-        else { closeModal(); draw(); }
+        else { modalCancel = null; closeModal(); draw(); }
     };
 }
 function closeModal() {
     const modal = document.getElementById("generalModal"), container = document.getElementById("modalContainer");
     modal.classList.add("opacity-0");
     container.classList.remove("scale-100"); container.classList.add("scale-95");
-    setTimeout(() => modal.classList.add("hidden"), 300);
+    clearTimeout(modalTimer);
+    modalTimer = setTimeout(() => modal.classList.add("hidden"), 300);
 }
 function confirmAction(msg, cb) {
     const modal = document.getElementById("generalModal"), container = document.getElementById("modalContainer");
@@ -151,6 +156,9 @@ function showToast(msg, warn) {
     toastTimer = setTimeout(() => t.classList.add("translate-y-20", "opacity-0"), warn ? 5000 : 3000);
 }
 function fa(e) { const v = e.value.replace(/\D/g, ""); e.value = v ? Number(v).toLocaleString("es-CO") : ""; }
+
+// ---------- Secciones colapsables de Inicio ----------
+function togCol(id) { S.th.col = S.th.col || {}; if (S.th.col[id]) delete S.th.col[id]; else S.th.col[id] = 1; save(); draw(); }
 
 // ---------- Buscador y filtros ----------
 function refreshList() { const el = document.getElementById("movList"); if (el) el.innerHTML = movListHTML(); }
@@ -177,10 +185,22 @@ function setCatDates() {
 }
 
 // ---------- Movimientos ----------
+// El formulario vive en un modal que abre el botón flotante "+" (movFormHTML está en vistas.js)
+function openMov() {
+    const modal = document.getElementById("generalModal"), container = document.getElementById("modalContainer");
+    modalCancel = null;
+    clearTimeout(modalTimer);
+    container.innerHTML = movFormHTML();
+    modal.classList.remove("hidden");
+    setTimeout(() => { modal.classList.remove("opacity-0"); container.classList.remove("scale-95"); container.classList.add("scale-100"); }, 10);
+    setTimeout(() => { const a = document.getElementById("amt"); if (a) a.focus(); }, 60);
+}
 function setType(t) {
     const g = id => document.getElementById(id), a = g("amt") ? g("amt").value : "", n = g("note") ? g("note").value : "";
-    type = t; draw();
+    type = t;
+    document.getElementById("modalContainer").innerHTML = movFormHTML();
     g("amt").value = a; g("note").value = n;
+    g("amt").focus();
 }
 function setDest(v) {
     const g = id => document.getElementById(id);
@@ -259,6 +279,7 @@ function addMov() {
         else if (r1 >= 0.8 && r0 < 0.8) warn = "Ya llevas el " + Math.floor(r1 * 100) + "% del presupuesto de " + cat + ". Te quedan " + fmt(bud - catSpent(cat, bk));
     }
     showToast(warn || "Movimiento guardado exitosamente", !!warn);
+    closeModal();
     draw();
 }
 function delMovItem(id) { confirmAction("¿Borrar este movimiento?", () => { S.items = S.items.filter(y => y.id != id); save(); }); }
@@ -302,7 +323,7 @@ function newCat(snap) {
         S.cat.push({ id: Date.now(), n: v[0], k: v[1].startsWith("Nec") ? "n" : "g" });
         syncG(); save();
         if (snap) keep = Object.assign({}, snap, { cat: v[0] });
-    });
+    }, snap ? () => { keep = snap; openMov(); restoreForm(); } : null);
 }
 function editCat(id) {
     const c = S.cat.find(x => x.id == id); if (!c) return;
