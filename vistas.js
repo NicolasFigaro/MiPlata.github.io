@@ -431,7 +431,7 @@ function vInv() {
                 <div class="flex items-center justify-between">
                     <div class="min-w-0 pr-2">
                         <strong class="text-sm font-semibold text-slate-800 dark:text-white block truncate">${esc(x.n)}</strong>
-                        <small class="text-xs text-slate-400">${x.c} · Invertido ${x.c == "USD" ? fu(x.i) : fmt(x.i)}${x.k ? " · " + invLabel(x.k) : ""}</small>
+                        <small class="text-xs text-slate-400">${x.c} · Invertido ${x.c == "USD" ? fu(x.i) : fmt(x.i)}${x.k ? " · " + invLabel(x.k) : ""}${x.t && x.q ? " · " + tf(x.q) + " " + esc(x.t) : ""}</small>
                     </div>
                     <div class="text-right shrink-0">
                         <b class="text-sm font-bold text-slate-800 dark:text-white block">${x.c == "USD" ? fu(x.v) : fmt(x.v)}</b>
@@ -461,6 +461,14 @@ function vInv() {
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2">
                 <input id="trmInput" inputmode="decimal" value="${tf(S.trm)}" class="px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs">
                 <button onclick="setTrmVal()" class="py-2.5 bg-indigo-600 text-white font-semibold rounded-xl text-xs shadow-md">Actualizar TRM</button>
+            </div>
+        </div>
+        <div class="${CARD} p-5 mb-6">
+            <h3 class="text-sm font-bold mb-1">Precios en vivo</h3>
+            <p class="text-[11px] text-slate-400 mb-3">${S.pxAt ? "Última actualización: " + (Math.round((Date.now() - S.pxAt) / 60000) < 1 ? "hace un momento" : "hace " + Math.round((Date.now() - S.pxAt) / 60000) + " min") + " (precio de cierre si el mercado está cerrado)." : "Pon ticker y cantidad de acciones en cada inversión (lápiz), pega tu clave gratis de finnhub.io y actualiza."}</p>
+            <div class="grid grid-cols-2 gap-3">
+                <button onclick="refreshPrices(true)" class="py-2.5 bg-indigo-600 text-white font-semibold rounded-xl text-xs shadow-md"><i class="fa-solid fa-rotate mr-1.5"></i>Actualizar precios</button>
+                <button onclick="fkModal()" class="py-2.5 bg-slate-100 dark:bg-slate-800 font-semibold rounded-xl text-xs"><i class="fa-solid fa-key mr-1.5"></i>Clave API</button>
             </div>
         </div>
         <div class="flex justify-between items-center mb-4"><h3 class="text-base font-bold">Mis Inversiones</h3><button onclick="newInv()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold shadow-md">+ Nueva Inversión</button></div>

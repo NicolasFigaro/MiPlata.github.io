@@ -450,12 +450,15 @@ function newInv() {
         { l: "Moneda", o: ["COP", "USD"] },
         { l: "Monto invertido", m: "decimal" },
         { l: "Fecha de inicio", v: today(), t: "date" },
-        { l: "Tipo de activo (para el rebalanceo)", o: INV_KINDS, v: "Sin clasificar" }
+        { l: "Tipo de activo (para el rebalanceo)", o: INV_KINDS, v: "Sin clasificar" },
+        { l: "Ticker (opcional, ej. IVV)", p: "IVV" },
+        { l: "Cantidad de acciones (opcional, ej. 0,36)", m: "decimal" }
     ], v => {
-        const i = pr(v[2]);
+        const i = pr(v[2]), q = pq(v[6]);
         if (!v[0] || !(i > 0)) return "Escribe nombre y monto.";
         if (v[3] > today()) return "La fecha de inicio no puede ser futura.";
-        S.inv.push({ id: Date.now(), n: v[0], c: v[1], i, v: i, d: v[3] || today(), k: invK(v[4]) }); save();
+        if (!!v[5] != (q > 0)) return "Para precios en vivo escribe ticker y cantidad de acciones (o deja ambos vacíos).";
+        S.inv.push({ id: Date.now(), n: v[0], c: v[1], i, v: i, d: v[3] || today(), k: invK(v[4]), t: v[5].toUpperCase(), q }); save();
     });
 }
 function editInv(id) {
@@ -464,12 +467,15 @@ function editInv(id) {
         { l: "Nombre", v: esc(x.n) },
         { l: "Monto invertido en " + x.c, v: tf(x.i), m: "decimal" },
         { l: "Fecha de inicio", v: x.d, t: "date" },
-        { l: "Tipo de activo (para el rebalanceo)", o: INV_KINDS, v: invLabel(x.k) }
+        { l: "Tipo de activo (para el rebalanceo)", o: INV_KINDS, v: invLabel(x.k) },
+        { l: "Ticker (opcional, ej. IVV)", v: esc(x.t || ""), p: "IVV" },
+        { l: "Cantidad de acciones (opcional, ej. 0,36)", v: x.q ? tf(x.q) : "", m: "decimal" }
     ], v => {
-        const i = pr(v[1]);
+        const i = pr(v[1]), q = pq(v[5]);
         if (!v[0] || !(i > 0)) return "Escribe nombre y monto.";
         if (v[2] > today()) return "La fecha de inicio no puede ser futura.";
-        x.n = v[0]; x.i = i; x.d = v[2] || x.d; x.k = invK(v[3]); save();
+        if (!!v[4] != (q > 0)) return "Para precios en vivo escribe ticker y cantidad de acciones (o deja ambos vacíos).";
+        x.n = v[0]; x.i = i; x.d = v[2] || x.d; x.k = invK(v[3]); x.t = v[4].toUpperCase(); x.q = q; save();
     });
 }
 function upInv(id) {
@@ -478,6 +484,46 @@ function upInv(id) {
         const n = pr(v[0]); if (n >= 0) { x.v = n; save(); }
     });
 }
+// ---------- Precios en vivo (Finnhub) ----------
+// La clave se guarda aparte (no entra en las copias de seguridad). Cada inversión con ticker + cantidad
+// de acciones recalcula su valor actual: valor = acciones × precio (× TRM si la inversión está en COP).
+const FK = "miplata_finnhub_key";
+const getFk = () => { try { return localStorage.getItem(FK) || ""; } catch (e) { return ""; } };
+const pq = s => parseFloat(String(s || "").replace(",", ".")) || 0; // acepta 0,36 y 0.36 (pr() quitaría el punto)
+let pxBusy = false;
+function fkModal() {
+    openCustomModal("Clave de Finnhub", [{ l: "API key (gratis en finnhub.io)", v: esc(getFk()) }], v => {
+        if (!v[0]) return "Pega tu clave.";
+        try { localStorage.setItem(FK, v[0]); } catch (e) { return "No se pudo guardar la clave en este navegador."; }
+        setTimeout(() => refreshPrices(true), 400);
+    });
+}
+async function refreshPrices(manual) {
+    const list = S.inv.filter(x => x.t && x.q > 0);
+    if (!list.length) { if (manual) showToast("Agrega ticker y cantidad de acciones a tus inversiones (lápiz)", true); return; }
+    const key = getFk();
+    if (!key) { if (manual) fkModal(); return; }
+    if (pxBusy) return;
+    pxBusy = true;
+    let ok = 0, bad = 0;
+    await Promise.all(list.map(async x => {
+        try {
+            const r = await fetch("https://finnhub.io/api/v1/quote?symbol=" + encodeURIComponent(x.t) + "&token=" + encodeURIComponent(key));
+            if (!r.ok) throw new Error(r.status);
+            const p = (await r.json()).c;
+            if (!(p > 0)) throw new Error("sin precio");
+            x.p = p;
+            x.v = Math.round(x.q * p * (x.c == "USD" ? 1 : S.trm) * 100) / 100;
+            ok++;
+        } catch (e) { bad++; }
+    }));
+    pxBusy = false;
+    if (ok) { S.pxAt = Date.now(); save(); draw(); }
+    if (manual) showToast(bad ? `${ok} actualizadas, ${bad} fallaron (revisa ticker o clave)` : "Precios actualizados", !!bad);
+}
+const pxStale = () => Date.now() - (S.pxAt || 0) > 10 * 60 * 1000;
+document.addEventListener("visibilitychange", () => { if (!document.hidden && pxStale()) refreshPrices(false); });
+
 function delInv(id) { confirmAction("¿Borrar inversión?", () => { S.inv = S.inv.filter(x => x.id != id); save(); }); }
 // Rebalanceo: guarda el objetivo y recalcula solo la tabla (sin redibujar la pantalla, para no perder lo que escribes)
 function rbCalc() {
@@ -720,5 +766,6 @@ window.addEventListener("DOMContentLoaded", () => {
     draw();
     lockScreen();
     checkReminders();
+    if (pxStale()) refreshPrices(false);
     if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").then(regPeriodic).catch(() => {});
 });
