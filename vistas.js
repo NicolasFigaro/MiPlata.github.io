@@ -496,6 +496,7 @@ function walPanel(a) {
     const act = (cl, fn, t) => `<button onclick="${fn}" class="px-3 py-1.5 ${cl} rounded-xl text-xs font-semibold">${t}</button>`;
     const ib = (cl, fn, ic, t) => `<button onclick="${fn}" title="${t}" aria-label="${t}" class="w-8 h-8 ${cl} rounded-lg text-[11px] flex items-center justify-center"><i class="fa-solid ${ic}"></i></button>`;
     const hasGoals = S.acc.some(g => !g.f);
+    const linkedG = S.acc.filter(g => !g.f && a.pk.some(p => p.m == g.id)), linkedAG = linkedG.reduce((s, g) => s + goalTotal(g) * (g.u ? S.trm : 1), 0);
     const pks = a.pk.map(p => {
         const g = p.m ? S.acc.find(x => x.id == p.m) : null, gt = g && g.g ? Math.min(100, goalAll(g) / g.g * 100) : null;
         return `
@@ -526,6 +527,7 @@ function walPanel(a) {
             <div class="grid grid-cols-3 gap-2 mb-2">
                 ${[["Saldo", fmt(b), b < 0 ? "text-rose-500" : ""], ["En bolsillos", fmt(pk), ""], ["Libre", fmt(b - pk), b - pk < 0 ? "text-rose-500" : "text-emerald-500"]].map(([l, v, cl]) => `<div class="p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 min-w-0"><span class="text-[10px] uppercase tracking-wider text-slate-400 block truncate">${l}</span><b class="text-xs ${cl}">${v}</b></div>`).join("")}
             </div>
+            ${linkedG.length ? `<p class="text-[11px] text-slate-500 dark:text-slate-400 mb-2"><i class="fa-solid fa-piggy-bank text-emerald-500 mr-1"></i>Sus bolsillos están vinculados a metas que ya tienen ${fmt(linkedAG)} ahorrados (aparte del saldo de esta cuenta).</p>` : ""}
             ${pk > b + 0.5 ? `<p class="text-[11px] text-amber-500 mb-2"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Tus bolsillos suman más que el saldo de la cuenta. Revisa el saldo («Ajustar saldo») o saca plata de algún bolsillo.</p>` : ""}
             <div class="flex flex-wrap gap-2 mb-4">
                 ${act("bg-indigo-50 text-indigo-600", `adjWal(${a.id})`, "Ajustar saldo")}
@@ -547,13 +549,16 @@ function walPanel(a) {
 function vCue() {
     if (walOpen && !S.wal.some(a => a.id == walOpen)) walOpen = null;
     const shown = S.wal.filter(a => !(S.hide || {})[a.n]), T = shown.reduce((s, a) => s + walBal(a), 0), P = pkHeld(), open = S.wal.find(a => a.id == walOpen);
+    // Lo que ya tienen ahorrado las metas que están vinculadas a algún bolsillo (esa plata está en la meta, no en la cuenta: no entra en "Libre")
+    const AG = S.acc.filter(g => !g.f && goalPks(g).length).reduce((s, g) => s + goalTotal(g) * (g.u ? S.trm : 1), 0);
     return `
         <section class="bg-gradient-to-b from-sky-500 to-sky-600 text-white p-6 rounded-[20px] shadow-sm mb-6">
             <small class="text-xs text-sky-100 font-medium uppercase tracking-wider">Total en cuentas</small>
             <div class="text-3xl font-extrabold mt-1">${fmt(T)}</div>
-            <div class="grid grid-cols-2 gap-2 mt-4 pt-4 border-t border-white/10">
+            <div class="grid ${AG > 0.5 ? "grid-cols-3" : "grid-cols-2"} gap-2 mt-4 pt-4 border-t border-white/10">
                 <div><small class="text-[10px] text-sky-100 block uppercase">En bolsillos</small><b class="text-sm font-bold">${fmt(P)}</b></div>
                 <div><small class="text-[10px] text-sky-100 block uppercase">Libre</small><b class="text-sm font-bold">${fmt(T - P)}</b></div>
+                ${AG > 0.5 ? `<div><small class="text-[10px] text-sky-100 block uppercase">Ahorro vinculado</small><b class="text-sm font-bold">${fmt(AG)}</b></div>` : ""}
             </div>
         </section>
         <div class="flex justify-between items-center mb-4"><h3 class="text-base font-bold">Mis Cuentas</h3></div>
