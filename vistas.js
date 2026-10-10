@@ -114,7 +114,7 @@ function fltSummary(m) {
 }
 
 function fltUI(m) {
-    const chip = (on, ic, lbl, act, sm) => `<button onclick="${act}" class="shrink-0 ${sm ? "px-3 py-1.5 text-[11px]" : "px-3.5 py-2 text-xs"} rounded-xl font-semibold transition whitespace-nowrap ${on ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/25" : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"}"><i class="fa-solid ${ic} mr-1.5"></i>${lbl}</button>`;
+    const chip = (on, ic, lbl, act, sm) => `<button onclick="${act}" class="shrink-0 ${sm ? "px-3 py-1.5 text-[11px]" : "px-3.5 py-2 text-xs"} rounded-full font-semibold transition whitespace-nowrap ${on ? "bg-indigo-600 text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"}"><i class="fa-solid ${ic} mr-1.5"></i>${lbl}</button>`;
     const inCards = flt.k == "cards" || flt.k == "c";
     const row1 = chip(flt.k == "all", "fa-layer-group", "Todos", "setFlt('all')") + S.wal.map((a, i) => chip(flt.k == "w" && flt.v == i, WTYPES[a.t][1], esc(wlabel(a.n)), `setFlt('w',${i})`)).join("") + chip(inCards, "fa-credit-card", "Tarjetas", "setFlt('cards')");
     const row2 = inCards && S.cards.length ? `<div class="subchips flex gap-2 overflow-x-auto no-scrollbar pb-1 mt-2">${chip(flt.k == "cards", "fa-layer-group", "Todas", "setFlt('cards')", 1)}${S.cards.map(c => chip(flt.k == "c" && flt.v == c.id, "fa-credit-card", esc(c.n), `setFlt('c',${c.id})`, 1)).join("")}</div>` : "";
@@ -131,19 +131,25 @@ function movListHTML() {
     })() : "";
     return head + rows.map(x => {
         const r = rate(x);
-        const ic = x.t == "i" ? ["fa-arrow-down", "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400"] : x.t == "tr" ? ["fa-right-left", "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-400"] : x.k ? ["fa-credit-card", "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"] : ["fa-bag-shopping", "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"];
+        const ic = x.t == "i" ? ["fa-arrow-down", "#34C759"] : x.t == "tr" ? ["fa-right-left", "#007AFF"] : x.t == "p" ? ["fa-credit-card", "#8E8E93"] : catIc(x.c);
         return `
-        <div class="ios-row flex items-center gap-3 py-2.5">
-            <span class="w-9 h-9 shrink-0 rounded-[10px] flex items-center justify-center text-sm ${ic[1]}"><i class="fa-solid ${ic[0]}"></i></span>
+        <div class="swipe">
+            <div class="swipe-act">
+                <button onclick="editM(${x.id})" style="background:#007AFF" aria-label="Editar"><i class="fa-solid fa-pen"></i>Editar</button>
+                <button onclick="delMovItem(${x.id})" style="background:#FF3B30" aria-label="Borrar"><i class="fa-solid fa-trash"></i>Borrar</button>
+            </div>
+        <div class="swipe-in flex items-center gap-3 py-2.5 bg-white dark:bg-slate-900">
+            <span class="w-9 h-9 shrink-0 rounded-[10px] flex items-center justify-center text-sm text-white" style="background:${ic[1]}"><i class="fa-solid ${ic[0]}"></i></span>
             <div class="min-w-0 flex-1 pr-2">
                 <strong class="text-sm font-semibold text-slate-800 dark:text-white block truncate">${esc(x.n || x.c)}</strong>
                 <small class="text-xs text-slate-400">${x.n ? esc(x.c) + " · " : ""}${x.d.slice(8)}/${x.d.slice(5, 7)}${sall ? "/" + x.d.slice(2, 4) : ""}${x.k ? " · 💳 " + esc(x.k) : ""}${x.sav ? " · 🎯 " + esc((S.acc.find(a => a.id == x.sav) || {}).n || "meta borrada") : ""}${x.w ? " · " + esc(x.w) : ""}${x.q > 1 ? " · " + x.q + " cuotas de " + fmt(pmt(x.a, x.q, r)) + (r > 0 ? " (con interés)" : "") : ""}${x.s ? " · fuera del resumen" : ""}</small>
             </div>
             <div class="flex items-center space-x-2">
                 <span class="text-sm font-bold ${x.t == "i" ? "text-emerald-500" : "text-slate-800 dark:text-white"}">${x.t == "i" ? "+" : x.t == "tr" ? "↔ " : "-"}${fmt(x.a)}</span>
-                <button onclick="editM(${x.id})" class="text-slate-400 hover:text-indigo-600 p-1 text-xs"><i class="fa-solid fa-pen"></i></button>
-                <button onclick="delMovItem(${x.id})" class="text-slate-400 hover:text-rose-600 p-1 text-xs"><i class="fa-solid fa-trash"></i></button>
+                <button onclick="editM(${x.id})" class="mv-btns text-slate-400 hover:text-indigo-600 p-1 text-xs"><i class="fa-solid fa-pen"></i></button>
+                <button onclick="delMovItem(${x.id})" class="mv-btns text-slate-400 hover:text-rose-600 p-1 text-xs"><i class="fa-solid fa-trash"></i></button>
             </div>
+        </div>
         </div>`;
     }).join("");
 }
@@ -766,11 +772,21 @@ function drawCharts() {
     if (typeof Chart == "undefined") return;
     const dark = document.documentElement.classList.contains("dark");
     Chart.defaults.color = dark ? "#94a3b8" : "#64748b";
+    // Estilo iOS: sin cuadrícula vertical, líneas suaves, barras redondeadas, leyenda con puntos y tipografía del sistema
+    const ios = document.documentElement.dataset.theme == "ios", D = Chart.defaults;
+    try {
+        D.font.family = '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, system-ui, sans-serif';
+        D.borderColor = dark ? "rgba(255,255,255,.08)" : "rgba(0,0,0,.06)";
+        D.elements.bar.borderRadius = 6; D.elements.bar.borderSkipped = false;
+        D.plugins.legend.labels.usePointStyle = true; D.plugins.legend.labels.boxWidth = 8; D.plugins.legend.labels.boxHeight = 8;
+        D.scales.category.grid.display = false; D.scales.linear.border.display = false;
+    } catch (e) {}
+    const GREEN = ios ? "#34C759" : "#10b981", PAL = ios ? [accent(500), "#34C759", "#FF9500", "#FF3B30", "#5AC8FA", "#AF52DE", "#FF2D55", "#8E8E93", "#A2845E", "#30B0C7", "#5856D6", "#FFCC00", "#64D2FF", "#BF5AF2", "#FF6482", "#AC8E68"] : null;
     // Modo incógnito: sin cifras en los ejes ni en los globos al tocar
     Chart.defaults.plugins.tooltip.enabled = !masked();
     const hy = masked() ? { scales: { y: { ticks: { display: false } } } } : {};
     const m = mon(), by = G.map(([c]) => [c, sum(m, x => x.t == "g" && x.c == c && !x.s)]).filter(x => x[1] > 0);
-    charts.push(new Chart(document.getElementById("chCat"), { type: "doughnut", plugins: [donutCenter(by)], options: { plugins: { tooltip: { enabled: false } }, onClick: (ev, els) => { if (els.length) openCat(by[els[0].index][0]); } }, data: { labels: by.map(x => x[0]), datasets: [{ data: by.map(x => x[1]), backgroundColor: by.map((_, i) => [accent(500),accent(500,1,"s"),"#10b981","#f59e0b","#ef4444","#06b6d4","#ec4899","#64748b","#84cc16","#f97316","#14b8a6","#a855f7","#0ea5e9","#e11d48","#65a30d","#78716c"][i % 16]) }] } }));
+    charts.push(new Chart(document.getElementById("chCat"), { type: "doughnut", plugins: [donutCenter(by)], options: { cutout: "68%", plugins: { tooltip: { enabled: false } }, onClick: (ev, els) => { if (els.length) openCat(by[els[0].index][0]); } }, data: { labels: by.map(x => x[0]), datasets: [{ data: by.map(x => x[1]), backgroundColor: by.map((_, i) => (PAL || [accent(500), accent(500, 1, "s"), "#10b981", "#f59e0b", "#ef4444", "#06b6d4", "#ec4899", "#64748b", "#84cc16", "#f97316", "#14b8a6", "#a855f7", "#0ea5e9", "#e11d48", "#65a30d", "#78716c"])[i % 16]), borderWidth: 0 }] } }));
 
     const cc = document.getElementById("chCmp");
     if (cc) {
@@ -781,7 +797,7 @@ function drawCharts() {
 
     const ms = [...Array(6)].map((_, i) => ym(new Date(cur.getFullYear(), cur.getMonth() - 5 + i, 1)));
     const tot = (k, t) => S.items.filter(x => x.d.startsWith(k) && x.t == t && vis(x)).reduce((s, x) => s + x.a, 0);
-    charts.push(new Chart(document.getElementById("chMon"), { type: "bar", options: hy, data: { labels: ms, datasets: [{ label: "Ingresos", data: ms.map(k => tot(k, "i")), backgroundColor: "#10b981" }, { label: "Gastos", data: ms.map(k => tot(k, "g")), backgroundColor: accent(500) }] } }));
+    charts.push(new Chart(document.getElementById("chMon"), { type: "bar", options: hy, data: { labels: ms, datasets: [{ label: "Ingresos", data: ms.map(k => tot(k, "i")), backgroundColor: GREEN }, { label: "Gastos", data: ms.map(k => tot(k, "g")), backgroundColor: accent(500) }] } }));
 
     const nw = document.getElementById("chNW");
     if (nw) {
@@ -1058,13 +1074,13 @@ function hidUI() { return hideNames().map((n, i) => `<label class="flex items-ce
 // Apariencia: modo (claro/oscuro/automático) + tema de color + color propio
 function themeUI() {
     const cur = S.th.t || "ios", md = S.th.m || "auto", on = "border-indigo-500 bg-indigo-50/60 dark:bg-indigo-500/10", off = "border-transparent bg-slate-50 dark:bg-slate-800/60 hover:border-slate-300 dark:hover:border-slate-600";
-    const mb = (v, l, ic) => `<button onclick="setMode('${v}')" class="flex-1 py-2.5 rounded-xl text-xs font-semibold transition ${md == v ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/25" : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"}"><i class="fa-solid ${ic} mr-1.5"></i>${l}</button>`;
+    const mb = (v, l, ic) => `<button onclick="setMode('${v}')" class="flex-1 py-1.5 rounded-lg text-xs font-semibold transition ${md == v ? "bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm" : "text-slate-500 dark:text-slate-400"}"><i class="fa-solid ${ic} mr-1.5"></i>${l}</button>`;
     const sw = t => `<button onclick="setTheme('${t.id}')" class="p-2.5 rounded-2xl border-2 transition text-center ${cur == t.id ? on : off}"><span class="block h-9 rounded-xl" style="background:linear-gradient(135deg,${t.p},${t.s})"></span><span class="block text-[11px] font-semibold mt-1.5 text-slate-700 dark:text-slate-200">${t.n}</span></button>`;
     const ct = customTheme(S.th.c);
     return `
         <section class="${CARD} p-6 space-y-4">
             <div><h3 class="text-base font-bold">Apariencia</h3><p class="text-xs text-slate-400 mt-1">Elige claro u oscuro y el tema de color de toda la app. Se guarda en este dispositivo.</p></div>
-            <div class="flex gap-2">${mb("auto", "Automático", "fa-circle-half-stroke")}${mb("light", "Claro", "fa-sun")}${mb("dark", "Oscuro", "fa-moon")}</div>
+            <div class="flex gap-0.5 p-0.5 rounded-[10px] bg-slate-100 dark:bg-slate-800">${mb("auto", "Automático", "fa-circle-half-stroke")}${mb("light", "Claro", "fa-sun")}${mb("dark", "Oscuro", "fa-moon")}</div>
             <div class="grid grid-cols-3 sm:grid-cols-4 gap-2">
                 ${THEMES.map(sw).join("")}
                 <label class="relative p-2.5 rounded-2xl border-2 transition text-center cursor-pointer ${cur == "custom" ? on : off}">

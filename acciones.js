@@ -2,6 +2,45 @@
 // Todo lo que el usuario hace (botones, formularios, modales) y el arranque de la app.
 
 // ---------- Pintar la pantalla ----------
+// Vibración suave. Android: navigator.vibrate. iPhone (Safari 17.4 o más): tocar un interruptor nativo escondido da un "toque" háptico.
+function buzz() {
+    try {
+        if (navigator.vibrate) return navigator.vibrate(10);
+        const h = document.getElementById("hapt"); if (h) h.click();
+    } catch (e) {}
+}
+// Deslizar una fila de movimientos hacia la izquierda para mostrar Editar / Borrar
+(() => {
+    const L = document.getElementById("appMain"), W = 144;
+    let el = null, x0 = 0, y0 = 0, base = 0, mode = null, v = 0, opened = null;
+    L.addEventListener("touchstart", e => {
+        if (opened && !opened.isConnected) opened = null;
+        const r = e.target.closest(".swipe-in");
+        if (opened && opened !== r) { opened.style.transform = ""; opened = null; }
+        if (!r) { el = null; return; }
+        el = r; const t = e.touches[0]; x0 = t.clientX; y0 = t.clientY; base = r === opened ? -W : 0; mode = null; v = base;
+    }, { passive: true });
+    L.addEventListener("touchmove", e => {
+        if (!el) return;
+        const t = e.touches[0], dx = t.clientX - x0, dy = t.clientY - y0;
+        if (mode === null && (Math.abs(dx) > 6 || Math.abs(dy) > 6)) mode = Math.abs(dx) > Math.abs(dy) ? "h" : "v";
+        if (mode !== "h") return;
+        v = Math.max(-W - 24, Math.min(0, base + dx));
+        el.style.transition = "none"; el.style.transform = "translateX(" + v + "px)";
+    }, { passive: true });
+    L.addEventListener("touchend", () => {
+        if (!el) return;
+        el.style.transition = "";
+        if (mode === "h") {
+            const open = v < -W / 2;
+            el.style.transform = open ? "translateX(" + (-W) + "px)" : "";
+            if (open && opened !== el) buzz();
+            opened = open ? el : null;
+        } else if (opened === el) { el.style.transform = ""; opened = null; }
+        el = null;
+    });
+})();
+
 // Pestañas de la barra inferior: [índice en N (-1 = menú "Más"), nombre, icono]. Inversión, Gráficas, Deudas y Ajustes viven dentro de "Más".
 const TB = [[0, "Inicio", "fa-house"], [1, "Cuentas", "fa-wallet"], [2, "Ahorro", "fa-piggy-bank"], [5, "Tarjetas", "fa-credit-card"], [-1, "Más", "fa-ellipsis"]];
 const tbOn = i => i == -1 ? (tab == -1 || MORE.includes(tab)) : tab == i;
@@ -311,11 +350,12 @@ function addMov() {
         if (r1 >= 1 && r0 < 1) warn = "Te pasaste del presupuesto de " + cat + " (" + fmt(catSpent(cat, bk)) + " de " + fmt(bud) + ")";
         else if (r1 >= 0.8 && r0 < 0.8) warn = "Ya llevas el " + Math.floor(r1 * 100) + "% del presupuesto de " + cat + ". Te quedan " + fmt(bud - catSpent(cat, bk));
     }
+    buzz();
     showToast(warn || "Movimiento guardado exitosamente", !!warn);
     closeModal();
     draw();
 }
-function delMovItem(id) { confirmAction("¿Borrar este movimiento?", () => { S.items = S.items.filter(y => y.id != id); save(); }); }
+function delMovItem(id) { confirmAction("¿Borrar este movimiento?", () => { buzz(); S.items = S.items.filter(y => y.id != id); save(); }); }
 function editM(id) {
     const x = S.items.find(y => y.id == id); if (!x) return;
     openCustomModal("Editar movimiento", [

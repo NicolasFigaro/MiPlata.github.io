@@ -135,3 +135,13 @@ html[data-theme="ios"] :is(.text-emerald-500, .text-emerald-600) { color: #248A3
 html[data-theme="ios"] :is(.text-rose-500, .text-rose-600) { color: #D70015; }
 html.dark[data-theme="ios"] :is(.text-emerald-500, .text-emerald-600, .dark\:text-emerald-400) { color: #30D158; }
 html.dark[data-theme="ios"] :is(.text-rose-500, .text-rose-600, .dark\:text-rose-400) { color: #FF453A; }
+
+/* Filas deslizables: Editar / Borrar quedan detrás y aparecen al arrastrar a la izquierda */
+.swipe { position: relative; overflow: hidden; }
+.swipe-act { position: absolute; top: 0; right: 0; bottom: 0; display: flex; }
+.swipe-act button { width: 72px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: #fff; font-size: 12px; font-weight: 600; }
+.swipe-in { position: relative; transition: transform .28s cubic-bezier(.3, .7, .4, 1); touch-action: pan-y; }
+.swipe:not(:last-child) > .swipe-in::after { content: ""; position: absolute; left: 48px; right: 0; bottom: 0; height: .5px; background: rgb(var(--n-200)); }
+.dark .swipe:not(:last-child) > .swipe-in::after { background: rgb(var(--n-800)); }
+/* En pantallas táctiles se usa el gesto; los iconos de lápiz y papelera quedan para el mouse */
+@media (pointer: coarse) { .mv-btns { display: none; } }
