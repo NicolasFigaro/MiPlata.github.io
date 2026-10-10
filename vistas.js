@@ -5,7 +5,7 @@ const N = ["Inicio", "Cuentas", "Ahorro", "Inversión", "Gráficas", "Tarjetas",
 const V = [vHome, vCue, vAho, vInv, vGra, vTar, vDeu, vSet];
 // Pestañas que viven dentro del menú "Más" de la barra inferior (índices de N)
 const MORE = [3, 4, 6, 7];
-const APP_VER = "6";
+const APP_VER = "7";
 const MORE_IC = { "Inversión": ["fa-chart-line", "#34C759"], "Gráficas": ["fa-chart-pie", "#FF9500"], "Deudas": ["fa-hand-holding-dollar", "#FF3B30"], "Ajustes": ["fa-gear", "#8E8E93"] };
 function vMore() {
     return `
@@ -283,7 +283,7 @@ function movFormHTML() {
         <div class="space-y-4">
             <div class="flex items-center justify-center gap-1.5 py-1">
                 <span class="text-3xl font-semibold text-slate-400">$</span>
-                <input id="amt" inputmode="numeric" enterkeyhint="done" placeholder="0" oninput="fa(this);cuotaPreview();metaPreview()" onkeydown="if(event.key==='Enter')this.blur()" class="amt-big min-w-0 w-full max-w-[260px] bg-transparent border-0 p-0 text-center font-bold tracking-tight text-slate-800 dark:text-white focus:ring-0 focus:outline-none" autocomplete="off">
+                <input id="amt" inputmode="numeric" enterkeyhint="done" placeholder="0" oninput="fa(this);fitAmt(this);cuotaPreview();metaPreview()" onkeydown="if(event.key==='Enter')this.blur()" style="width:1ch" class="amt-big min-w-0 max-w-full bg-transparent border-0 p-0 text-center font-bold tracking-tight text-slate-800 dark:text-white focus:ring-0 focus:outline-none" autocomplete="off">
             </div>
             <select id="cat" onchange="catChange(this)" class="hidden" aria-hidden="true" tabindex="-1">${cats}</select>
             <div id="catGrid" class="grid grid-cols-4 gap-x-1 gap-y-3">${names.map(tile).join("")}${newTile}</div>
@@ -299,15 +299,15 @@ function movFormHTML() {
                 <div id="cardOpts" class="space-y-3 hidden">
                     <input id="cq" inputmode="numeric" placeholder="Cuotas (ej. 3)" oninput="cuotaPreview()" class="${sel}">
                     <select id="ci" onchange="cuotaPreview()" class="${sel}"><option>Con la tasa de la tarjeta</option><option>Sin interés</option></select>
-                    <p id="cqPrev" class="text-[11px] text-indigo-500 font-semibold min-h-[14px]"></p>
+                    <p id="cqPrev" class="text-[11px] text-indigo-500 font-semibold empty:hidden"></p>
                 </div>
-                <p id="metaPrev" class="text-[11px] text-indigo-500 font-semibold min-h-[14px] -mt-2"></p>` : `
+                <p id="metaPrev" class="text-[11px] text-indigo-500 font-semibold empty:hidden"></p>` : `
                 <div class="grid grid-cols-2 gap-2">
                     <input id="date" type="date" value="${today()}" class="${sel}">
                     <select id="whSel" class="${sel}">${WH.map(w => `<option>${w}</option>`).join("")}</select>
                 </div>${destUI()}`}
             <input id="note" placeholder="Nota o descripción (opcional)" class="${sel}" autocomplete="off">
-            <p class="text-rose-500 text-xs" id="msg"></p>
+            <p class="text-rose-500 text-xs empty:hidden" id="msg"></p>
             <button onclick="addMov()" class="w-full py-3.5 rounded-[14px] bg-indigo-600 active:bg-indigo-700 text-white font-semibold text-base transition">Guardar ${type == "g" ? "gasto" : "ingreso"}</button>
         </div>
     `;

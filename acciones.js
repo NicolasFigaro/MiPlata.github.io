@@ -275,7 +275,7 @@ function setType(t) {
     const g = id => document.getElementById(id), a = g("amt") ? g("amt").value : "", n = g("note") ? g("note").value : "";
     type = t;
     document.getElementById("modalContainer").innerHTML = movFormHTML();
-    g("amt").value = a; g("note").value = n;
+    g("amt").value = a; g("note").value = n; fitAmt(g("amt"));
     g("amt").focus();
 }
 function setDest(v) {
@@ -438,6 +438,8 @@ function syncCatGrid() {
     const s = document.getElementById("cat");
     document.querySelectorAll("#catGrid .cat-tile").forEach(b => b.classList.toggle("on", !!s && b.dataset.cat == s.value));
 }
+// El campo del monto mide lo que mide su texto, así el "$" queda pegado al número
+function fitAmt(e) { e.style.width = Math.max(1, e.value.length) + "ch"; }
 function pickCat(c) {
     const s = document.getElementById("cat"); if (!s) return;
     s.value = c;
@@ -460,7 +462,7 @@ function catChange(sel) {
 function restoreForm() {
     const g = id => document.getElementById(id), k = keep; keep = null;
     const put = (id, val) => { if (g(id) && val != null && val !== "") g(id).value = val; };
-    put("amt", k.amt); put("note", k.note); put("date", k.date); put("cat", k.cat); syncCatGrid();
+    put("amt", k.amt); put("note", k.note); put("date", k.date); put("cat", k.cat); syncCatGrid(); if (g("amt")) fitAmt(g("amt"));
     put(g("cardSel") ? "cardSel" : "whSel", k.sel); put("cq", k.cq); put("ci", k.ci);
     togCardOpts(); cuotaPreview(); metaPreview();
 }
@@ -1111,3 +1113,15 @@ window.addEventListener("DOMContentLoaded", () => {
         if (back) goTab(-1);
     });
 })();
+
+// Mientras hay una hoja abierta, la página de atrás queda congelada (en iPhone solo funciona fijando el body) y al cerrar vuelve al mismo punto
+(() => {
+    const m = document.getElementById("generalModal"); let y = 0, locked = false;
+    const sync = () => {
+        const open = !m.classList.contains("hidden"), b = document.body.style;
+        if (open && !locked) { y = window.scrollY; locked = true; b.position = "fixed"; b.top = -y + "px"; b.left = "0"; b.right = "0"; b.width = "100%"; }
+        else if (!open && locked) { locked = false; b.position = b.top = b.left = b.right = b.width = ""; window.scrollTo(0, y); }
+    };
+    new MutationObserver(sync).observe(m, { attributes: true, attributeFilter: ["class"] });
+})();
+

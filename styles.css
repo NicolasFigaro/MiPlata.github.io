@@ -162,3 +162,9 @@ html.dark[data-theme="ios"] :is(.text-rose-500, .text-rose-600, .dark\:text-rose
 .dark .cat-tile.on .cat-ic { box-shadow: 0 0 0 3px rgb(var(--n-900)), 0 0 0 5px rgb(var(--p-400)); }
 .cat-tile.on .cat-nm { color: rgb(var(--p-600)); font-weight: 600; }
 .dark .cat-tile.on .cat-nm { color: rgb(var(--p-400)); }
+
+/* La hoja no pasa el scroll a la página de atrás */
+#modalContainer { overscroll-behavior: contain; }
+/* Fecha del formulario: alineada a la izquierda y con la misma altura que el selector */
+#date { -webkit-appearance: none; appearance: none; text-align: left; min-height: 48px; display: block; min-width: 0; }
+#cardSel, #whSel { min-width: 0; }
