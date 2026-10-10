@@ -139,15 +139,16 @@ function vYear() {
         <p class="text-[11px] text-slate-400 text-center">Se calcula con lo que anotaste en ${y}. Las cuentas que ocultes en Ajustes no cuentan.</p>`;
 }
 
-// Tarjeta de Inicio que muestra un adelanto del resumen del año y lleva a él. Si aún no hay movimientos este año, no aparece.
+// Tarjeta de Inicio que muestra un adelanto del resumen del año y lleva a él. Se puede plegar (queda guardado, como las demás secciones de Inicio).
+// Si aún no hay movimientos este año, no aparece.
 function yearTeaser() {
     const y = new Date().getFullYear(), s = yearStats(y); if (!s.n) return "";
     const bits = [s.cats[0] ? "⭐ " + esc(s.cats[0][0]) : "", s.streak > 1 ? "🔥 " + s.streak + " días seguidos" : "", s.best ? "🏅 " + MES[s.best.i] : ""].filter(Boolean);
     const go = "goTab(" + N.indexOf("Resumen") + ")";
-    return `<section class="yt lift" role="button" tabindex="0" aria-label="Ver el resumen de tu año" onclick="${go}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${go}}">
+    const head = `<span class="yt-chip">Nuevo · Tu año ${y}</span><h3 class="yt-title">Tu año en Mi Plata</h3>`;
+    const peek = `<p class="yt-sub">Gastaste <b>${fmt(s.gas)}</b> · toca para desplegar</p>`;
+    const body = `<div class="yt-body" role="button" tabindex="0" aria-label="Ver el resumen de tu año" onclick="${go}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${go}}">
         <div class="yt-txt">
-            <span class="yt-chip">Nuevo · Tu año ${y}</span>
-            <h3 class="yt-title">Tu año en Mi Plata</h3>
             <p class="yt-sub">Gastaste <b>${fmt(s.gas)}</b> este año${s.rate !== null && s.rate > 0 ? " y te quedó el <b>" + Math.round(s.rate * 100) + "%</b>" : ""}. Mira qué descubrimos.</p>
             ${bits.length ? `<div class="yt-bits">${bits.map(b => `<span>${b}</span>`).join("")}</div>` : ""}
             <span class="yt-go">Ver mi resumen <i class="fa-solid fa-arrow-right"></i></span>
@@ -157,7 +158,8 @@ function yearTeaser() {
             <i style="background:linear-gradient(160deg,#FF9500,#FF3B30);--r:-2deg;left:26px;top:4px"><b class="fa-solid fa-crown"></b></i>
             <i style="background:linear-gradient(160deg,#AF52DE,#5856D6);--r:11deg;left:52px;top:16px"><b class="fa-solid fa-bolt"></b></i>
         </div>
-    </section>`;
+    </div>`;
+    return colSec("yt", head, peek, body, "yt-sec");
 }
 
 // ---------- Guía de bienvenida ----------

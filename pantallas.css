@@ -26,9 +26,11 @@
 .confetti i { position: absolute; top: -16px; width: 8px; height: 14px; border-radius: 2px; animation: confall 2.1s cubic-bezier(.2, .6, .4, 1) forwards; }
 @keyframes confall { to { transform: translate(var(--dx), 108vh) rotate(var(--r)); opacity: .85; } }
 
-/* ---- Tarjeta "Tu año" en Inicio ---- */
-.yt { position: relative; overflow: hidden; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 20px; border-radius: 22px; cursor: pointer; color: #fff; background: radial-gradient(120% 140% at 100% 0%, rgb(var(--p-500) / .55), transparent 55%), linear-gradient(135deg, #1c1c1e, #2c2c2e); box-shadow: 0 8px 22px rgba(0, 0, 0, .18); }
-.yt:active { transform: scale(.985); }
+/* ---- Tarjeta "Tu año" en Inicio (plegable: usa colSec) ---- */
+section.yt-sec.yt-sec { color: #fff; border-color: transparent; background: radial-gradient(120% 140% at 100% 0%, rgb(var(--p-500) / .55), transparent 55%), linear-gradient(135deg, #1c1c1e, #2c2c2e); box-shadow: 0 8px 22px rgba(0, 0, 0, .18); }
+.yt-sec [role="button"] > span:last-child { background: rgba(255, 255, 255, .16); color: #fff; }
+.yt-body { display: flex; align-items: center; justify-content: space-between; gap: 8px; cursor: pointer; }
+.yt-body:active { opacity: .85; }
 .yt-txt { min-width: 0; flex: 1; }
 .yt-chip { display: inline-block; padding: 3px 9px; border-radius: 9999px; background: rgba(255, 255, 255, .16); font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
 .yt-title { font-size: 21px; line-height: 1.15; font-weight: 800; letter-spacing: -.02em; margin-top: 10px; }
