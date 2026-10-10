@@ -129,7 +129,7 @@ function goTab(i) {
     tab = i; anim = true; draw(); window.scrollTo(0, 0); updNav();
 }
 window.addEventListener("scroll", updNav, { passive: true });
-function openModalExport() { goTab(N.length - 1); }
+function openModalExport() { goTab(N.indexOf("Ajustes")); }
 
 function applyTh() {
     const isDark = S.th.m == "dark" || (S.th.m == "auto" && window.matchMedia("(prefers-color-scheme: dark)").matches);

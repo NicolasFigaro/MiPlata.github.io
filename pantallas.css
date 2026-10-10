@@ -1,0 +1,27 @@
+/* ===== Mi Plata · pantallas.css =====
+   Estilos de las pantallas nuevas (Calendario, Resumen del año), la guía de bienvenida y el confeti. Se carga después de mejoras.css. */
+
+/* ---- Calendario ---- */
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; }
+.cal-day { aspect-ratio: 1 / 1; min-height: 40px; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: rgb(var(--n-800)); transition: background-color .15s, transform .1s; }
+.dark .cal-day { color: rgb(var(--n-100)); }
+.cal-day:active { transform: scale(.92); }
+.cal-today { background: rgb(var(--p-500) / .14); color: rgb(var(--p-600)); font-weight: 700; }
+.dark .cal-today { color: rgb(var(--p-300)); }
+.cal-sel { background: rgb(var(--p-600)); color: #fff !important; }
+.cal-dots { display: flex; gap: 3px; height: 5px; }
+.cal-dots i { width: 5px; height: 5px; border-radius: 9999px; display: block; }
+.cal-sel .cal-dots i { box-shadow: 0 0 0 1px rgba(255, 255, 255, .85); }
+.cal-lg { display: inline-block; width: 8px; height: 8px; border-radius: 9999px; margin-right: 5px; }
+
+/* ---- Resumen del año: tarjetas que se deslizan ---- */
+.yr-row { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; padding: 2px 2px 14px; margin: 0 -2px; }
+.yr-card { scroll-snap-align: center; flex: 0 0 82%; max-width: 22rem; min-height: 340px; border-radius: 28px; padding: 24px; color: #fff; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 10px 24px rgba(0, 0, 0, .14); }
+.yr-ic { width: 48px; height: 48px; border-radius: 16px; background: rgba(255, 255, 255, .22); display: inline-flex; align-items: center; justify-content: center; font-size: 20px; }
+.yr-big { font-size: 40px; line-height: 1.05; font-weight: 800; letter-spacing: -.02em; word-break: break-word; }
+@media (min-width: 640px) { .yr-card { flex-basis: 22rem; } }
+
+/* ---- Confeti ---- */
+.confetti { position: fixed; inset: 0; pointer-events: none; z-index: 70; overflow: hidden; }
+.confetti i { position: absolute; top: -16px; width: 8px; height: 14px; border-radius: 2px; animation: confall 2.1s cubic-bezier(.2, .6, .4, 1) forwards; }
+@keyframes confall { to { transform: translate(var(--dx), 108vh) rotate(var(--r)); opacity: .85; } }

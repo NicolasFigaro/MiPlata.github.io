@@ -128,6 +128,7 @@ const save = () => {
     try { S.nwh[ym(new Date())] = Math.round(netWorth().tot); } catch (e) {}
     try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {}
     try { mirrorEvents(); } catch (e) {}
+    try { goalCheck(); } catch (e) {} // confeti si una meta se acaba de lograr (pantallas.js)
 };
 const cop = (v, c) => c == "USD" ? v * S.trm : v;
 const show = c => usd ? fu(c / S.trm) : fmt(c);

@@ -1,12 +1,12 @@
 // ===== Mi Plata · vistas.js =====
 // Solo genera HTML. Las acciones (guardar, borrar, modales) están en acciones.js.
 
-const N = ["Inicio", "Cuentas", "Ahorro", "Inversión", "Gráficas", "Tarjetas", "Deudas", "Ajustes"];
-const V = [vHome, vCue, vAho, vInv, vGra, vTar, vDeu, vSet];
+const N = ["Inicio", "Cuentas", "Ahorro", "Inversión", "Gráficas", "Tarjetas", "Deudas", "Calendario", "Resumen", "Ajustes"];
+const V = [vHome, vCue, vAho, vInv, vGra, vTar, vDeu, vCal, vYear, vSet]; // vCal y vYear viven en pantallas.js
 // Pestañas que viven dentro del menú "Más" de la barra inferior (índices de N)
-const MORE = [3, 4, 6, 7];
+const MORE = [3, 4, 6, 7, 8, 9];
 const APP_VER = "8";
-const MORE_IC = { "Inversión": ["fa-chart-line", "#34C759"], "Gráficas": ["fa-chart-pie", "#FF9500"], "Deudas": ["fa-hand-holding-dollar", "#FF3B30"], "Ajustes": ["fa-gear", "#8E8E93"] };
+const MORE_IC = { "Inversión": ["fa-chart-line", "#34C759"], "Gráficas": ["fa-chart-pie", "#FF9500"], "Deudas": ["fa-hand-holding-dollar", "#FF3B30"], "Calendario": ["fa-calendar-days", "#007AFF"], "Resumen": ["fa-wand-magic-sparkles", "#AF52DE"], "Ajustes": ["fa-gear", "#8E8E93"] };
 function vMore() {
     return `
         <section class="${CARD} overflow-hidden">
@@ -17,6 +17,7 @@ function vMore() {
                     <i class="fa-solid fa-chevron-right text-xs text-slate-300 dark:text-slate-600"></i>
                 </button>`).join("")}
         </section>
+        <button onclick="openWelcome()" class="w-full text-center text-xs text-indigo-600 dark:text-indigo-400 font-semibold pt-4">Ver la guía de bienvenida</button>
         <p class="text-center text-[11px] text-slate-400 pt-2">Mi Plata · versión ${APP_VER}</p>`;
 }
 
@@ -525,10 +526,9 @@ function walPanel(a) {
                 <div class="min-w-0"><b class="text-sm font-bold text-slate-800 dark:text-white block truncate">${esc(a.n)}</b><small class="text-[11px] text-slate-400">${T[0]}</small></div>
             </div>
             <div class="grid grid-cols-3 gap-2 mb-2">
-                ${[["Saldo", fmt(b), b < 0 ? "text-rose-500" : ""], ["En bolsillos", fmt(pk), ""], ["Libre", fmt(b - pk), b - pk < 0 ? "text-rose-500" : "text-emerald-500"]].map(([l, v, cl]) => `<div class="p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 min-w-0"><span class="text-[10px] uppercase tracking-wider text-slate-400 block truncate">${l}</span><b class="text-xs ${cl}">${v}</b></div>`).join("")}
+                ${[["Saldo", fmt(b), b < 0 ? "text-rose-500" : ""], ["En bolsillos", fmt(pk + linkedAG), "", linkedAG > 0.5 ? "incluye " + fmt(linkedAG) + " de metas" : ""], ["Libre", fmt(b - pk), b - pk < 0 ? "text-rose-500" : "text-emerald-500"]].map(([l, v, cl, nt]) => `<div class="p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 min-w-0"><span class="text-[10px] uppercase tracking-wider text-slate-400 block truncate">${l}</span><b class="text-xs ${cl}">${v}</b>${nt ? `<small class="text-[10px] text-slate-400 block truncate">${nt}</small>` : ""}</div>`).join("")}
             </div>
-            ${linkedG.length ? `<p class="text-[11px] text-slate-500 dark:text-slate-400 mb-2"><i class="fa-solid fa-piggy-bank text-emerald-500 mr-1"></i>Sus bolsillos están vinculados a metas que ya tienen ${fmt(linkedAG)} ahorrados (aparte del saldo de esta cuenta).</p>` : ""}
-            ${pk > b + 0.5 ? `<p class="text-[11px] text-amber-500 mb-2"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Tus bolsillos suman más que el saldo de la cuenta. Revisa el saldo («Ajustar saldo») o saca plata de algún bolsillo.</p>` : ""}
+                        ${pk > b + 0.5 ? `<p class="text-[11px] text-amber-500 mb-2"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Tus bolsillos suman más que el saldo de la cuenta. Revisa el saldo («Ajustar saldo») o saca plata de algún bolsillo.</p>` : ""}
             <div class="flex flex-wrap gap-2 mb-4">
                 ${act("bg-indigo-50 text-indigo-600", `adjWal(${a.id})`, "Ajustar saldo")}
                 ${act("bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300", `trfWal(${a.id})`, "↔ Transferir")}
@@ -555,10 +555,9 @@ function vCue() {
         <section class="bg-gradient-to-b from-sky-500 to-sky-600 text-white p-6 rounded-[20px] shadow-sm mb-6">
             <small class="text-xs text-sky-100 font-medium uppercase tracking-wider">Total en cuentas</small>
             <div class="text-3xl font-extrabold mt-1">${fmt(T)}</div>
-            <div class="grid ${AG > 0.5 ? "grid-cols-3" : "grid-cols-2"} gap-2 mt-4 pt-4 border-t border-white/10">
-                <div><small class="text-[10px] text-sky-100 block uppercase">En bolsillos</small><b class="text-sm font-bold">${fmt(P)}</b></div>
+            <div class="grid grid-cols-2 gap-2 mt-4 pt-4 border-t border-white/10">
+                <div><small class="text-[10px] text-sky-100 block uppercase">En bolsillos</small><b class="text-sm font-bold">${fmt(P + AG)}</b>${AG > 0.5 ? `<small class="text-[10px] text-sky-100 block font-normal">incluye ${fmt(AG)} de metas</small>` : ""}</div>
                 <div><small class="text-[10px] text-sky-100 block uppercase">Libre</small><b class="text-sm font-bold">${fmt(T - P)}</b></div>
-                ${AG > 0.5 ? `<div><small class="text-[10px] text-sky-100 block uppercase">Ahorro vinculado</small><b class="text-sm font-bold">${fmt(AG)}</b></div>` : ""}
             </div>
         </section>
         <div class="flex justify-between items-center mb-4"><h3 class="text-base font-bold">Mis Cuentas</h3></div>
