@@ -1036,6 +1036,10 @@ window.addEventListener("DOMContentLoaded", () => {
     lockScreen();
     checkReminders();
     if (pxStale()) refreshPrices(false);
+    if ("serviceWorker" in navigator) {
+        const had = !!navigator.serviceWorker.controller; let rl = false;
+        navigator.serviceWorker.addEventListener("controllerchange", () => { if (had && !rl) { rl = true; location.reload(); } });
+    }
     if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").then(regPeriodic).catch(() => {});
 });
 

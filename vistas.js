@@ -5,6 +5,7 @@ const N = ["Inicio", "Cuentas", "Ahorro", "Inversión", "Gráficas", "Tarjetas",
 const V = [vHome, vCue, vAho, vInv, vGra, vTar, vDeu, vSet];
 // Pestañas que viven dentro del menú "Más" de la barra inferior (índices de N)
 const MORE = [3, 4, 6, 7];
+const APP_VER = "5";
 const MORE_IC = { "Inversión": ["fa-chart-line", "#34C759"], "Gráficas": ["fa-chart-pie", "#FF9500"], "Deudas": ["fa-hand-holding-dollar", "#FF3B30"], "Ajustes": ["fa-gear", "#8E8E93"] };
 function vMore() {
     return `
@@ -15,7 +16,8 @@ function vMore() {
                     <span class="flex-1 text-[17px] text-slate-800 dark:text-white">${N[i]}</span>
                     <i class="fa-solid fa-chevron-right text-xs text-slate-300 dark:text-slate-600"></i>
                 </button>`).join("")}
-        </section>`;
+        </section>
+        <p class="text-center text-[11px] text-slate-400 pt-2">Mi Plata · versión ${APP_VER}</p>`;
 }
 
 // ---------- Piezas de Inicio ----------
