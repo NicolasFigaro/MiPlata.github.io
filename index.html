@@ -5,7 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Mi Plata - Gestor Financiero Avanzado</title>
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#4f46e5">
+    <meta name="theme-color" content="#F2F2F7">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Mi Plata">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="format-detection" content="telephone=no">
     <link rel="apple-touch-icon" href="icon-192.png">
     <link rel="stylesheet" href="styles.css">
     <!-- Temas de color: se aplica antes de pintar para que no parpadee -->
@@ -31,34 +36,25 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
-    <!-- Google Fonts Inter -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
-<body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 min-h-full flex flex-col transition-colors duration-300 pb-20 sm:pb-6">
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 min-h-full flex flex-col transition-colors duration-300">
 
-    <header class="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 sticky top-0 z-30">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-            <div class="flex items-center space-x-3">
-                <div class="bg-gradient-to-tr from-indigo-600 to-violet-500 text-white p-2.5 rounded-2xl shadow-md shadow-indigo-500/20">
-                    <i class="fa-solid fa-wallet text-xl"></i>
-                </div>
-                <div>
-                    <h1 class="text-lg font-bold tracking-tight bg-gradient-to-r from-indigo-600 to-violet-500 bg-clip-text text-transparent">Mi Plata</h1>
-                    <p class="text-xs text-slate-500 dark:text-slate-400">Finanzas Personales Inteligentes</p>
-                </div>
-            </div>
-
-            <div class="flex items-center space-x-2 sm:space-x-3">
-                <button id="maskBtn" onclick="togMask()" title="Modo incógnito: ocultar cifras" aria-pressed="false" class="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition">
+    <!-- Barra superior: botón de regreso (dentro de "Más"), título pequeño que aparece al bajar y botones -->
+    <header id="topBar" class="ios-nav sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-12 relative flex items-center justify-between">
+            <button id="navBack" onclick="goTab(-1)" class="hidden relative z-10 -ml-2 px-2 py-1.5 text-[17px] text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5"><i class="fa-solid fa-chevron-left text-sm"></i>Más</button>
+            <span id="navTitle" class="absolute inset-x-0 text-center pointer-events-none text-[17px] font-semibold opacity-0 transition-opacity duration-200"></span>
+            <div class="flex items-center gap-2 relative z-10 ml-auto">
+                <button id="maskBtn" onclick="togMask()" title="Modo incógnito: ocultar cifras" aria-label="Modo incógnito" aria-pressed="false" class="nav-btn">
                     <i id="maskIcon" class="fa-solid fa-eye"></i>
                 </button>
-                <button onclick="openReport()" title="Reporte del mes (imprimir o guardar PDF)" class="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition">
+                <button onclick="openReport()" title="Reporte del mes (imprimir o guardar PDF)" aria-label="Reporte del mes" class="nav-btn">
                     <i class="fa-solid fa-file-lines"></i>
                 </button>
-                <button onclick="openModalExport()" title="Copia de Seguridad" class="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition">
+                <button onclick="openModalExport()" title="Copia de Seguridad" aria-label="Copia de seguridad" class="nav-btn">
                     <i class="fa-solid fa-cloud-arrow-down"></i>
                 </button>
-                <button onclick="toggleDarkMode()" title="Cambiar Tema" class="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition">
+                <button onclick="toggleDarkMode()" title="Cambiar Tema" aria-label="Cambiar entre claro y oscuro" class="nav-btn">
                     <i class="fa-solid fa-moon dark:hidden"></i>
                     <i class="fa-solid fa-sun hidden dark:inline text-amber-400"></i>
                 </button>
@@ -66,31 +62,34 @@
         </div>
     </header>
 
-    <nav class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-sm sticky top-16 z-20">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex overflow-x-auto space-x-2 sm:space-x-4 py-2.5 no-scrollbar" id="navTabs"></div>
-    </nav>
+    <!-- Título grande de la pantalla -->
+    <div class="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-1">
+        <h1 id="largeTitle" class="text-[34px] leading-[41px] font-bold tracking-tight"></h1>
+    </div>
 
-    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6" id="appMain"></main>
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-6 space-y-4" id="appMain"></main>
+
+    <!-- Barra de pestañas inferior (Inversión, Gráficas, Deudas y Ajustes están en "Más") -->
+    <nav id="tabBar" class="fixed bottom-0 inset-x-0 z-40" aria-label="Navegación principal">
+        <div class="max-w-xl mx-auto flex" id="tabItems"></div>
+    </nav>
 
     <!-- Modal general -->
     <div id="generalModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300 p-4">
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-md p-6 shadow-2xl transform scale-95 transition-transform duration-300 max-h-[90vh] overflow-y-auto" id="modalContainer"></div>
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[20px] w-full max-w-md p-6 shadow-2xl transform scale-95 transition-transform duration-300 max-h-[90vh] overflow-y-auto" id="modalContainer"></div>
     </div>
 
     <!-- Botón flotante: anotar un movimiento desde cualquier pestaña -->
-    <button id="fab" onclick="openMov()" title="Anotar movimiento" aria-label="Anotar movimiento" class="fixed right-5 bottom-5 z-40 w-14 h-14 rounded-full bg-gradient-to-tr from-indigo-600 to-violet-500 text-white shadow-xl shadow-indigo-500/40 flex items-center justify-center text-xl hover:scale-105 active:scale-95 transition-transform" style="margin-bottom: env(safe-area-inset-bottom, 0px)">
+    <button id="fab" onclick="openMov()" title="Anotar movimiento" aria-label="Anotar movimiento" class="fixed right-5 z-40 w-14 h-14 rounded-full bg-indigo-600 text-white shadow-lg shadow-black/25 flex items-center justify-center text-xl active:scale-95 transition-transform">
         <i class="fa-solid fa-plus"></i>
     </button>
 
     <!-- Aviso -->
-    <div id="toast" class="fixed bottom-24 right-5 sm:bottom-5 sm:right-24 z-50 transform translate-y-20 opacity-0 transition-all duration-300 bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-5 py-3 rounded-2xl shadow-xl flex items-center space-x-3 text-sm font-medium">
+    <div id="toast" class="fixed right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-5 py-3 rounded-2xl shadow-xl flex items-center space-x-3 text-sm font-medium">
         <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400"></i>
         <span id="toastMessage">Operación exitosa</span>
     </div>
 
-    <footer class="mt-auto py-6 text-center text-xs text-slate-400 border-t border-slate-200 dark:border-slate-800 hidden sm:block">
-        <p>Mi Plata &bull; Control Financiero Personal Avanzado</p>
-    </footer>
 
     <!-- Orden importante: datos y cálculos → pantallas → acciones -->
     <script src="logica.js"></script>

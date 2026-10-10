@@ -10,7 +10,11 @@
     --n-50: 248 250 252; --n-100: 241 245 249; --n-200: 226 232 240; --n-300: 203 213 225; --n-400: 148 163 184; --n-500: 100 116 139;
     --n-600: 71 85 105; --n-700: 51 65 85; --n-800: 30 41 59; --n-900: 15 23 42; --n-950: 2 6 23;
 }
-body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
+/* Tipografía del sistema: San Francisco en iPhone/Mac, Roboto en Android, Segoe UI en Windows (no descarga fuentes) */
+html { -webkit-text-size-adjust: 100%; background: rgb(var(--n-50)); }
+html.dark { background: rgb(var(--n-950)); }
+body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, system-ui, "Helvetica Neue", sans-serif; -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent; }
+button, a, label, select { touch-action: manipulation; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { scrollbar-width: none; }
 input, select, textarea, button { font-family: inherit; }
@@ -67,8 +71,6 @@ input, select, textarea, button { font-family: inherit; }
 /* Chips de tarjetas */
 .subchips { padding-left: 2px; }
 
-/* Áreas seguras (iPhone) */
-header { padding-top: env(safe-area-inset-top, 0px); }
 
 /* Modo incógnito: los campos con montos se desenfocan hasta que los tocas */
 body.mask :is(#appMain, #modalContainer) :is(input[inputmode="numeric"], input[inputmode="decimal"], textarea):not(:focus):not(#cq):not(#sQ):not(.pct) { filter: blur(6px); }
@@ -77,3 +79,59 @@ body.mask :is(#appMain, #modalContainer) :is(input[inputmode="numeric"], input[i
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* ===== Estilo iOS ===== */
+
+/* Barra superior: transparente arriba; al bajar se vuelve translúcida con línea fina (como las apps de iPhone) */
+header { padding-top: env(safe-area-inset-top, 0px); }
+.ios-nav { transition: background-color .2s ease, border-color .2s ease; border-bottom: .5px solid transparent; }
+.ios-nav.scrolled { background: rgb(var(--n-50) / .8); -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px); border-bottom-color: rgb(var(--n-300) / .6); }
+.dark .ios-nav.scrolled { background: rgb(var(--n-950) / .72); border-bottom-color: rgb(var(--n-700) / .6); }
+.nav-btn { width: 36px; height: 36px; border-radius: 9999px; display: flex; align-items: center; justify-content: center; background: rgb(var(--n-200) / .6); color: rgb(var(--p-600)); transition: background-color .15s, transform .1s; }
+.nav-btn:active { transform: scale(.92); }
+.dark .nav-btn { background: rgb(var(--n-800)); color: rgb(var(--p-400)); }
+
+/* Barra de pestañas inferior translúcida */
+#tabBar { background: rgb(var(--n-50) / .82); -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px); border-top: .5px solid rgb(var(--n-300) / .7); padding-bottom: env(safe-area-inset-bottom, 0px); }
+.dark #tabBar { background: rgb(var(--n-900) / .8); border-top-color: rgb(var(--n-700) / .6); }
+#fab { bottom: calc(49px + 14px + env(safe-area-inset-bottom, 0px)); }
+#toast { bottom: calc(49px + 84px + env(safe-area-inset-bottom, 0px)); }
+body { padding-bottom: calc(49px + 28px + env(safe-area-inset-bottom, 0px)); }
+
+/* Filas de lista con línea separadora fina que empieza después del icono */
+.ios-row { position: relative; }
+.ios-row:not(:last-child)::after { content: ""; position: absolute; left: 48px; right: 0; bottom: 0; height: .5px; background: rgb(var(--n-200)); }
+.dark .ios-row:not(:last-child)::after { background: rgb(var(--n-800)); }
+
+/* Interruptor estilo iOS (reemplaza las casillas de verificación) */
+.ios-switch { -webkit-appearance: none; appearance: none; flex-shrink: 0; position: relative; width: 51px; height: 31px; border-radius: 9999px; background: rgb(var(--n-300)); cursor: pointer; transition: background-color .25s ease; outline-offset: 2px; }
+.ios-switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 27px; height: 27px; border-radius: 9999px; background: #fff; box-shadow: 0 2px 4px rgba(0, 0, 0, .25); transition: transform .25s cubic-bezier(.3, .7, .4, 1); }
+.ios-switch:checked { background: #34C759; }
+.ios-switch:checked::after { transform: translateX(20px); }
+.ios-switch.sm { width: 42px; height: 26px; }
+.ios-switch.sm::after { width: 22px; height: 22px; }
+.ios-switch.sm:checked::after { transform: translateX(16px); }
+.dark .ios-switch:not(:checked) { background: rgb(var(--n-700)); }
+
+/* Hojas inferiores en el celular: los formularios suben desde abajo con un "agarre" arriba */
+@media (max-width: 639px) {
+    #generalModal { align-items: flex-end; padding: 0; }
+    #modalContainer { position: relative; max-width: none; max-height: 92vh; border: 0; border-radius: 20px 20px 0 0; padding-top: 30px; padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px)); transition: transform .35s cubic-bezier(.32, .72, 0, 1); }
+    #modalContainer.scale-95 { transform: translateY(100%); }
+    #modalContainer.scale-100 { transform: none; }
+    #modalContainer::before { content: ""; position: absolute; top: 8px; left: 50%; width: 36px; height: 5px; margin-left: -18px; border-radius: 3px; background: rgb(var(--n-300)); }
+    .dark #modalContainer::before { background: rgb(var(--n-600)); }
+}
+
+/* iPhone/touch: con menos de 16px Safari hace zoom al tocar un campo. Se sube el tamaño solo en pantallas táctiles. */
+@media (pointer: coarse) {
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]), select, textarea { font-size: 16px !important; }
+}
+
+/* Tema iOS: verde y rojo de sistema (en texto sobre claro se usan versiones más oscuras para que se lean) */
+html[data-theme="ios"] :is(.bg-emerald-500, .bg-emerald-600) { background-color: #34C759; }
+html[data-theme="ios"] :is(.bg-rose-500, .bg-rose-600) { background-color: #FF3B30; }
+html[data-theme="ios"] :is(.text-emerald-500, .text-emerald-600) { color: #248A3D; }
+html[data-theme="ios"] :is(.text-rose-500, .text-rose-600) { color: #D70015; }
+html.dark[data-theme="ios"] :is(.text-emerald-500, .text-emerald-600, .dark\:text-emerald-400) { color: #30D158; }
+html.dark[data-theme="ios"] :is(.text-rose-500, .text-rose-600, .dark\:text-rose-400) { color: #FF453A; }

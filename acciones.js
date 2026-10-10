@@ -2,28 +2,44 @@
 // Todo lo que el usuario hace (botones, formularios, modales) y el arranque de la app.
 
 // ---------- Pintar la pantalla ----------
+// Pestañas de la barra inferior: [índice en N (-1 = menú "Más"), nombre, icono]. Inversión, Gráficas, Deudas y Ajustes viven dentro de "Más".
+const TB = [[0, "Inicio", "fa-house"], [1, "Cuentas", "fa-wallet"], [2, "Ahorro", "fa-piggy-bank"], [5, "Tarjetas", "fa-credit-card"], [-1, "Más", "fa-ellipsis"]];
+const tbOn = i => i == -1 ? (tab == -1 || MORE.includes(tab)) : tab == i;
+function updNav() {
+    const y = window.scrollY, t = document.getElementById("topBar"), s = document.getElementById("navTitle");
+    if (t) t.classList.toggle("scrolled", y > 8);
+    if (s) s.style.opacity = y > 36 ? 1 : 0;
+}
 function draw() {
     // Un redibujo normal (no un cambio de pestaña) conserva el scroll y no repite la animación de entrada
     const keepY = anim ? null : window.scrollY;
     if (!anim) document.getElementById("appMain").classList.remove("enter");
-    document.getElementById("navTabs").innerHTML = N.map((n, i) => `
-        <button onclick="goTab(${i})" class="px-4 py-2 rounded-xl text-sm font-semibold transition whitespace-nowrap ${i === tab ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/25' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}">${n}</button>
-    `).join("");
+    const title = tab < 0 ? "Más" : N[tab], inMore = MORE.includes(tab);
+    document.getElementById("tabItems").innerHTML = TB.map(([i, n, ic]) => `
+        <button onclick="goTab(${i})" aria-label="${n}" ${tbOn(i) ? 'aria-current="page"' : ""} class="flex-1 flex flex-col items-center justify-center gap-0.5 pt-1.5 pb-1 min-h-[49px] transition-colors ${tbOn(i) ? "text-indigo-600 dark:text-indigo-400" : "text-slate-400 dark:text-slate-500"}">
+            <i class="fa-solid ${ic} text-[21px] leading-6"></i><span class="text-[10px] font-medium leading-3">${n}</span>
+        </button>`).join("");
+    document.getElementById("largeTitle").textContent = title;
+    document.getElementById("navTitle").textContent = title;
+    document.getElementById("navBack").classList.toggle("hidden", !inMore);
 
-    document.getElementById("appMain").innerHTML = V[tab]();
+    document.getElementById("appMain").innerHTML = tab < 0 ? vMore() : V[tab]();
     if (keep) { openMov(); restoreForm(); } // volvió de crear una categoría: reabre el formulario con lo que había escrito
     if (N[tab] == "Gráficas") drawCharts();
     if (N[tab] == "Tarjetas") runCupoAnim();
     if (anim) { anim = false; const m = document.getElementById("appMain"); m.classList.remove("enter"); void m.offsetWidth; m.classList.add("enter"); countUp(); }
     if (keepY !== null) window.scrollTo(0, keepY);
+    updNav();
 }
 function go(n) { cur.setMonth(cur.getMonth() + n); draw(); }
-function goTab(i) { tab = i; anim = true; draw(); window.scrollTo(0, 0); }
+function goTab(i) { tab = i; anim = true; draw(); window.scrollTo(0, 0); updNav(); }
+window.addEventListener("scroll", updNav, { passive: true });
 function openModalExport() { goTab(N.length - 1); }
 
 function applyTh() {
     const isDark = S.th.m == "dark" || (S.th.m == "auto" && window.matchMedia("(prefers-color-scheme: dark)").matches);
     document.documentElement.classList.toggle("dark", isDark);
+    applyTheme(S.th); // actualiza también el color de la barra de estado según claro/oscuro
 }
 function toggleDarkMode() { S.th.m = S.th.m == "dark" ? "light" : "dark"; save(); applyTh(); draw(); }
 
@@ -37,7 +53,7 @@ function setCustom(c) { S.th.t = "custom"; S.th.c = c; save(); applyTheme(S.th);
 function applyMask() {
     const on = masked(), i = document.getElementById("maskIcon"), b = document.getElementById("maskBtn");
     document.body.classList.toggle("mask", on);
-    if (i) i.className = "fa-solid " + (on ? "fa-eye-slash text-indigo-500" : "fa-eye");
+    if (i) i.className = "fa-solid " + (on ? "fa-eye-slash" : "fa-eye");
     if (b) b.setAttribute("aria-pressed", on ? "true" : "false");
 }
 function togMask() { S.th.mask = !S.th.mask; save(); applyMask(); draw(); showToast(masked() ? "Modo incógnito activado: cifras ocultas" : "Cifras visibles de nuevo"); }
@@ -982,3 +998,25 @@ window.addEventListener("DOMContentLoaded", () => {
     if (pxStale()) refreshPrices(false);
     if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").then(regPeriodic).catch(() => {});
 });
+
+// Hojas inferiores (celular): se cierran arrastrando hacia abajo desde la parte de arriba (donde está el "agarre")
+(() => {
+    const c = document.getElementById("modalContainer");
+    let y0 = null, dy = 0;
+    c.addEventListener("touchstart", e => {
+        if (window.innerWidth > 639 || c.scrollTop > 0) return;
+        const t = e.touches[0];
+        y0 = t.clientY - c.getBoundingClientRect().top < 36 ? t.clientY : null; dy = 0;
+    }, { passive: true });
+    c.addEventListener("touchmove", e => {
+        if (y0 === null) return;
+        dy = Math.max(0, e.touches[0].clientY - y0);
+        c.style.transition = "none"; c.style.transform = "translateY(" + dy + "px)";
+    }, { passive: true });
+    c.addEventListener("touchend", () => {
+        if (y0 === null) return;
+        c.style.transition = ""; c.style.transform = "";
+        const close = dy > 90; y0 = null; dy = 0;
+        if (close) cancelModal();
+    });
+})();

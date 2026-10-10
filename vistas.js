@@ -3,6 +3,20 @@
 
 const N = ["Inicio", "Cuentas", "Ahorro", "Inversión", "Gráficas", "Tarjetas", "Deudas", "Ajustes"];
 const V = [vHome, vCue, vAho, vInv, vGra, vTar, vDeu, vSet];
+// Pestañas que viven dentro del menú "Más" de la barra inferior (índices de N)
+const MORE = [3, 4, 6, 7];
+const MORE_IC = { "Inversión": ["fa-chart-line", "#34C759"], "Gráficas": ["fa-chart-pie", "#FF9500"], "Deudas": ["fa-hand-holding-dollar", "#FF3B30"], "Ajustes": ["fa-gear", "#8E8E93"] };
+function vMore() {
+    return `
+        <section class="${CARD} overflow-hidden">
+            ${MORE.map(i => `
+                <button onclick="goTab(${i})" class="ios-row w-full flex items-center gap-3 px-4 py-3 text-left active:bg-slate-100 dark:active:bg-slate-800 transition-colors">
+                    <span class="w-8 h-8 shrink-0 rounded-lg flex items-center justify-center text-white text-sm" style="background:${MORE_IC[N[i]][1]}"><i class="fa-solid ${MORE_IC[N[i]][0]}"></i></span>
+                    <span class="flex-1 text-[17px] text-slate-800 dark:text-white">${N[i]}</span>
+                    <i class="fa-solid fa-chevron-right text-xs text-slate-300 dark:text-slate-600"></i>
+                </button>`).join("")}
+        </section>`;
+}
 
 // ---------- Piezas de Inicio ----------
 // Sección que se pliega al tocar su encabezado (se anima con CSS, sin volver a pintar la pantalla). El estado queda guardado en S.th.col ({ id: 1 } = plegada).
@@ -117,8 +131,10 @@ function movListHTML() {
     })() : "";
     return head + rows.map(x => {
         const r = rate(x);
+        const ic = x.t == "i" ? ["fa-arrow-down", "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400"] : x.t == "tr" ? ["fa-right-left", "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-400"] : x.k ? ["fa-credit-card", "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"] : ["fa-bag-shopping", "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"];
         return `
-        <div class="flex items-center justify-between py-3 border-b border-slate-100 dark:border-slate-800 last:border-0">
+        <div class="ios-row flex items-center gap-3 py-2.5">
+            <span class="w-9 h-9 shrink-0 rounded-[10px] flex items-center justify-center text-sm ${ic[1]}"><i class="fa-solid ${ic[0]}"></i></span>
             <div class="min-w-0 flex-1 pr-2">
                 <strong class="text-sm font-semibold text-slate-800 dark:text-white block truncate">${esc(x.n || x.c)}</strong>
                 <small class="text-xs text-slate-400">${x.n ? esc(x.c) + " · " : ""}${x.d.slice(8)}/${x.d.slice(5, 7)}${sall ? "/" + x.d.slice(2, 4) : ""}${x.k ? " · 💳 " + esc(x.k) : ""}${x.sav ? " · 🎯 " + esc((S.acc.find(a => a.id == x.sav) || {}).n || "meta borrada") : ""}${x.w ? " · " + esc(x.w) : ""}${x.q > 1 ? " · " + x.q + " cuotas de " + fmt(pmt(x.a, x.q, r)) + (r > 0 ? " (con interés)" : "") : ""}${x.s ? " · fuera del resumen" : ""}</small>
@@ -319,8 +335,8 @@ function vHome() {
                 <input id="q" placeholder="Buscar por nota, categoría, monto, tarjeta…" value="${esc(sqry)}" oninput="setQ(this.value)" class="w-full pl-9 pr-9 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-white" autocomplete="off">
                 ${sqry ? `<button onclick="clearQ()" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"><i class="fa-solid fa-xmark"></i></button>` : ""}
             </div>
-            <label class="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400 mb-3"><input type="checkbox" ${sall ? "checked" : ""} onchange="togAll(this.checked)" class="w-3.5 h-3.5 accent-indigo-600">Buscar en todos los meses</label>
-            <div id="movList" class="space-y-1">${movListHTML()}</div>`;
+            <label class="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400 mb-3"><input type="checkbox" ${sall ? "checked" : ""} onchange="togAll(this.checked)" class="ios-switch sm">Buscar en todos los meses</label>
+            <div id="movList">${movListHTML()}</div>`;
     const movSec = colSec("mov",
         `<h3 class="text-sm font-bold text-slate-800 dark:text-white">Movimientos ${sall ? "de todos los meses" : "del mes"}</h3>`,
         `<p class="text-xs text-slate-400 mt-0.5">${nMov} ${nMov == 1 ? "movimiento" : "movimientos"}</p>`,
@@ -328,8 +344,7 @@ function vHome() {
     return `
         ${bkUI()}
         ${recUI()}
-        <section class="relative overflow-hidden bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-800 text-white p-6 rounded-3xl shadow-xl shadow-indigo-500/10 flex flex-col justify-between">
-            <div class="absolute -right-10 -bottom-10 w-40 h-40 bg-white/10 rounded-full blur-2xl pointer-events-none float-slow"></div>
+        <section class="relative overflow-hidden bg-gradient-to-b from-indigo-600 to-indigo-700 text-white p-6 rounded-[20px] shadow-sm flex flex-col justify-between">
             <div class="flex justify-between items-start">
                 <div>
                     <p class="text-xs font-medium uppercase tracking-wider text-indigo-200">Disponible para gastar</p>
@@ -446,7 +461,7 @@ function vCue() {
     if (walOpen && !S.wal.some(a => a.id == walOpen)) walOpen = null;
     const shown = S.wal.filter(a => !(S.hide || {})[a.n]), T = shown.reduce((s, a) => s + walBal(a), 0), P = pkHeld(), open = S.wal.find(a => a.id == walOpen);
     return `
-        <section class="bg-gradient-to-br from-sky-600 to-blue-800 text-white p-6 rounded-3xl shadow-xl shadow-sky-500/10 mb-6">
+        <section class="bg-gradient-to-b from-sky-500 to-sky-600 text-white p-6 rounded-[20px] shadow-sm mb-6">
             <small class="text-xs text-sky-100 font-medium uppercase tracking-wider">Total en cuentas</small>
             <div class="text-3xl font-extrabold mt-1">${fmt(T)}</div>
             <div class="grid grid-cols-2 gap-2 mt-4 pt-4 border-t border-white/10">
@@ -457,7 +472,7 @@ function vCue() {
         <div class="flex justify-between items-center mb-4"><h3 class="text-base font-bold">Mis Cuentas</h3></div>
         <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
             ${S.wal.map(walCard).join("")}
-            <button onclick="newWal()" class="min-h-[140px] rounded-3xl border-2 border-dashed border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center gap-2 text-slate-500 hover:border-indigo-500 transition">
+            <button onclick="newWal()" class="min-h-[140px] rounded-[20px] border-2 border-dashed border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center gap-2 text-slate-500 hover:border-indigo-500 transition">
                 <span class="w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center"><i class="fa-solid fa-plus"></i></span>
                 <span class="text-xs font-semibold">Agregar cuenta</span>
             </button>
@@ -516,7 +531,7 @@ function vAho() {
     }).join("");
 
     return `
-        <section class="bg-gradient-to-br from-emerald-600 to-teal-700 text-white p-6 rounded-3xl shadow-xl shadow-emerald-500/10 mb-6">
+        <section class="bg-gradient-to-b from-emerald-500 to-emerald-600 text-white p-6 rounded-[20px] shadow-sm mb-6">
             <small class="text-xs text-emerald-100 font-medium uppercase tracking-wider">Total Ahorrado</small>
             <div class="text-3xl font-extrabold mt-1">${fmt(T + Y)}</div>
             ${Y > 0.5 ? `<p class="text-xs text-emerald-100 mt-1">Incluye ${fmt(Y)} de rendimiento ganado (estimado)</p>` : ""}
@@ -577,7 +592,7 @@ function vInv() {
     }).join("");
 
     return `
-        <section class="bg-gradient-to-br from-violet-600 to-purple-800 text-white p-6 rounded-3xl shadow-xl shadow-purple-500/10 mb-6">
+        <section class="bg-gradient-to-b from-violet-500 to-violet-600 text-white p-6 rounded-[20px] shadow-sm mb-6">
             <small class="text-xs text-purple-200 font-medium uppercase tracking-wider">Portafolio Total de Inversión</small>
             <div class="text-3xl font-extrabold mt-1">${show(P.T)}</div>
             <p class="text-xs text-purple-100 mt-1">${P.T >= P.C ? "+" : ""}${fmt(P.T - P.C)} sobre lo invertido${P.ann !== null ? ` · ≈ ${pct1(P.ann)} anual (estimado)` : ""}</p>
@@ -830,7 +845,7 @@ function vTar() {
     const gfb = pg && (!anim || chg) ? pg.b : 0, gfn = pg && (!anim || chg) ? pg.n : 0;
     lastPct.all = { b: Math.min(100, gp), n: gp };
     const summary = S.cards.length > 1 && tc ? `
-        <section class="bg-gradient-to-br from-indigo-600 to-violet-700 text-white p-5 rounded-3xl shadow-xl shadow-indigo-500/10 mb-4">
+        <section class="bg-gradient-to-b from-indigo-600 to-indigo-700 text-white p-5 rounded-[20px] shadow-sm mb-4">
             <div class="flex items-end justify-between">
                 <div><small class="text-[10px] text-indigo-200 uppercase tracking-wider block">Cupo total utilizado</small><span class="cupo-pct text-3xl font-extrabold" data-from="${gfn}" data-to="${gp}">${Math.round(gfn)}%</span></div>
                 <div class="text-right text-xs"><span class="text-indigo-200 block">Disponible</span><b>${fmt(Math.max(0, tc - tu))}</b></div>
@@ -1030,7 +1045,7 @@ function vDeu() {
                 <button onclick="delDbt(${d.id})" class="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-xl text-xs font-semibold">Borrar</button>
             </div></div>`;
     }).join("");
-    return `<section class="bg-gradient-to-br from-rose-600 to-red-800 text-white p-6 rounded-3xl shadow-xl shadow-rose-500/10 mb-6"><small class="text-xs text-rose-100 font-medium uppercase tracking-wider">Total que debo</small><div class="text-3xl font-extrabold mt-1">${fmt(T)}</div></section>
+    return `<section class="bg-gradient-to-b from-rose-500 to-rose-600 text-white p-6 rounded-[20px] shadow-sm mb-6"><small class="text-xs text-rose-100 font-medium uppercase tracking-wider">Total que debo</small><div class="text-3xl font-extrabold mt-1">${fmt(T)}</div></section>
         <div class="flex justify-between items-center mb-4"><h3 class="text-base font-bold">Mis Deudas</h3><button onclick="newDbt()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold shadow-md">+ Nueva deuda</button></div>
         ${L || '<p class="text-xs text-slate-400 text-center py-6">Aquí anotas préstamos y deudas que no son de tarjeta.</p>'}
         ${planUI()}`;
@@ -1038,11 +1053,11 @@ function vDeu() {
 
 // ---------- Ajustes ----------
 const hideNames = () => WH.concat(S.cards.map(c => c.n));
-function hidUI() { return hideNames().map((n, i) => `<label class="flex items-center justify-between text-xs"><span class="font-medium">${esc(n)}</span><input type="checkbox" ${S.hide[n] ? "checked" : ""} onchange="togHide(${i})" class="w-4 h-4 accent-indigo-600"></label>`).join(""); }
+function hidUI() { return hideNames().map((n, i) => `<label class="flex items-center justify-between text-sm py-1.5"><span class="font-medium">${esc(n)}</span><input type="checkbox" ${S.hide[n] ? "checked" : ""} onchange="togHide(${i})" class="ios-switch"></label>`).join(""); }
 
 // Apariencia: modo (claro/oscuro/automático) + tema de color + color propio
 function themeUI() {
-    const cur = S.th.t || "indigo", md = S.th.m || "auto", on = "border-indigo-500 bg-indigo-50/60 dark:bg-indigo-500/10", off = "border-transparent bg-slate-50 dark:bg-slate-800/60 hover:border-slate-300 dark:hover:border-slate-600";
+    const cur = S.th.t || "ios", md = S.th.m || "auto", on = "border-indigo-500 bg-indigo-50/60 dark:bg-indigo-500/10", off = "border-transparent bg-slate-50 dark:bg-slate-800/60 hover:border-slate-300 dark:hover:border-slate-600";
     const mb = (v, l, ic) => `<button onclick="setMode('${v}')" class="flex-1 py-2.5 rounded-xl text-xs font-semibold transition ${md == v ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/25" : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"}"><i class="fa-solid ${ic} mr-1.5"></i>${l}</button>`;
     const sw = t => `<button onclick="setTheme('${t.id}')" class="p-2.5 rounded-2xl border-2 transition text-center ${cur == t.id ? on : off}"><span class="block h-9 rounded-xl" style="background:linear-gradient(135deg,${t.p},${t.s})"></span><span class="block text-[11px] font-semibold mt-1.5 text-slate-700 dark:text-slate-200">${t.n}</span></button>`;
     const ct = customTheme(S.th.c);
@@ -1070,7 +1085,7 @@ function vSet() {
         return `<div class="text-xs">
             <div class="flex items-center justify-between gap-3"><span class="font-medium">${c}</span><input inputmode="numeric" value="${S.bud[c] ? Number(S.bud[c]).toLocaleString("es-CO") : ""}" placeholder="Sin límite" oninput="fa(this)" onchange="setBud('${c}', this.value)" class="w-36 px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-right"></div>
             ${has || ov ? `<div class="flex items-center justify-between gap-3 mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">
-                <label class="flex items-center gap-1.5"><input type="checkbox" ${on ? "checked" : ""} onchange="togBudRoll('${c}')" class="w-3.5 h-3.5 accent-indigo-600">Acumular lo que sobre</label>
+                <label class="flex items-center gap-1.5"><input type="checkbox" ${on ? "checked" : ""} onchange="togBudRoll('${c}')" class="ios-switch sm">Acumular lo que sobre</label>
                 <span class="flex items-center gap-1.5">Solo ${mlab}<input inputmode="numeric" value="${ov ? Number(ov).toLocaleString("es-CO") : ""}" placeholder="igual" oninput="fa(this)" onchange="setBudMonth('${c}', this.value)" class="w-24 px-2 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-right"></span>
             </div>` : ""}
         </div>`;
