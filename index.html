@@ -41,10 +41,10 @@
 
     <!-- Barra superior: botón de regreso (dentro de "Más"), título pequeño que aparece al bajar y botones -->
     <header id="topBar" class="ios-nav sticky top-0 z-30">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-12 relative flex items-center justify-between">
-            <button id="navBack" onclick="goTab(-1)" class="hidden relative z-10 -ml-2 px-2 py-1.5 text-[17px] text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5"><i class="fa-solid fa-chevron-left text-sm"></i>Más</button>
-            <span id="navTitle" class="absolute inset-x-0 text-center pointer-events-none text-[17px] font-semibold opacity-0 transition-opacity duration-200"></span>
-            <div class="flex items-center gap-2 relative z-10 ml-auto">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-12 flex items-center gap-2">
+            <button id="navBack" onclick="goTab(-1)" class="hidden shrink-0 -ml-2 px-2 py-1.5 text-[17px] text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5"><i class="fa-solid fa-chevron-left text-sm"></i>Más</button>
+            <span id="navTitle" class="min-w-0 flex-1 truncate pointer-events-none text-[17px] font-semibold opacity-0 transition-opacity duration-200"></span>
+            <div class="flex items-center gap-2 shrink-0">
                 <button id="maskBtn" onclick="togMask()" title="Modo incógnito: ocultar cifras" aria-label="Modo incógnito" aria-pressed="false" class="nav-btn">
                     <i id="maskIcon" class="fa-solid fa-eye"></i>
                 </button>
