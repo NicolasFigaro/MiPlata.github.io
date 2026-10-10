@@ -12,8 +12,8 @@ function draw() {
 
     document.getElementById("appMain").innerHTML = V[tab]();
     if (keep) { openMov(); restoreForm(); } // volvió de crear una categoría: reabre el formulario con lo que había escrito
-    if (tab == 3) drawCharts();
-    if (tab == 4) runCupoAnim();
+    if (N[tab] == "Gráficas") drawCharts();
+    if (N[tab] == "Tarjetas") runCupoAnim();
     if (anim) { anim = false; const m = document.getElementById("appMain"); m.classList.remove("enter"); void m.offsetWidth; m.classList.add("enter"); countUp(); }
     if (keepY !== null) window.scrollTo(0, keepY);
 }
@@ -315,12 +315,14 @@ function editM(id) {
         Object.assign(x, { a, n: v[1], c: v[2], d: v[3], s: v[4] == "No" ? 1 : 0 }); save();
     });
 }
-function newTransfer() {
-    openCustomModal("Transferir entre billeteras", [{ l: "Desde", o: WH }, { l: "Hacia", o: WH, v: WH[1] }, { l: "Monto", m: "numeric" }], v => {
+function newTransfer(from) {
+    if (WH.length < 2) return showToast("Necesitas al menos dos cuentas para transferir. Crea otra en la pestaña Cuentas.", true);
+    const f = WH.includes(from) ? from : WH[0], t = WH.find(w => w != f);
+    openCustomModal("Transferir entre cuentas", [{ l: "Desde", o: WH, v: f }, { l: "Hacia", o: WH, v: t }, { l: "Monto", m: "numeric" }], v => {
         const a = num(v[2]);
-        if (v[0] == v[1]) return "Elige billeteras distintas.";
+        if (v[0] == v[1]) return "Elige cuentas distintas.";
         if (!a) return "Escribe un monto válido.";
-        S.items.push({ id: Date.now(), d: today(), t: "tr", c: "Transferencia", n: v[0].split(" ")[0] + " → " + v[1].split(" ")[0], a, k: "", w: v[0], to: v[1], q: 1 });
+        S.items.push({ id: Date.now(), d: today(), t: "tr", c: "Transferencia", n: wlabel(v[0]) + " → " + wlabel(v[1]), a, k: "", w: v[0], to: v[1], q: 1 });
         save();
     });
 }
@@ -384,6 +386,132 @@ function restoreForm() {
     put("amt", k.amt); put("note", k.note); put("date", k.date); put("cat", k.cat);
     put(g("cardSel") ? "cardSel" : "whSel", k.sel); put("cq", k.cq); put("ci", k.ci);
     togCardOpts(); cuotaPreview(); metaPreview();
+}
+
+// ---------- Cuentas y bolsillos ----------
+let walOpen = null; // cuenta con el detalle abierto en la pestaña Cuentas
+function showModal(html) {
+    const modal = document.getElementById("generalModal"), container = document.getElementById("modalContainer");
+    modalCancel = null;
+    clearTimeout(modalTimer);
+    container.innerHTML = html;
+    modal.classList.remove("hidden");
+    setTimeout(() => { modal.classList.remove("opacity-0"); container.classList.remove("scale-95"); container.classList.add("scale-100"); }, 10);
+}
+function togW(id) { walOpen = walOpen == id ? null : id; draw(); }
+// El nombre identifica la cuenta en los movimientos: debe ser único entre cuentas y tarjetas
+function walErr(n, own) {
+    if (!/^[\p{L}\p{N}][\p{L}\p{N} .\/-]{0,19}$/u.test(n)) return "Usa hasta 20 letras o números (sin comillas ni símbolos raros).";
+    const taken = S.wal.map(a => a.n).concat(S.cards.map(c => c.n)).filter(x => x != own).map(x => x.toLowerCase());
+    if (taken.includes(n.toLowerCase())) return "Ya existe una cuenta o tarjeta con ese nombre.";
+    return "";
+}
+const walTypeKey = label => Object.keys(WTYPES).find(k => WTYPES[k][0] == label) || "other";
+// Paso 1: elegir el tipo (como en la app Wallet). Paso 2: nombre y cuánto dinero tiene hoy.
+function newWal() {
+    showModal(`
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-base font-bold text-slate-800 dark:text-white">Nueva cuenta</h3>
+            <button onclick="closeModal()" aria-label="Cerrar" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 flex items-center justify-center transition"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Elige el tipo de cuenta</p>
+        <div class="space-y-2">${Object.keys(WTYPES).map(k => `
+            <button onclick="newWal2('${k}')" class="w-full flex items-center gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 text-left hover:border-indigo-500 transition">
+                <span class="w-10 h-10 shrink-0 rounded-xl flex items-center justify-center ${WTYPES[k][3]}"><i class="fa-solid ${WTYPES[k][1]}"></i></span>
+                <span class="min-w-0"><b class="text-sm text-slate-800 dark:text-white block">${WTYPES[k][0]}</b><small class="text-[11px] text-slate-400">${WTYPES[k][2]}</small></span>
+            </button>`).join("")}</div>`);
+}
+function newWal2(t) {
+    openCustomModal("Nueva cuenta · " + WTYPES[t][0], [
+        { l: "Nombre", p: "Ej. Bancolombia, Nequi" },
+        { l: "¿Cuánto dinero tiene hoy?", m: "numeric", p: "0" }
+    ], v => {
+        const e = walErr(v[0]); if (e) return e;
+        const a = { id: Date.now(), n: v[0], t, pk: [] };
+        S.wal.push(a);
+        if (num(v[1])) S.ini[a.n] = num(v[1]);
+        syncWH(); walOpen = a.id; save();
+    });
+}
+function editWal(id) {
+    const a = S.wal.find(x => x.id == id); if (!a) return;
+    openCustomModal("Editar cuenta", [
+        { l: "Nombre", v: esc(a.n) },
+        { l: "Tipo", o: Object.keys(WTYPES).map(k => WTYPES[k][0]), v: WTYPES[a.t][0] }
+    ], v => {
+        if (v[0] != a.n) { const e = walErr(v[0], a.n); if (e) return e; renameWal(a.n, v[0]); a.n = v[0]; }
+        a.t = walTypeKey(v[1]);
+        syncWH(); save();
+    });
+}
+// Al cambiar el nombre, todo lo que apuntaba a la cuenta se va con ella
+function renameWal(old, nw) {
+    S.items.forEach(x => { if (x.w == old) x.w = nw; if (x.to == old) x.to = nw; });
+    S.sv.forEach(x => { if (x.w == old) x.w = nw; });
+    S.rec.forEach(r => { if (r.w == old) r.w = nw; });
+    if (S.ini[old] !== undefined) { S.ini[nw] = S.ini[old]; delete S.ini[old]; }
+    if (S.hide[old]) { S.hide[nw] = S.hide[old]; delete S.hide[old]; }
+}
+// "Ajustar saldo": dices cuánto hay de verdad hoy y se corrige el saldo inicial de la cuenta por la diferencia
+function adjWal(id) {
+    const a = S.wal.find(x => x.id == id); if (!a) return;
+    openCustomModal("Ajustar saldo de " + esc(a.n), [{ l: "¿Cuánto hay en la cuenta hoy?", v: Math.max(0, Math.round(walBal(a))), m: "numeric" }], v => {
+        if (v[0] === "") return "Escribe el saldo.";
+        const t = num(v[0]), low = pkSum(a);
+        if (t < low) return "Tus bolsillos suman " + fmt(low) + ": el saldo no puede ser menor. Saca plata de los bolsillos primero.";
+        const ini = Math.round((S.ini[a.n] || 0) + t - walBal(a));
+        if (ini) S.ini[a.n] = ini; else delete S.ini[a.n];
+        save();
+    });
+}
+function trfWal(id) { const a = S.wal.find(x => x.id == id); if (a) newTransfer(a.n); }
+function delWal(id) {
+    const a = S.wal.find(x => x.id == id); if (!a) return;
+    if (WH.length < 2) return showToast("Debes tener al menos una cuenta.", true);
+    if (walBusy(a.n)) return showToast("«" + a.n + "» ya tiene movimientos, no se puede borrar. Puedes ocultarla en Ajustes.", true);
+    const b = walBal(a);
+    confirmAction("¿Borrar la cuenta " + esc(a.n) + "?" + (Math.abs(b) > 0.5 ? " Tiene " + fmt(b) + " de saldo inicial que se perderá." : ""), () => {
+        S.wal = S.wal.filter(x => x.id != id);
+        delete S.ini[a.n]; delete S.hide[a.n];
+        if (walOpen == id) walOpen = null;
+        syncWH(); save();
+    });
+}
+// Bolsillos: plata apartada dentro de una cuenta. Sigue en el saldo, pero no cuenta como "Disponible para gastar".
+function newPk(wid) {
+    const a = S.wal.find(x => x.id == wid); if (!a) return;
+    openCustomModal("Nuevo bolsillo en " + esc(a.n), [
+        { l: "Nombre", p: "Ej. Arriendo, Viaje" },
+        { l: "¿Cuánto apartas ahora? (libre: " + fmt(Math.max(0, pkFree(a))) + ")", m: "numeric", p: "0" }
+    ], v => {
+        if (!v[0] || v[0].length > 24) return "Escribe un nombre (hasta 24 letras).";
+        if (a.pk.some(p => p.n.toLowerCase() == v[0].toLowerCase())) return "Ya tienes un bolsillo con ese nombre en esta cuenta.";
+        const m = num(v[1]);
+        if (m > Math.max(0, pkFree(a))) return "Solo tienes " + fmt(Math.max(0, pkFree(a))) + " libres en esta cuenta.";
+        a.pk.push({ id: Date.now(), n: v[0], v: m }); save();
+    });
+}
+function pkMove(wid, pid, s) {
+    const a = S.wal.find(x => x.id == wid), p = a && a.pk.find(x => x.id == pid); if (!p) return;
+    openCustomModal((s > 0 ? "Meter a " : "Sacar de ") + esc(p.n), [{ l: s > 0 ? "Monto (libre en la cuenta: " + fmt(Math.max(0, pkFree(a))) + ")" : "Monto (hay " + fmt(p.v) + " en el bolsillo)", v: s > 0 ? "" : p.v, m: "numeric" }], v => {
+        const m = num(v[0]);
+        if (!m) return "Escribe un monto válido.";
+        if (s > 0 && m > Math.max(0, pkFree(a))) return "Solo tienes " + fmt(Math.max(0, pkFree(a))) + " libres en esta cuenta.";
+        if (s < 0 && m > p.v) return "El bolsillo solo tiene " + fmt(p.v) + ".";
+        p.v += s * m; save();
+    });
+}
+function editPk(wid, pid) {
+    const a = S.wal.find(x => x.id == wid), p = a && a.pk.find(x => x.id == pid); if (!p) return;
+    openCustomModal("Renombrar bolsillo", [{ l: "Nombre", v: esc(p.n) }], v => {
+        if (!v[0] || v[0].length > 24) return "Escribe un nombre (hasta 24 letras).";
+        if (a.pk.some(q => q.id != pid && q.n.toLowerCase() == v[0].toLowerCase())) return "Ya tienes un bolsillo con ese nombre en esta cuenta.";
+        p.n = v[0]; save();
+    });
+}
+function delPk(wid, pid) {
+    const a = S.wal.find(x => x.id == wid), p = a && a.pk.find(x => x.id == pid); if (!p) return;
+    confirmAction("¿Borrar el bolsillo " + esc(p.n) + "?" + (p.v > 0 ? " Sus " + fmt(p.v) + " vuelven a quedar libres en la cuenta." : ""), () => { a.pk = a.pk.filter(x => x.id != pid); save(); });
 }
 
 // ---------- Metas de ahorro ----------
@@ -649,6 +777,7 @@ function newCard() {
         { l: "Mes del cobro anual, 1-12 (solo si es anual)", m: "numeric" }
     ], v => {
         if (!v[0]) return "Escribe un nombre.";
+        if (WH.some(w => w.toLowerCase() == v[0].toLowerCase())) return "Ya tienes una cuenta con ese nombre.";
         const e = feeErr(v[6], v[7], v[8]); if (e) return e;
         const c = { id: Date.now(), n: v[0], c: num(v[1]), k: +v[2] || 15, p: +v[3] || 30, ir: pr(v[4]) || 0, mr: pr(v[5]) || 0, paid: {} };
         setFee(c, v[6], v[7], v[8]);

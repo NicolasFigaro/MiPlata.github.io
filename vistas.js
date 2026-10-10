@@ -1,8 +1,8 @@
 // ===== Mi Plata · vistas.js =====
 // Solo genera HTML. Las acciones (guardar, borrar, modales) están en acciones.js.
 
-const N = ["Inicio", "Ahorro", "Inversión", "Gráficas", "Tarjetas", "Deudas", "Ajustes"];
-const V = [vHome, vAho, vInv, vGra, vTar, vDeu, vSet];
+const N = ["Inicio", "Cuentas", "Ahorro", "Inversión", "Gráficas", "Tarjetas", "Deudas", "Ajustes"];
+const V = [vHome, vCue, vAho, vInv, vGra, vTar, vDeu, vSet];
 
 // ---------- Piezas de Inicio ----------
 // Sección que se pliega al tocar su encabezado (se anima con CSS, sin volver a pintar la pantalla). El estado queda guardado en S.th.col ({ id: 1 } = plegada).
@@ -64,7 +64,7 @@ function nwUI() {
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1 pt-3 border-t border-slate-100 dark:border-slate-800">
                 <div>
                     <p class="text-[10px] uppercase tracking-wider text-emerald-500 font-bold mb-1">Tienes · ${fmt(n.act)}</p>
-                    ${row("fa-wallet", "text-indigo-500", "Billeteras y bancos", n.w)}
+                    ${row("fa-wallet", "text-indigo-500", "Cuentas", n.w)}
                     ${row("fa-piggy-bank", "text-emerald-500", "Ahorros y metas", n.sv)}
                     ${row("fa-chart-line", "text-violet-500", "Inversiones", n.iv)}
                 </div>
@@ -101,9 +101,8 @@ function fltSummary(m) {
 
 function fltUI(m) {
     const chip = (on, ic, lbl, act, sm) => `<button onclick="${act}" class="shrink-0 ${sm ? "px-3 py-1.5 text-[11px]" : "px-3.5 py-2 text-xs"} rounded-xl font-semibold transition whitespace-nowrap ${on ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/25" : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"}"><i class="fa-solid ${ic} mr-1.5"></i>${lbl}</button>`;
-    const nom = ["Efectivo", "Cuenta de ahorros", "Billetera digital"], ics = ["fa-money-bill-wave", "fa-building-columns", "fa-mobile-screen"];
     const inCards = flt.k == "cards" || flt.k == "c";
-    const row1 = chip(flt.k == "all", "fa-layer-group", "Todos", "setFlt('all')") + WH.map((w, i) => chip(flt.k == "w" && flt.v == i, ics[i], nom[i], `setFlt('w',${i})`)).join("") + chip(inCards, "fa-credit-card", "Tarjetas", "setFlt('cards')");
+    const row1 = chip(flt.k == "all", "fa-layer-group", "Todos", "setFlt('all')") + S.wal.map((a, i) => chip(flt.k == "w" && flt.v == i, WTYPES[a.t][1], esc(wlabel(a.n)), `setFlt('w',${i})`)).join("") + chip(inCards, "fa-credit-card", "Tarjetas", "setFlt('cards')");
     const row2 = inCards && S.cards.length ? `<div class="subchips flex gap-2 overflow-x-auto no-scrollbar pb-1 mt-2">${chip(flt.k == "cards", "fa-layer-group", "Todas", "setFlt('cards')", 1)}${S.cards.map(c => chip(flt.k == "c" && flt.v == c.id, "fa-credit-card", esc(c.n), `setFlt('c',${c.id})`, 1)).join("")}</div>` : "";
     return `<div class="mb-3"><div class="flex gap-2 overflow-x-auto no-scrollbar pb-1">${row1}</div>${row2}</div>${fltSummary(m)}`;
 }
@@ -259,7 +258,7 @@ function movFormHTML() {
                 </div>
                 ${type == "g" ? `
                     <select id="cardSel" onchange="togCardOpts()" class="${sel}">
-                        <optgroup label="Billetera">${WH.map(x => `<option>${esc(x)}</option>`).join("")}</optgroup>
+                        <optgroup label="Cuenta">${WH.map(x => `<option>${esc(x)}</option>`).join("")}</optgroup>
                         ${S.cards.length ? `<optgroup label="Tarjeta">${S.cards.map(c => `<option>${esc(c.n)}</option>`).join("")}</optgroup>` : ""}
                         ${S.acc.filter(a => !a.f).length ? `<optgroup label="Meta de ahorro">${S.acc.filter(a => !a.f).map(a => `<option value="meta:${a.id}">🎯 ${esc(a.n)}</option>`).join("")}</optgroup>` : ""}
                     </select>
@@ -280,6 +279,7 @@ function movFormHTML() {
 // ---------- Inicio ----------
 function vHome() {
     if (flt.k == "c" && !S.cards.some(c => c.id == flt.v)) flt = { k: "cards", v: null };
+    if (flt.k == "w" && !WH[flt.v]) flt = { k: "all", v: null };
     const m = mon(), ing = sum(m, x => x.t == "i"), aho = svm(), gas = sum(m, x => x.t == "g"), sob = ing - gas - aho;
     const by = G.map(([c]) => [c, sum(m, x => x.t == "g" && x.c == c && !x.s)]).filter(x => x[1] > 0 || budOf(x[0], ym(cur))).sort((a, b) => b[1] - a[1]), mx = (by[0] ? by[0][1] : 1) || 1;
 
@@ -287,7 +287,7 @@ function vHome() {
     const have = hasW ? WH.filter(w => !(S.hide || {})[w]).reduce((s, w) => s + bal(w, nm), 0) : sob;
     const due = S.cards.filter(c => !(S.hide || {})[c.n]).reduce((s, c) => s + (nm == ym(new Date()) ? cardSoon(c) : cardDue(c, nm)), 0);
     // Apartado = lo ahorrado + el rendimiento ganado hasta hoy (el rendimiento solo se suma en el mes actual: de meses pasados no hay foto)
-    const svt = S.acc.reduce((s, a) => s + (svb(a.id, nm) + (nm == ym(new Date()) ? Math.max(0, yieldOf(a.id, a.r)) : 0)) * (a.u ? S.trm : 1), 0), disp = have - due;
+    const svt = S.acc.reduce((s, a) => s + (svb(a.id, nm) + (nm == ym(new Date()) ? Math.max(0, yieldOf(a.id, a.r)) : 0)) * (a.u ? S.trm : 1), 0), pk = hasW ? pkHeld() : 0, disp = have - pk - due;
     const P = invPortfolio(), invT = P.T, invC = P.C;
     const totAcc = S.acc.filter(a => !a.f).reduce((s, a) => s + goalTotal(a) * (a.u ? S.trm : 1), 0);
 
@@ -344,7 +344,7 @@ function vHome() {
             ${dailyUI(disp)}
             ${projUI(disp)}
             <div class="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-white/10">
-                <div><small class="text-[10px] text-indigo-200 block uppercase">En mano</small><b class="text-xs sm:text-sm font-bold">${fmt(have)}</b></div>
+                <div><small class="text-[10px] text-indigo-200 block uppercase">En mano</small><b class="text-xs sm:text-sm font-bold">${fmt(have)}</b>${pk > 0 ? `<small class="text-[10px] text-indigo-200 block font-normal">${fmt(pk)} en bolsillos</small>` : ""}</div>
                 <div><small class="text-[10px] text-indigo-200 block uppercase">Tarjetas</small><b class="text-xs sm:text-sm font-bold">${fmt(due)}</b>${due <= 0.5 && nm == ym(new Date()) ? (() => { const x = S.cards.filter(c => !(S.hide || {})[c.n]).reduce((s, c) => s + (cardNext(c).due || 0), 0); return x > 0.5 ? `<small class="text-[10px] text-indigo-200 block font-normal">próx. ${fmt(x)}</small>` : ""; })() : ""}</div>
                 <div><small class="text-[10px] text-indigo-200 block uppercase">Apartado</small><b class="text-xs sm:text-sm font-bold">${fmt(svt)}</b></div>
             </div>
@@ -362,12 +362,12 @@ function vHome() {
         ${nwUI()}
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div onclick="goTab(1)" class="${CARD} p-4 cursor-pointer hover:border-indigo-500 transition lift">
+            <div onclick="goTab(${N.indexOf("Ahorro")})" class="${CARD} p-4 cursor-pointer hover:border-indigo-500 transition lift">
                 <div class="flex justify-between items-center mb-1"><span class="text-xs font-semibold text-slate-500">Ahorros y Metas</span><i class="fa-solid fa-piggy-bank text-indigo-500"></i></div>
                 <h4 class="text-lg font-bold text-slate-800 dark:text-white mb-2">${fmt(totAcc)}</h4>
                 ${MT}
             </div>
-            <div onclick="goTab(2)" class="${CARD} p-4 cursor-pointer hover:border-indigo-500 transition lift">
+            <div onclick="goTab(${N.indexOf("Inversión")})" class="${CARD} p-4 cursor-pointer hover:border-indigo-500 transition lift">
                 <div class="flex justify-between items-center mb-1"><span class="text-xs font-semibold text-slate-500">Inversiones</span><i class="fa-solid fa-chart-line text-emerald-500"></i></div>
                 <h4 class="text-lg font-bold text-slate-800 dark:text-white">${show(invT)}</h4>
                 <p class="text-xs ${invT >= invC ? "text-emerald-500" : "text-rose-500"} mt-1 font-semibold">${invT >= invC ? "+" : ""}${fmt(invT - invC)} sobre lo invertido${P.ann !== null ? " · " + pct1(P.ann) + " anual" : ""}</p>
@@ -379,6 +379,91 @@ function vHome() {
         ${catsSec}
 
         ${movSec}
+    `;
+}
+
+// ---------- Cuentas ----------
+function walCard(a) {
+    const b = walBal(a), pk = pkSum(a), hid = !!(S.hide || {})[a.n], sel = walOpen == a.id, T = WTYPES[a.t];
+    return `
+        <button onclick="togW(${a.id})" class="${CARD} lift p-4 text-left flex flex-col min-w-0 ${sel ? "!border-indigo-500 ring-2 ring-indigo-500/30" : ""} ${hid ? "opacity-60" : ""}">
+            <span class="w-10 h-10 rounded-xl flex items-center justify-center mb-3 ${T[3]}"><i class="fa-solid ${T[1]}"></i></span>
+            <span class="text-[11px] uppercase tracking-wider text-slate-400 truncate w-full">${esc(a.n)}</span>
+            <b class="text-lg font-extrabold mt-0.5 truncate w-full ${b < 0 ? "text-rose-500" : "text-slate-800 dark:text-white"}">${fmt(b)}</b>
+            <small class="text-[11px] text-slate-400 mt-0.5 truncate w-full">${hid ? "Oculta del resumen" : pk > 0 ? fmt(pk) + " en bolsillos" : T[0]}</small>
+        </button>`;
+}
+
+function walPanel(a) {
+    const b = walBal(a), pk = pkSum(a), T = WTYPES[a.t];
+    const act = (cl, fn, t) => `<button onclick="${fn}" class="px-3 py-1.5 ${cl} rounded-xl text-xs font-semibold">${t}</button>`;
+    const ib = (cl, fn, ic, t) => `<button onclick="${fn}" title="${t}" aria-label="${t}" class="w-8 h-8 ${cl} rounded-lg text-[11px] flex items-center justify-center"><i class="fa-solid ${ic}"></i></button>`;
+    const pks = a.pk.map(p => `
+        <div class="flex items-center justify-between gap-2 py-2.5 border-b border-slate-100 dark:border-slate-800 last:border-0">
+            <div class="min-w-0"><b class="text-xs text-slate-800 dark:text-white block truncate"><i class="fa-solid fa-box-archive text-slate-300 mr-1.5"></i>${esc(p.n)}</b><small class="text-[11px] text-slate-400">${fmt(p.v)}</small></div>
+            <div class="flex space-x-1.5 shrink-0">
+                ${ib("bg-emerald-50 text-emerald-600", `pkMove(${a.id},${p.id},1)`, "fa-plus", "Meter")}
+                ${ib("bg-rose-50 text-rose-600", `pkMove(${a.id},${p.id},-1)`, "fa-minus", "Sacar")}
+                ${ib("bg-slate-100 dark:bg-slate-800", `editPk(${a.id},${p.id})`, "fa-pen", "Renombrar")}
+                ${ib("bg-slate-100 dark:bg-slate-800 text-rose-500", `delPk(${a.id},${p.id})`, "fa-trash", "Borrar")}
+            </div>
+        </div>`).join("");
+    const mv = S.items.filter(x => (x.w == a.n && !x.k) || x.to == a.n).sort((p, q) => q.d.localeCompare(p.d) || q.id - p.id).slice(0, 8).map(x => {
+        const inn = x.t == "i" || (x.t == "tr" && x.to == a.n);
+        return `<div class="flex items-center justify-between gap-2 py-2 text-xs border-b border-slate-100 dark:border-slate-800 last:border-0">
+            <div class="min-w-0"><span class="font-medium text-slate-700 dark:text-slate-200 block truncate">${esc(x.n || x.c)}</span><small class="text-[11px] text-slate-400">${dmy(x.d).slice(0, 5)}${x.n ? " · " + esc(x.c) : ""}</small></div>
+            <b class="shrink-0 ${inn ? "text-emerald-500" : ""}">${inn ? "+" : "-"}${fmt(x.a)}</b>
+        </div>`;
+    }).join("");
+    return `
+        <section class="${CARD} p-5 mb-4">
+            <div class="flex items-center gap-3 mb-4">
+                <span class="w-10 h-10 shrink-0 rounded-xl flex items-center justify-center ${T[3]}"><i class="fa-solid ${T[1]}"></i></span>
+                <div class="min-w-0"><b class="text-sm font-bold text-slate-800 dark:text-white block truncate">${esc(a.n)}</b><small class="text-[11px] text-slate-400">${T[0]}</small></div>
+            </div>
+            <div class="grid grid-cols-3 gap-2 mb-2">
+                ${[["Saldo", fmt(b), b < 0 ? "text-rose-500" : ""], ["En bolsillos", fmt(pk), ""], ["Libre", fmt(b - pk), b - pk < 0 ? "text-rose-500" : "text-emerald-500"]].map(([l, v, cl]) => `<div class="p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 min-w-0"><span class="text-[10px] uppercase tracking-wider text-slate-400 block truncate">${l}</span><b class="text-xs ${cl}">${v}</b></div>`).join("")}
+            </div>
+            ${pk > b + 0.5 ? `<p class="text-[11px] text-amber-500 mb-2"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Tus bolsillos suman más que el saldo de la cuenta. Revisa el saldo («Ajustar saldo») o saca plata de algún bolsillo.</p>` : ""}
+            <div class="flex flex-wrap gap-2 mb-4">
+                ${act("bg-indigo-50 text-indigo-600", `adjWal(${a.id})`, "Ajustar saldo")}
+                ${act("bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300", `trfWal(${a.id})`, "↔ Transferir")}
+                ${act("bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300", `editWal(${a.id})`, "Editar")}
+                ${act("bg-slate-100 dark:bg-slate-800 text-rose-500", `delWal(${a.id})`, "Borrar")}
+            </div>
+            <div class="flex justify-between items-center pt-3 border-t border-slate-100 dark:border-slate-800">
+                <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider">Bolsillos</h4>
+                <button onclick="newPk(${a.id})" class="px-3 py-1.5 bg-indigo-600 text-white rounded-xl text-xs font-semibold shadow-md">+ Nuevo bolsillo</button>
+            </div>
+            <p class="text-[11px] text-slate-400 mt-1">Plata que sigue en esta cuenta pero ya tiene dueño: no cuenta como «Disponible para gastar».</p>
+            ${pks || '<p class="text-xs text-slate-400 text-center py-4">Aún no tienes bolsillos en esta cuenta.</p>'}
+            <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mt-4 pt-3 border-t border-slate-100 dark:border-slate-800">Últimos movimientos</h4>
+            ${mv || '<p class="text-xs text-slate-400 text-center py-4">Todavía no hay movimientos en esta cuenta.</p>'}
+        </section>`;
+}
+
+function vCue() {
+    if (walOpen && !S.wal.some(a => a.id == walOpen)) walOpen = null;
+    const shown = S.wal.filter(a => !(S.hide || {})[a.n]), T = shown.reduce((s, a) => s + walBal(a), 0), P = pkHeld(), open = S.wal.find(a => a.id == walOpen);
+    return `
+        <section class="bg-gradient-to-br from-sky-600 to-blue-800 text-white p-6 rounded-3xl shadow-xl shadow-sky-500/10 mb-6">
+            <small class="text-xs text-sky-100 font-medium uppercase tracking-wider">Total en cuentas</small>
+            <div class="text-3xl font-extrabold mt-1">${fmt(T)}</div>
+            <div class="grid grid-cols-2 gap-2 mt-4 pt-4 border-t border-white/10">
+                <div><small class="text-[10px] text-sky-100 block uppercase">En bolsillos</small><b class="text-sm font-bold">${fmt(P)}</b></div>
+                <div><small class="text-[10px] text-sky-100 block uppercase">Libre</small><b class="text-sm font-bold">${fmt(T - P)}</b></div>
+            </div>
+        </section>
+        <div class="flex justify-between items-center mb-4"><h3 class="text-base font-bold">Mis Cuentas</h3></div>
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
+            ${S.wal.map(walCard).join("")}
+            <button onclick="newWal()" class="min-h-[140px] rounded-3xl border-2 border-dashed border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center gap-2 text-slate-500 hover:border-indigo-500 transition">
+                <span class="w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center"><i class="fa-solid fa-plus"></i></span>
+                <span class="text-xs font-semibold">Agregar cuenta</span>
+            </button>
+        </div>
+        ${open ? walPanel(open) : '<p class="text-[11px] text-slate-400 text-center mb-4">Toca una cuenta para ver sus bolsillos y movimientos.</p>'}
+        <p class="text-[11px] text-slate-400">El total no incluye las cuentas que ocultes en Ajustes. Los gastos con tarjeta no salen de ninguna cuenta hasta que abonas a la tarjeta.</p>
     `;
 }
 
@@ -820,7 +905,7 @@ function extractUI(c, i, b) {
 // ---------- Simulador "¿Puedo permitírmelo?" (contenido del modal) ----------
 function simUI() {
     const cats = G.filter(g => g[0] != "Ahorro").map(g => `<option>${esc(g[0])}</option>`).join("");
-    const pays = `<optgroup label="Billetera">${WH.map(w => `<option>${esc(w)}</option>`).join("")}</optgroup>${S.cards.length ? `<optgroup label="Tarjeta">${S.cards.map(c => `<option>${esc(c.n)}</option>`).join("")}</optgroup>` : ""}`;
+    const pays = `<optgroup label="Cuenta">${WH.map(w => `<option>${esc(w)}</option>`).join("")}</optgroup>${S.cards.length ? `<optgroup label="Tarjeta">${S.cards.map(c => `<option>${esc(c.n)}</option>`).join("")}</optgroup>` : ""}`;
     return `
         <div class="flex justify-between items-center mb-1">
             <h3 class="text-base font-bold text-slate-800 dark:text-white">¿Puedo permitírmelo?</h3>
@@ -1001,7 +1086,7 @@ function vSet() {
             <p class="text-xs text-slate-400">Además de las 8 de siempre. El tipo (necesidad o gusto) define en qué parte de la regla 50/30/20 cuenta. También puedes crearlas desde Inicio, al anotar un gasto.</p>${cats}</section>
         <section class="${card}"><h3 class="text-base font-bold">Presupuestos mensuales</h3><p class="text-xs text-slate-400">El valor de arriba se repite cada mes. «Solo ${mlab}» lo cambia únicamente este mes. «Acumular» suma al mes siguiente lo que no gastes (si te pasas, no se descuenta).</p>${bud}</section>
         <section class="${card}"><div class="flex justify-between items-center"><h3 class="text-base font-bold">Gastos fijos</h3><button onclick="newRec()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold">+ Agregar</button></div>${rec}</section>
-        <section class="${card}"><h3 class="text-base font-bold">Saldos iniciales</h3><p class="text-xs text-slate-400">Lo que ya tenías en cada billetera antes de empezar a anotar.</p>${ini}</section>
+        <section class="${card}"><h3 class="text-base font-bold">Saldos iniciales</h3><p class="text-xs text-slate-400">Lo que ya tenías en cada cuenta antes de empezar a anotar. Para corregir un saldo de hoy usa «Ajustar saldo» en la pestaña Cuentas.</p>${ini}</section>
         <section class="${card}"><h3 class="text-base font-bold">Ocultar del resumen</h3><p class="text-xs text-slate-400">Lo que ocultes no suma en “En mano” ni en “Tarjetas”, y sus gastos no salen en el resumen ni en las gráficas.</p>${hidUI()}</section>
         <section class="${card}"><h3 class="text-base font-bold">Avisos de metas</h3>
             <p class="text-xs text-slate-400">Te avisa de metas (7 días antes), tarjetas y deudas con día de pago (3 días antes) y hasta 7 días después si siguen pendientes. Siempre lo ves también en los Consejos de Inicio.</p>

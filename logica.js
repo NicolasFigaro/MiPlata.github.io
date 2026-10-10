@@ -4,7 +4,16 @@
 const G0 = [["Vivienda","n"],["Comida","n"],["Transporte","n"],["Servicios","n"],["Deudas/Tarjeta","n"],["Ocio","g"],["Compras","g"],["Otros","g"],["Ahorro","a"]];
 const G = G0.slice(); // lista viva: base + categorías propias (se rearma con syncG)
 const I = ["Sueldo","Extra","Otro ingreso"];
-const WH = ["Efectivo","Cuenta de ahorros","Billetera digital (Nequi, Daviplata)"];
+const WH_DEF = ["Efectivo","Cuenta de ahorros","Billetera digital (Nequi, Daviplata)"]; // las 3 billeteras de siempre: con ellas se crean las primeras cuentas
+const WH = []; // lista viva con los nombres de tus cuentas (se rearma con syncWH, igual que G con las categorías)
+// Tipos de cuenta: [nombre, icono, descripción, colores del icono]
+const WTYPES = {
+    cash: ["Efectivo", "fa-money-bill-wave", "Billetes y monedas", "bg-teal-50 text-teal-600 dark:bg-teal-500/10 dark:text-teal-400"],
+    bank: ["Cuenta bancaria", "fa-building-columns", "Cuenta corriente o de uso diario", "bg-sky-50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-400"],
+    digital: ["Billetera digital", "fa-mobile-screen", "Nequi, Daviplata, Nu…", "bg-fuchsia-50 text-fuchsia-600 dark:bg-fuchsia-500/10 dark:text-fuchsia-400"],
+    savings: ["Cuenta de ahorros", "fa-piggy-bank", "Ahorros del banco", "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400"],
+    other: ["Otra", "fa-wallet", "Cualquier otra cuenta", "bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400"]
+};
 const KEY = "miplata_advanced_v2"; // misma clave: tus datos actuales siguen funcionando
 
 // ---------- Utilidades ----------
@@ -55,6 +64,35 @@ S.cat = S.cat || [];   // categorías propias: { id, n: nombre, k: "n" necesidad
 // "Ahorro" siempre queda de última
 const syncG = () => { G.length = 0; G0.slice(0, -1).forEach(x => G.push(x)); S.cat.forEach(c => G.push([c.n, c.k])); G.push(G0[G0.length - 1]); };
 syncG();
+
+// ---------- Cuentas ----------
+// S.wal = [{ id, n: nombre, t: tipo, pk: [{ id, n, v }] }]. Los movimientos guardan la cuenta por su NOMBRE (x.w / x.to),
+// por eso WH sigue siendo una lista de nombres y todo lo demás (saldos, formularios, transferencias) funciona igual.
+S.wal = S.wal || [];
+if (!S.wal.length) {
+    // Primera vez (o copia de seguridad vieja): las 3 billeteras de siempre + cualquier otra que ya aparezca en tus datos
+    const seen = new Set(WH_DEF), extra = [];
+    const add = n => { if (typeof n == "string" && n && !seen.has(n)) { seen.add(n); extra.push(n); } };
+    S.items.forEach(x => { add(x.w); add(x.to); });
+    S.sv.forEach(x => add(x.w));
+    S.rec.forEach(r => add(r.w));
+    Object.keys(S.ini).forEach(add);
+    const guess = n => /efectivo/i.test(n) ? "cash" : /nequi|daviplata|billetera/i.test(n) ? "digital" : /ahorro/i.test(n) ? "savings" : "other";
+    S.wal = WH_DEF.concat(extra).map((n, i) => ({ id: Date.now() + i, n, t: guess(n), pk: [] }));
+}
+S.wal.forEach(a => { if (!Array.isArray(a.pk)) a.pk = []; if (!WTYPES[a.t]) a.t = "other"; });
+const syncWH = () => { WH.length = 0; S.wal.forEach(a => WH.push(a.n)); };
+syncWH();
+const walOf = n => S.wal.find(a => a.n == n);
+const wlabel = n => String(n).replace(/\s*\(.*\)\s*$/, ""); // "Billetera digital (Nequi, Daviplata)" → "Billetera digital"
+// Bolsillos: plata que sigue en la cuenta pero ya tiene dueño (no cuenta como "Disponible para gastar")
+const pkSum = a => (a.pk || []).reduce((s, p) => s + p.v, 0);
+const pkHeld = () => S.wal.filter(a => !(S.hide || {})[a.n]).reduce((s, a) => s + pkSum(a), 0);
+const walBal = a => bal(a.n, ym(new Date()));
+const pkFree = a => walBal(a) - pkSum(a);
+// ¿La cuenta ya se usó en algo? (entonces no se puede borrar, solo ocultar)
+const walBusy = n => S.items.some(x => x.w == n || x.to == n) || S.sv.some(x => x.w == n) || S.rec.some(r => r.w == n);
+
 S.items.forEach(x => { if (x.t == "g") { if (WH.includes(x.k)) { x.w = x.k; x.k = ""; } else if (!x.k && !x.w) x.w = WH[0]; } });
 // Inversiones antiguas no tenían fecha: se usa el momento en que se crearon
 S.inv.forEach(x => { if (!x.d) { const d = new Date(x.id); x.d = isNaN(d) ? today() : ymd(d); } });
@@ -465,7 +503,7 @@ function monthProjection(disp) {
 function dispAt(nm, hw) {
     const hid = n => (S.hide || {})[n];
     let have;
-    if (hw) have = WH.filter(w => !hid(w)).reduce((s, w) => s + bal(w, nm), 0);
+    if (hw) have = WH.filter(w => !hid(w)).reduce((s, w) => s + bal(w, nm), 0) - pkHeld(); // lo que está en bolsillos ya tiene dueño
     else {
         const m = S.items.filter(x => x.d.startsWith(nm) && vis(x));
         have = sum(m, x => x.t == "i") - sum(m, x => x.t == "g") - S.sv.filter(x => x.d.startsWith(nm) && !x.i).reduce((s, x) => s + (x.cp ?? x.v), 0);
