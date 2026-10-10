@@ -592,24 +592,30 @@ function reminderEvents() {
     const E = [], nm = ym(new Date());
     S.acc.filter(a => !a.f && a.dl && a.g).forEach(a => {
         const gi = goalInfo(a); if (!gi || gi.done) return;
-        E.push({ key: "g" + a.id, title: "Mi Plata · " + a.n, what: "Tu meta", date: a.dl, win: REM_WIN.g, extra: "Faltan " + fm(a, gi.falta) + "." });
+        E.push({ key: "g" + a.id, title: "Mi Plata · " + a.n, what: "Tu meta", k: "g", amt: fm(a, gi.falta), date: a.dl, win: REM_WIN.g, extra: "Faltan " + fm(a, gi.falta) + "." });
     });
     S.cards.filter(c => !(S.hide || {})[c.n]).forEach(c => {
         const nx = cardNext(c); if (!(nx.due > 0)) return;
-        E.push({ key: "c" + c.id, title: "Mi Plata · " + c.n, what: "El pago de la tarjeta", date: payDateIn(c.p, nx.m), win: REM_WIN.c, extra: "Te faltan " + fmt(nx.due) + " de la cuota." });
+        E.push({ key: "c" + c.id, title: "Mi Plata · " + c.n, what: "El pago de la tarjeta", k: "c", amt: fmt(nx.due), date: payDateIn(c.p, nx.m), win: REM_WIN.c, extra: "Te faltan " + fmt(nx.due) + " de la cuota." });
     });
     S.dbt.filter(d => d.dd).forEach(d => {
         const due = dbtDue(d, nm); if (!(due > 0)) return;
-        E.push({ key: "d" + d.id, title: "Mi Plata · " + d.n, what: "El pago de la deuda", date: payDate(d.dd), win: REM_WIN.d, extra: d.cu > 0 ? "Te faltan " + fmt(due) + " de la cuota." : "Debes " + fmt(due) + " y aún no abonas este mes." });
+        E.push({ key: "d" + d.id, title: "Mi Plata · " + d.n, what: "El pago de la deuda", k: "d", amt: fmt(due), date: payDate(d.dd), win: REM_WIN.d, extra: d.cu > 0 ? "Te faltan " + fmt(due) + " de la cuota." : "Debes " + fmt(due) + " y aún no abonas este mes." });
     });
     (S.rec || []).filter(r => r.vr && r.last != nm).forEach(r => {
-        E.push({ key: "r" + r.id, title: "Mi Plata · " + r.n, what: "Tu gasto fijo", date: payDate(r.day), win: 0, extra: "Confirma cuánto llegó este mes (el último fue " + fmt(r.a) + ")." });
+        E.push({ key: "r" + r.id, title: "Mi Plata · " + r.n, what: "Tu gasto fijo", k: "r", date: payDate(r.day), win: 0, extra: "Confirma cuánto llegó este mes (el último fue " + fmt(r.a) + ")." });
     });
     return E;
 }
 // Gastos fijos de monto variable a los que ya les llegó la fecha y aún no confirmas el valor de este mes
 const recPend = () => { const nm = ym(new Date()), td = new Date().getDate(); return (S.rec || []).filter(r => r.vr && r.last != nm && td >= r.day); };
 const remindBody = (e, days) => e.what + " " + dueTxt(days) + ". " + e.extra;
+// "Esta semana" en Inicio: lo que vence en los próximos 7 días y lo vencido hace poco (metas: hasta 7 días atrás; tarjetas y deudas: hasta 30).
+// Es lo mismo que avisan las notificaciones, pero siempre visible: en iPhone no hay avisos en segundo plano.
+function weekEvents() {
+    return reminderEvents().filter(e => e.k != "r").map(e => Object.assign({ days: daysTo(e.date) }, e))
+        .filter(e => e.days <= 7 && e.days >= (e.k == "g" ? -7 : -30)).sort((a, b) => a.days - b.days);
+}
 
 // ---------- Consejos automáticos ----------
 function tipsList(by) {

@@ -5,7 +5,7 @@ const N = ["Inicio", "Cuentas", "Ahorro", "Inversión", "Gráficas", "Tarjetas",
 const V = [vHome, vCue, vAho, vInv, vGra, vTar, vDeu, vSet];
 // Pestañas que viven dentro del menú "Más" de la barra inferior (índices de N)
 const MORE = [3, 4, 6, 7];
-const APP_VER = "7";
+const APP_VER = "8";
 const MORE_IC = { "Inversión": ["fa-chart-line", "#34C759"], "Gráficas": ["fa-chart-pie", "#FF9500"], "Deudas": ["fa-hand-holding-dollar", "#FF3B30"], "Ajustes": ["fa-gear", "#8E8E93"] };
 function vMore() {
     return `
@@ -19,6 +19,19 @@ function vMore() {
         </section>
         <p class="text-center text-[11px] text-slate-400 pt-2">Mi Plata · versión ${APP_VER}</p>`;
 }
+
+// ---------- Piezas reutilizables ----------
+// Pantalla vacía con acción: icono, qué es esto y un botón para crear lo primero (fn = código que se ejecuta al tocar, ej. "newAcc()")
+function emptyUI(ic, col, title, text, label, fn, compact) {
+    return `<div class="flex flex-col items-center text-center ${compact ? "py-5" : "py-8"} px-4">
+        <span class="${compact ? "w-12 h-12 text-lg" : "w-16 h-16 text-2xl"} rounded-full flex items-center justify-center mb-3" style="background:${col}22;color:${col}"><i class="fa-solid ${ic}"></i></span>
+        <p class="${compact ? "text-sm" : "text-[17px]"} font-semibold text-slate-800 dark:text-white">${title}</p>
+        <p class="text-xs text-slate-400 mt-1 max-w-[17rem] leading-relaxed">${text}</p>
+        <button onclick="${fn}" class="mt-4 px-5 py-2.5 rounded-full bg-indigo-600 active:bg-indigo-700 text-white text-sm font-semibold">${label}</button>
+    </div>`;
+}
+// Cuadrito con el icono y el color de la categoría (los mismos del formulario de movimientos)
+const catChip = (c, sm) => { const ic = catIc(c); return `<span class="${sm ? "w-7 h-7 text-xs rounded-[8px]" : "w-9 h-9 text-sm rounded-[10px]"} shrink-0 flex items-center justify-center text-white" style="background:${ic[1]}"><i class="fa-solid ${ic[0]}"></i></span>`; };
 
 // ---------- Piezas de Inicio ----------
 // Sección que se pliega al tocar su encabezado (se anima con CSS, sin volver a pintar la pantalla). El estado queda guardado en S.th.col ({ id: 1 } = plegada).
@@ -128,7 +141,10 @@ function fltUI(m) {
 // Lista de movimientos (se redibuja sola mientras escribes en el buscador)
 function movListHTML(lim) { // lim: solo los últimos N (ignora filtros y buscador); sin lim: la lista completa filtrada
     const rows = (lim ? baseItems() : baseItems().filter(fltMatch).filter(matchQ)).sort((a, b) => b.d.localeCompare(a.d) || b.id - a.id).slice(0, lim || 1e9);
-    if (!rows.length) return '<p class="text-xs text-slate-400 text-center py-4">' + (flt.k != "all" || sqry ? "No hay movimientos con este filtro." : "Toca el botón + para anotar tu primer movimiento.") + '</p>';
+    if (!rows.length) {
+        if (lim) return emptyUI("fa-receipt", "#007AFF", S.items.length ? "Sin movimientos este mes" : "Aún no hay movimientos", S.items.length ? "Este mes todavía no has anotado nada." : "Anota tu primer gasto o ingreso y aquí verás cómo va tu plata.", "Anotar movimiento", "openMov()", true);
+        return '<p class="text-xs text-slate-400 text-center py-4">' + (flt.k != "all" || sqry ? "No hay movimientos con este filtro." : "Toca el botón + para anotar tu primer movimiento.") + '</p>';
+    }
     const head = !lim && (sqry || sall) ? (() => {
         const g = rows.filter(x => x.t == "g").reduce((s, x) => s + x.a, 0), i = rows.filter(x => x.t == "i").reduce((s, x) => s + x.a, 0);
         return `<p class="text-[11px] text-slate-400 pb-2">${rows.length} resultado${rows.length == 1 ? "" : "s"} · gastos ${fmt(g)} · ingresos ${fmt(i)}</p>`;
@@ -142,7 +158,7 @@ function movListHTML(lim) { // lim: solo los últimos N (ignora filtros y buscad
                 <button onclick="editM(${x.id})" style="background:#007AFF" aria-label="Editar"><i class="fa-solid fa-pen"></i>Editar</button>
                 <button onclick="delMovItem(${x.id})" style="background:#FF3B30" aria-label="Borrar"><i class="fa-solid fa-trash"></i>Borrar</button>
             </div>
-        <div class="swipe-in flex items-center gap-3 py-2.5 bg-white dark:bg-slate-900">
+        <div class="swipe-in flex items-center gap-3 py-2.5 bg-white dark:bg-slate-900" data-id="${x.id}">
             <span class="w-9 h-9 shrink-0 rounded-[10px] flex items-center justify-center text-sm text-white" style="background:${ic[1]}"><i class="fa-solid ${ic[0]}"></i></span>
             <div class="min-w-0 flex-1 pr-2">
                 <strong class="text-sm font-semibold text-slate-800 dark:text-white block truncate">${esc(x.n || x.c)}</strong>
@@ -150,6 +166,7 @@ function movListHTML(lim) { // lim: solo los últimos N (ignora filtros y buscad
             </div>
             <div class="flex items-center space-x-2">
                 <span class="text-sm font-bold ${x.t == "i" ? "text-emerald-500" : "text-slate-800 dark:text-white"}">${x.t == "i" ? "+" : x.t == "tr" ? "↔ " : "-"}${fmt(x.a)}</span>
+                <button onclick="dupMov(${x.id})" title="Duplicar para hoy" aria-label="Duplicar" class="mv-btns text-slate-400 hover:text-indigo-600 p-1 text-xs"><i class="fa-regular fa-copy"></i></button>
                 <button onclick="editM(${x.id})" class="mv-btns text-slate-400 hover:text-indigo-600 p-1 text-xs"><i class="fa-solid fa-pen"></i></button>
                 <button onclick="delMovItem(${x.id})" class="mv-btns text-slate-400 hover:text-rose-600 p-1 text-xs"><i class="fa-solid fa-trash"></i></button>
             </div>
@@ -260,6 +277,37 @@ function recUI() {
         </section>`;
 }
 
+// "Esta semana": lo que vence en los próximos 7 días (tarjetas, deudas y metas) y lo vencido hace poco. Se ve siempre, sin depender de notificaciones.
+const WEEK_ST = { c: ["fa-credit-card", "#FF9500", "Tarjetas"], d: ["fa-hand-holding-dollar", "#FF3B30", "Deudas"], g: ["fa-flag-checkered", "#34C759", "Ahorro"] };
+function weekUI() {
+    const E = weekEvents();
+    if (!E.length) return "";
+    const late = E.filter(e => e.days < 0).length;
+    const rows = E.map(e => {
+        const st = WEEK_ST[e.k], nm = e.title.replace(/^Mi Plata · /, ""), cl = e.days < 0 ? "text-rose-500 font-semibold" : e.days <= 2 ? "text-amber-500 font-semibold" : "text-slate-400";
+        return `
+        <button onclick="goTab(${N.indexOf(st[2])})" class="ios-row w-full flex items-center gap-3 py-2.5 text-left active:opacity-60 transition-opacity">
+            <span class="w-9 h-9 shrink-0 rounded-[10px] flex items-center justify-center text-sm text-white" style="background:${st[1]}"><i class="fa-solid ${st[0]}"></i></span>
+            <div class="min-w-0 flex-1">
+                <strong class="text-sm font-semibold text-slate-800 dark:text-white block truncate">${esc(nm)}</strong>
+                <small class="text-xs ${cl}">${e.what} · ${dueTxt(e.days)}</small>
+            </div>
+            <div class="text-right shrink-0">
+                <b class="text-sm font-bold text-slate-800 dark:text-white block">${e.amt}</b>
+                ${e.k == "g" ? '<small class="text-[10px] text-slate-400 uppercase">faltan</small>' : '<small class="text-[10px] text-slate-400 uppercase">por pagar</small>'}
+            </div>
+        </button>`;
+    }).join("");
+    return `
+        <section class="${CARD} p-5 pb-3">
+            <div class="flex items-center justify-between mb-1">
+                <h3 class="text-sm font-bold text-slate-800 dark:text-white"><i class="fa-regular fa-calendar-check text-indigo-500 mr-1.5"></i>Esta semana</h3>
+                <span class="text-xs ${late ? "text-rose-500 font-semibold" : "text-slate-400"}">${late ? late + (late == 1 ? " vencido" : " vencidos") : E.length + (E.length == 1 ? " pendiente" : " pendientes")}</span>
+            </div>
+            ${rows}
+        </section>`;
+}
+
 // ---------- Formulario "Anotar movimiento" (vive en un modal que abre el botón flotante +) ----------
 function movFormHTML() {
     const names = type == "g" ? G.filter(x => x[0] != "Ahorro").map(x => x[0]) : I;
@@ -332,7 +380,7 @@ function vHome() {
         const t = goalTotal(a), p = a.g ? Math.min(100, t / a.g * 100) : 0, gi = goalInfo(a);
         const tag = gi && !gi.done ? `<span class="${gi.late ? "text-rose-500" : gi.days <= 30 || !gi.ok ? "text-amber-500" : "text-slate-400"} ml-1">· ${gi.late ? "venció" : gi.days + " d"}</span>` : "";
         return `<div class="mb-3 last:mb-0"><div class="flex justify-between text-xs mb-1 font-medium"><span>${esc(a.n)}${tag}</span><span>${fm(a, t)}${a.g ? " de " + fm(a, a.g) : ""}</span></div>${a.g ? `<div class="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden"><div class="bg-emerald-500 h-full rounded-full" style="width:${p}%"></div></div>` : ""}</div>`;
-    }).join("") || '<p class="text-xs text-slate-400 text-center py-2">Crea metas en la pestaña Ahorro.</p>';
+    }).join("") || '<p class="text-xs text-slate-400 text-center py-2">Aún no tienes metas. Toca aquí para crear la primera.</p>';
 
     // Secciones que se pliegan (ver colSec): lo gastado por categoría y la lista de movimientos
     const gasTot = by.reduce((s, x) => s + x[1], 0), nMov = baseItems().filter(fltMatch).filter(matchQ).length;
@@ -341,10 +389,12 @@ function vHome() {
                 ${by.map(([c, v]) => {
                     const bi = budInfo(c, ym(cur)), b = bi.tot, r = b ? v / b : v / mx;
                     return `<div class="text-xs cursor-pointer rounded-xl -mx-2 px-2 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition" role="button" tabindex="0" onclick="openCat('${esc(c)}')" onkeydown="if(event.key==='Enter')openCat('${esc(c)}')" title="Ver las compras de ${esc(c)}">
+                      <div class="flex items-center gap-3">${catChip(c)}<div class="min-w-0 flex-1">
                         <div class="flex justify-between mb-1 font-medium"><span>${esc(c)}<i class="fa-solid fa-chevron-right text-[8px] text-slate-300 ml-1.5"></i></span><span>${fmt(v)}${b ? " de " + fmt(b) : ""}</span></div>
                         <div class="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden"><div class="h-full rounded-full ${b && r >= 1 ? "bg-rose-500" : b && r >= 0.8 ? "bg-amber-500" : "bg-indigo-600"}" style="width:${Math.min(100, r * 100)}%"></div></div>${b && (bi.carry > 0 || bi.ov) ? `<div class="text-[10px] text-slate-400 mt-1">${[bi.ov ? "ajustado solo este mes" : "", bi.carry > 0 ? "incluye " + fmt(bi.carry) + " que sobraron del mes anterior" : ""].filter(Boolean).join(" · ")}</div>` : ""}
+                      </div></div>
                     </div>`;
-                }).join("") || '<p class="text-xs text-slate-400 text-center py-4">Aún no hay gastos este mes.</p>'}`;
+                }).join("") || emptyUI("fa-chart-pie", "#FF9500", "Aún no hay gastos este mes", "Cuando anotes gastos, aquí verás en qué categorías se va tu plata.", "Anotar un gasto", "openMov()", true)}`;
     const catsSec = colSec("cats",
         `<h3 class="text-sm font-bold text-slate-800 dark:text-white">En qué se va la plata</h3>`,
         `<p class="text-xs text-slate-400 mt-0.5">${by.length} ${by.length == 1 ? "categoría" : "categorías"} · ${fmt(gasTot)}</p>`,
@@ -365,7 +415,7 @@ function vHome() {
     return `
         ${bkUI()}
         ${recUI()}
-        <section class="relative overflow-hidden bg-gradient-to-b from-indigo-600 to-indigo-700 text-white p-6 rounded-[20px] shadow-sm flex flex-col justify-between">
+        <section data-hero class="relative overflow-hidden bg-gradient-to-b from-indigo-600 to-indigo-700 text-white p-6 rounded-[20px] shadow-sm flex flex-col justify-between">
             <div class="flex justify-between items-start">
                 <div>
                     <p class="text-xs font-medium uppercase tracking-wider text-indigo-200">Disponible para gastar</p>
@@ -386,6 +436,8 @@ function vHome() {
             </div>
         </section>
 
+        ${weekUI()}
+
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div onclick="goTab(${N.indexOf("Ahorro")})" class="${CARD} p-4 cursor-pointer hover:border-indigo-500 transition lift">
                 <div class="flex justify-between items-center mb-1"><span class="text-xs font-semibold text-slate-500">Ahorros y Metas</span><i class="fa-solid fa-piggy-bank text-indigo-500"></i></div>
@@ -404,6 +456,7 @@ function vHome() {
                 <h3 class="text-sm font-bold text-slate-800 dark:text-white">Últimos movimientos</h3>
                 <button onclick="openAllMov()" class="text-xs font-semibold text-indigo-600 dark:text-indigo-400">Ver todos</button>
             </div>
+            ${S.items.length ? '<p class="mv-hint text-[11px] text-slate-400 mb-1">Desliza para editar o borrar · mantén presionado para duplicar</p>' : ""}
             ${movListHTML(4)}
         </section>
 
@@ -480,7 +533,7 @@ function walPanel(a) {
                 <button onclick="newPk(${a.id})" class="px-3 py-1.5 bg-indigo-600 text-white rounded-xl text-xs font-semibold shadow-md">+ Nuevo bolsillo</button>
             </div>
             <p class="text-[11px] text-slate-400 mt-1">Plata que sigue en esta cuenta pero ya tiene dueño: no cuenta como «Disponible para gastar».</p>
-            ${pks || '<p class="text-xs text-slate-400 text-center py-4">Aún no tienes bolsillos en esta cuenta.</p>'}
+            ${pks || emptyUI("fa-box-archive", "#5856D6", "Sin bolsillos", "Aparta plata dentro de esta cuenta (arriendo, un viaje…) sin sacarla de ahí.", "Crear bolsillo", `newPk(${a.id})`, true)}
             <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mt-4 pt-3 border-t border-slate-100 dark:border-slate-800">Últimos movimientos</h4>
             ${mv || '<p class="text-xs text-slate-400 text-center py-4">Todavía no hay movimientos en esta cuenta.</p>'}
         </section>`;
@@ -566,7 +619,7 @@ function vAho() {
             ${Y > 0.5 ? `<p class="text-xs text-emerald-100 mt-1">Incluye ${fmt(Y)} de rendimiento ganado (estimado)</p>` : ""}
         </section>
         <div class="flex justify-between items-center mb-4"><h3 class="text-base font-bold">Mis Metas</h3><button onclick="newAcc()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold shadow-md">+ Nueva meta</button></div>
-        ${A || '<p class="text-xs text-slate-400 text-center py-6">Crea tu primera meta de ahorro.</p>'}${arcUI()}
+        ${A || emptyUI("fa-piggy-bank", "#34C759", "Aún no tienes metas", "Una meta es una cajita para algo concreto: un viaje, un fondo de emergencia, una compra. Mete plata y mira cómo crece.", "Crear la primera meta", "newAcc()")}${arcUI()}
     `;
 }
 
@@ -643,7 +696,7 @@ function vInv() {
             </div>
         </div>
         <div class="flex justify-between items-center mb-4"><h3 class="text-base font-bold">Mis Inversiones</h3><button onclick="newInv()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold shadow-md">+ Nueva Inversión</button></div>
-        ${R || '<p class="text-xs text-slate-400 text-center py-6">Agrega tu primera inversión.</p>'}
+        ${R || emptyUI("fa-chart-line", "#34C759", "Aún no tienes inversiones", "Registra tus ETFs, acciones o CDT para ver cuánto rinden y cómo está repartido tu portafolio.", "Agregar la primera inversión", "newInv()")}
         ${rbUI()}
         <p class="text-[11px] text-slate-400 mt-2">El rendimiento anual se calcula con la fecha de inicio y el valor actual, y solo aparece después de 30 días (antes exagera). Es una estimación: no descuenta comisiones ni impuestos.</p>
     `;
@@ -896,7 +949,7 @@ function vTar() {
     return `
         <div class="flex justify-between items-center mb-4"><h3 class="text-base font-bold">Mis Tarjetas de Crédito</h3><button onclick="newCard()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold shadow-md">+ Agregar tarjeta</button></div>
         ${summary}
-        ${cardsList || '<p class="text-xs text-slate-400 text-center py-6">Aún no tienes tarjetas registradas.</p>'}
+        ${cardsList || emptyUI("fa-credit-card", "#FF9500", "Aún no tienes tarjetas", "Agrega tu tarjeta de crédito para ver tu cupo, tus cuotas y cuándo toca pagar.", "Agregar tarjeta", "newCard()")}
     `;
 }
 
@@ -1045,7 +1098,7 @@ function catUI() {
         </div>`).join("");
     return `
         <div class="flex justify-between items-center mb-3">
-            <h3 class="text-base font-bold text-slate-800 dark:text-white">${esc(d.c)}</h3>
+            <h3 class="text-base font-bold text-slate-800 dark:text-white flex items-center gap-2.5 min-w-0">${catChip(d.c)}<span class="truncate">${esc(d.c)}</span></h3>
             <button onclick="closeModal()" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 flex items-center justify-center transition"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="flex gap-2 overflow-x-auto no-scrollbar pb-1 mb-3">
@@ -1086,7 +1139,7 @@ function vDeu() {
     }).join("");
     return `<section class="bg-gradient-to-b from-rose-500 to-rose-600 text-white p-6 rounded-[20px] shadow-sm mb-6"><small class="text-xs text-rose-100 font-medium uppercase tracking-wider">Total que debo</small><div class="text-3xl font-extrabold mt-1">${fmt(T)}</div></section>
         <div class="flex justify-between items-center mb-4"><h3 class="text-base font-bold">Mis Deudas</h3><button onclick="newDbt()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold shadow-md">+ Nueva deuda</button></div>
-        ${L || '<p class="text-xs text-slate-400 text-center py-6">Aquí anotas préstamos y deudas que no son de tarjeta.</p>'}
+        ${L || emptyUI("fa-hand-holding-dollar", "#FF3B30", "Sin deudas anotadas", "Aquí van los préstamos y deudas que no son de tarjeta. Si no tienes ninguna, ¡mejor!", "Anotar una deuda", "newDbt()")}
         ${planUI()}`;
 }
 
@@ -1122,7 +1175,7 @@ function vSet() {
     const bud = G.filter(g => g[0] != "Ahorro").map(([c]) => {
         const has = S.bud[c] > 0, ov = ((S.budm || {})[bmk] || {})[c], on = !!(S.budr || {})[c];
         return `<div class="text-xs">
-            <div class="flex items-center justify-between gap-3"><span class="font-medium">${c}</span><input inputmode="numeric" value="${S.bud[c] ? Number(S.bud[c]).toLocaleString("es-CO") : ""}" placeholder="Sin límite" oninput="fa(this)" onchange="setBud('${c}', this.value)" class="w-36 px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-right"></div>
+            <div class="flex items-center justify-between gap-3"><span class="font-medium flex items-center gap-2.5 min-w-0">${catChip(c, 1)}<span class="truncate">${c}</span></span><input inputmode="numeric" value="${S.bud[c] ? Number(S.bud[c]).toLocaleString("es-CO") : ""}" placeholder="Sin límite" oninput="fa(this)" onchange="setBud('${c}', this.value)" class="w-36 px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-right"></div>
             ${has || ov ? `<div class="flex items-center justify-between gap-3 mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">
                 <label class="flex items-center gap-1.5"><input type="checkbox" ${on ? "checked" : ""} onchange="togBudRoll('${c}')" class="ios-switch sm">Acumular lo que sobre</label>
                 <span class="flex items-center gap-1.5">Solo ${mlab}<input inputmode="numeric" value="${ov ? Number(ov).toLocaleString("es-CO") : ""}" placeholder="igual" oninput="fa(this)" onchange="setBudMonth('${c}', this.value)" class="w-24 px-2 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-right"></span>
@@ -1133,7 +1186,7 @@ function vSet() {
     const rec = S.rec.map(r => `<div class="flex justify-between items-center gap-2 text-xs py-1"><span class="min-w-0">${esc(r.n)} · día ${r.day} · ${r.vr ? "≈ " : ""}${fmt(r.a)}${r.vr ? ' <span class="text-amber-500">· cambia cada mes</span>' : ""}</span><span class="flex gap-3 shrink-0"><button onclick="editRec(${r.id})" class="text-indigo-600 font-semibold">Editar</button><button onclick="delRec(${r.id})" class="text-rose-500 font-semibold">Borrar</button></span></div>`).join("") || '<p class="text-xs text-slate-400">Sin gastos fijos.</p>';
     const np = typeof Notification == "undefined" ? "no" : Notification.permission;
     const bgOk = typeof ServiceWorkerRegistration != "undefined" && "periodicSync" in ServiceWorkerRegistration.prototype;
-    const cats = S.cat.map(c => `<div class="flex justify-between items-center text-xs py-1"><span>${esc(c.n)} · <span class="text-slate-400">${c.k == "n" ? "Necesidad" : "Gusto"}</span></span><span class="flex gap-3"><button onclick="editCat(${c.id})" class="text-indigo-600 font-semibold">Editar</button><button onclick="delCat(${c.id})" class="text-rose-500 font-semibold">Borrar</button></span></div>`).join("") || '<p class="text-xs text-slate-400">Aún no has creado categorías propias.</p>';
+    const cats = S.cat.map(c => `<div class="flex justify-between items-center text-xs py-1"><span class="flex items-center gap-2.5 min-w-0">${catChip(c.n, 1)}<span class="truncate">${esc(c.n)} · <span class="text-slate-400">${c.k == "n" ? "Necesidad" : "Gusto"}</span></span></span><span class="flex gap-3"><button onclick="editCat(${c.id})" class="text-indigo-600 font-semibold">Editar</button><button onclick="delCat(${c.id})" class="text-rose-500 font-semibold">Borrar</button></span></div>`).join("") || '<p class="text-xs text-slate-400">Aún no has creado categorías propias.</p>';
     return `
         ${themeUI()}
         <section class="${card}"><div class="flex justify-between items-center"><h3 class="text-base font-bold">Mis categorías</h3><button onclick="newCat()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold">+ Nueva</button></div>
@@ -1144,7 +1197,7 @@ function vSet() {
         <section class="${card}"><h3 class="text-base font-bold">Ocultar del resumen</h3><p class="text-xs text-slate-400">Lo que ocultes no suma en “En mano” ni en “Tarjetas”, y sus gastos no salen en el resumen ni en las gráficas.</p>${hidUI()}</section>
         <section class="${card}"><h3 class="text-base font-bold">Avisos de metas</h3>
             <p class="text-xs text-slate-400">Te avisa de metas (7 días antes), tarjetas y deudas con día de pago (3 días antes) y hasta 7 días después si siguen pendientes. Siempre lo ves también en los Consejos de Inicio.</p>
-            <p class="text-xs text-slate-400">${bgOk ? "Si instalaste la app en Chrome (Android), también intenta avisarte en segundo plano sin que la abras. El sistema decide cuándo, así que no es exacto ni está garantizado." : "En este navegador los avisos solo llegan cuando abres la app. Para recibirlos sin abrirla se necesita Chrome en Android con la app instalada."}</p>
+            <p class="text-xs text-slate-400">${bgOk ? "Si instalaste la app en Chrome (Android), también intenta avisarte en segundo plano sin que la abras. El sistema decide cuándo, así que no es exacto ni está garantizado." : "En este navegador los avisos solo llegan cuando abres la app (en iPhone no hay avisos en segundo plano). Por eso en Inicio tienes la tarjeta «Esta semana» con lo que vence."}</p>
             ${np == "no" ? '<p class="text-xs text-slate-400">Este navegador no permite notificaciones.</p>'
               : np == "granted" ? '<p class="text-xs text-emerald-500 font-semibold">Avisos activados ✓</p><button onclick="testNotif()" class="px-4 py-2 bg-slate-800 dark:bg-slate-700 text-white font-semibold rounded-xl text-xs">Enviar aviso de prueba</button>'
               : np == "denied" ? '<p class="text-xs text-rose-500">Los bloqueaste en el navegador. Actívalos desde los permisos del sitio.</p>'

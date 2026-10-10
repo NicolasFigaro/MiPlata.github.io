@@ -78,3 +78,27 @@ const accent = (n, a, v) => {
     return a == null || a == 1 ? "rgb(" + c + ")" : "rgba(" + c + "," + a + ")";
 };
 applyTheme();
+
+// ---- Tamaño de letra del sistema (iOS "Dynamic Type") ----
+// En iPhone/iPad, "font: -apple-system-body" devuelve el tamaño que la persona eligió en Ajustes > Pantalla y brillo > Tamaño del texto
+// (17px = el normal). Con eso se calcula --fs, que mejoras.css usa para escalar solo los textos. Fuera de Apple no hace nada.
+function applyTextScale() {
+    try {
+        if (!(window.CSS && CSS.supports && CSS.supports("font", "-apple-system-body"))) return;
+        const p = document.createElement("div");
+        p.style.cssText = "font:-apple-system-body;position:absolute;left:-999px;top:0;visibility:hidden;pointer-events:none";
+        p.textContent = "A";
+        (document.body || document.documentElement).appendChild(p);
+        const px = parseFloat(getComputedStyle(p).fontSize);
+        p.remove();
+        if (!(px > 0)) return;
+        const s = Math.min(1.5, Math.max(.85, px / 17)).toFixed(3); // tope: más allá de 150% la pantalla se desarma
+        document.documentElement.style.setProperty("--fs", s);
+        try { localStorage.setItem("miplata_fs", s); } catch (e) {}
+    } catch (e) {}
+}
+// Se aplica de una vez con el último valor guardado (sin parpadeo) y se corrige apenas carga la página
+try { const c = parseFloat(localStorage.getItem("miplata_fs")); if (c > 0) document.documentElement.style.setProperty("--fs", String(c)); } catch (e) {}
+document.addEventListener("DOMContentLoaded", applyTextScale);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) applyTextScale(); }); // al volver de Ajustes de iOS con otro tamaño
+window.addEventListener("pageshow", applyTextScale);

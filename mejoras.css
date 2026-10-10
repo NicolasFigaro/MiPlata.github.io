@@ -1,0 +1,57 @@
+/* ===== Mi Plata · mejoras.css =====
+   Estilos de las mejoras de la versión 8. Va aparte de styles.css para no tocarlo. Se carga después de styles.css. */
+
+/* ---- Aviso con botón "Deshacer" ----
+   Mientras está escondido no debe tapar toques (antes quedaba invisible encima de la barra de pestañas). */
+#toast { max-width: calc(100vw - 2.5rem); }
+#toast.opacity-0 { pointer-events: none; }
+#toast .toast-act { flex-shrink: 0; padding: 2px 4px; font-weight: 700; white-space: nowrap; color: rgb(var(--p-300)); }
+.dark #toast .toast-act { color: rgb(var(--p-600)); }
+#toast .toast-act:active { opacity: .6; }
+
+/* ---- Deslizar el mes en la tarjeta de disponible ---- */
+[data-hero] { touch-action: pan-y; }
+@keyframes heroR { from { opacity: .35; transform: translateX(28px); } to { opacity: 1; transform: none; } }
+@keyframes heroL { from { opacity: .35; transform: translateX(-28px); } to { opacity: 1; transform: none; } }
+.hero-r { animation: heroR .3s cubic-bezier(.22, 1, .36, 1); }
+.hero-l { animation: heroL .3s cubic-bezier(.22, 1, .36, 1); }
+
+/* ---- Mantener presionado un movimiento para duplicarlo ---- */
+.swipe-in { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+@keyframes lpHold { to { opacity: .45; } }
+.swipe-in.lp-hold { animation: lpHold .43s ease-out forwards; }
+/* La pista solo tiene sentido en pantallas táctiles */
+@media (hover: hover) and (pointer: fine) { .mv-hint { display: none; } }
+
+/* ---- Tamaño de letra del sistema (Dynamic Type de iOS) ----
+   tema.js calcula --fs (1 = tamaño normal de iOS) y aquí solo se escalan los TEXTOS, no los espacios.
+   Los tamaños en px de Tailwind no escalan solos, por eso se redefinen con la variable.
+   (html delante = más prioridad que las clases que genera Tailwind.) */
+html .text-xs { font-size: calc(.75rem * var(--fs, 1)); }
+html .text-sm { font-size: calc(.875rem * var(--fs, 1)); }
+html .text-base { font-size: calc(1rem * var(--fs, 1)); }
+html .text-lg { font-size: calc(1.125rem * var(--fs, 1)); }
+html .text-xl { font-size: calc(1.25rem * var(--fs, 1)); }
+html .text-2xl { font-size: calc(1.5rem * var(--fs, 1)); }
+html .text-3xl { font-size: calc(1.875rem * var(--fs, 1)); }
+html .text-xs:not([class*="leading-"]) { line-height: calc(1rem * var(--fs, 1)); }
+html .text-sm:not([class*="leading-"]) { line-height: calc(1.25rem * var(--fs, 1)); }
+html .text-base:not([class*="leading-"]) { line-height: calc(1.5rem * var(--fs, 1)); }
+html .text-lg:not([class*="leading-"]), html .text-xl:not([class*="leading-"]) { line-height: calc(1.75rem * var(--fs, 1)); }
+html .text-2xl:not([class*="leading-"]) { line-height: calc(2rem * var(--fs, 1)); }
+html .text-3xl:not([class*="leading-"]) { line-height: calc(2.25rem * var(--fs, 1)); }
+html .text-\[7px\] { font-size: calc(7px * var(--fs, 1)); }
+html .text-\[8px\] { font-size: calc(8px * var(--fs, 1)); }
+html .text-\[10px\] { font-size: calc(10px * var(--fs, 1)); }
+html .text-\[11px\] { font-size: calc(11px * var(--fs, 1)); }
+html .text-\[17px\] { font-size: calc(17px * var(--fs, 1)); }
+html .text-\[21px\] { font-size: calc(21px * var(--fs, 1)); }
+html .text-\[34px\] { font-size: calc(34px * var(--fs, 1)); }
+html .leading-\[41px\] { line-height: calc(41px * var(--fs, 1)); }
+@media (min-width: 640px) {
+    html .sm\:text-sm { font-size: calc(.875rem * var(--fs, 1)); }
+    html .sm\:text-sm:not([class*="leading-"]) { line-height: calc(1.25rem * var(--fs, 1)); }
+}
+/* La barra de pestañas se queda con su tamaño (como en iOS) para que no se desarme */
+html #tabBar .text-\[10px\] { font-size: 10px; }
+html #tabBar .text-\[21px\] { font-size: 21px; }

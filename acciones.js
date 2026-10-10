@@ -41,6 +41,54 @@ function buzz() {
     });
 })();
 
+// Deslizar el mes: arrastrar la tarjeta "Disponible para gastar" hacia la izquierda (mes siguiente) o hacia la derecha (mes anterior)
+(() => {
+    const L = document.getElementById("appMain");
+    let el = null, x0 = 0, y0 = 0, dx = 0, mode = null;
+    L.addEventListener("touchstart", e => {
+        el = e.target.closest("[data-hero]");
+        if (!el || e.touches.length > 1) { el = null; return; }
+        const t = e.touches[0]; x0 = t.clientX; y0 = t.clientY; dx = 0; mode = null;
+    }, { passive: true });
+    L.addEventListener("touchmove", e => {
+        if (!el) return;
+        const t = e.touches[0], dy = t.clientY - y0; dx = t.clientX - x0;
+        if (mode === null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) mode = Math.abs(dx) > Math.abs(dy) * 1.2 ? "h" : "v";
+        if (mode !== "h") return;
+        el.style.transition = "none"; el.style.transform = "translateX(" + Math.max(-60, Math.min(60, dx * .35)) + "px)"; // se mueve un poco, con resistencia
+    }, { passive: true });
+    const end = ok => {
+        if (!el) return;
+        const h = el, d = dx, go1 = ok && mode === "h" && Math.abs(d) > 70; el = null;
+        h.style.transition = "transform .25s cubic-bezier(.32,.72,0,1)"; h.style.transform = "";
+        if (go1) { buzz(); go(d < 0 ? 1 : -1); }
+    };
+    L.addEventListener("touchend", () => end(true));
+    L.addEventListener("touchcancel", () => end(false));
+})();
+// Mantener presionado un movimiento (medio segundo) lo duplica para hoy. Ver dupMov().
+(() => {
+    const L = document.getElementById("appMain");
+    let tm = null, row = null, x0 = 0, y0 = 0;
+    const stop = () => { clearTimeout(tm); tm = null; if (row) { row.classList.remove("lp-hold"); row = null; } };
+    L.addEventListener("touchstart", e => {
+        stop();
+        const r = e.target.closest(".swipe-in");
+        if (!r || !r.dataset.id || e.touches.length > 1) return;
+        const t = e.touches[0]; x0 = t.clientX; y0 = t.clientY; row = r;
+        setTimeout(() => { if (row === r && tm) r.classList.add("lp-hold"); }, 120); // la fila se atenúa para que se note que va a pasar algo
+        tm = setTimeout(() => { const id = +r.dataset.id; stop(); buzz(); dupMov(id); }, 550);
+    }, { passive: true });
+    L.addEventListener("touchmove", e => {
+        if (!tm) return;
+        const t = e.touches[0];
+        if (Math.abs(t.clientX - x0) > 8 || Math.abs(t.clientY - y0) > 8) stop(); // si deslizas o haces scroll, se cancela
+    }, { passive: true });
+    L.addEventListener("touchend", stop);
+    L.addEventListener("touchcancel", stop);
+    L.addEventListener("contextmenu", e => { if (e.target.closest(".swipe-in")) e.preventDefault(); }); // sin menú del navegador al mantener presionado
+})();
+
 // Pestañas de la barra inferior: [índice en N (-1 = menú "Más"), nombre, icono]. Inversión, Gráficas, Deudas y Ajustes viven dentro de "Más".
 const TB = [[0, "Inicio", "fa-house"], [1, "Cuentas", "fa-wallet"], [2, "Ahorro", "fa-piggy-bank"], [5, "Tarjetas", "fa-credit-card"], [-1, "Más", "fa-ellipsis"]];
 const tbOn = i => i == -1 ? (tab == -1 || MORE.includes(tab)) : tab == i;
@@ -70,7 +118,11 @@ function draw() {
     if (keepY !== null) window.scrollTo(0, keepY);
     updNav();
 }
-function go(n) { cur.setMonth(cur.getMonth() + n); draw(); }
+function go(n) {
+    cur.setMonth(cur.getMonth() + n); draw();
+    const h = document.querySelector("[data-hero]"); // la tarjeta entra desde el lado hacia el que avanzas
+    if (h && n) { h.classList.remove("hero-l", "hero-r"); void h.offsetWidth; h.classList.add(n > 0 ? "hero-r" : "hero-l"); }
+}
 let navDir = null; // "fwd" / "back" al entrar o salir de una pantalla dentro de "Más"; null = cambio de pestaña (entra con fundido)
 function goTab(i) {
     navDir = tab == -1 && MORE.includes(i) ? "fwd" : MORE.includes(tab) && i == -1 ? "back" : null;
@@ -210,13 +262,19 @@ function confirmAction(msg, cb) {
     document.getElementById("okConfirmBtn").onclick = () => { closeModal(); cb(); draw(); };
 }
 let toastTimer;
-function showToast(msg, warn) {
-    const t = document.getElementById("toast");
+// act (opcional) = { label, fn, ic }: agrega un botón al aviso (ej. "Deshacer"). Con botón el aviso dura 6 segundos.
+function showToast(msg, warn, act) {
+    const t = document.getElementById("toast"), b = document.getElementById("toastAct");
     document.getElementById("toastMessage").textContent = msg;
-    document.getElementById("toastIcon").className = "fa-solid " + (warn ? "fa-triangle-exclamation text-amber-400" : "fa-circle-check text-emerald-400");
+    document.getElementById("toastIcon").className = "fa-solid " + (act && act.ic ? act.ic : warn ? "fa-triangle-exclamation text-amber-400" : "fa-circle-check text-emerald-400");
+    if (b) {
+        b.classList.toggle("hidden", !act);
+        b.textContent = act ? act.label : "";
+        b.onclick = act ? () => { clearTimeout(toastTimer); t.classList.add("translate-y-20", "opacity-0"); act.fn(); } : null;
+    }
     t.classList.remove("translate-y-20", "opacity-0");
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => t.classList.add("translate-y-20", "opacity-0"), warn ? 5000 : 3000);
+    toastTimer = setTimeout(() => t.classList.add("translate-y-20", "opacity-0"), act ? 6000 : warn ? 5000 : 3000);
 }
 function fa(e) { const v = e.value.replace(/\D/g, ""); e.value = v ? Number(v).toLocaleString("es-CO") : ""; }
 
@@ -359,7 +417,43 @@ function addMov() {
     closeModal();
     draw();
 }
-function delMovItem(id) { confirmAction("¿Borrar este movimiento?", () => { buzz(); S.items = S.items.filter(y => y.id != id); save(); }); }
+// Borrar un movimiento: se borra al instante y aparece "Deshacer" unos segundos (más rápido que preguntar).
+// Si borras varios seguidos, cada "Deshacer" devuelve el último, y así hacia atrás, mientras dure el aviso.
+let undoQ = [], undoT = null;
+function showUndo(msg) {
+    clearTimeout(undoT);
+    showToast(msg, false, { label: undoQ.length > 1 ? "Deshacer (" + undoQ.length + ")" : "Deshacer", ic: "fa-trash text-rose-400", fn: () => {
+        const u = undoQ.pop(); if (u) u();
+        buzz();
+        if (undoQ.length) showUndo("Restaurado · te quedan " + undoQ.length + " por deshacer");
+        else showToast("Movimiento restaurado");
+    } });
+    undoT = setTimeout(() => { undoQ = []; }, 6000);
+}
+function delMovItem(id) {
+    const i = S.items.findIndex(y => y.id == id); if (i < 0) return;
+    const x = S.items[i];
+    buzz(); S.items.splice(i, 1); save(); draw();
+    undoQ.push(() => { S.items.push(x); save(); draw(); });
+    showUndo("Movimiento borrado");
+}
+// Duplicar un movimiento para hoy (mantener presionado en el celular, o el botón de copiar en computador).
+// Sirve para lo que se repite: el almuerzo, el bus… Los pagos de tarjeta y de deudas no se duplican (se hacen desde su pestaña).
+function dupMov(id) {
+    const x = S.items.find(y => y.id == id); if (!x) return;
+    if (x.t == "p" || x.dbt) return showToast("Los pagos de tarjetas y deudas se hacen desde su pestaña, no se duplican.", true);
+    const acc = x.sav ? S.acc.find(a => a.id == x.sav) : null;
+    if (x.sav && !acc) return showToast("La meta de este gasto ya no existe, no se puede duplicar.", true);
+    let nid = Date.now(); while (S.items.some(y => y.id == nid || y.id == nid + 1) || S.sv.some(y => y.id == nid + 1)) nid += 2;
+    const n = Object.assign({}, x, { id: nid, d: today() }); delete n.rid; // no es el gasto fijo del mes, es uno nuevo
+    S.items.push(n);
+    let sv = null;
+    if (acc) { sv = { id: nid + 1, a: acc.id, d: n.d, v: acc.u ? -(n.a / S.trm) : -n.a, cp: -n.a, w: "" }; S.sv.push(sv); } // sale de la misma meta, igual que el original
+    save();
+    cur = new Date(n.d + "T00:00:00"); cur.setDate(1); // se muestra el mes de hoy para que veas el nuevo
+    draw();
+    showToast("Duplicado para hoy · " + fmt(n.a), false, { label: "Deshacer", fn: () => { S.items = S.items.filter(y => y !== n); if (sv) S.sv = S.sv.filter(y => y !== sv); save(); draw(); } });
+}
 function editM(id) {
     const x = S.items.find(y => y.id == id); if (!x) return;
     openCustomModal("Editar movimiento", [
