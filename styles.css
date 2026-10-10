@@ -145,3 +145,20 @@ html.dark[data-theme="ios"] :is(.text-rose-500, .text-rose-600, .dark\:text-rose
 .dark .swipe:not(:last-child) > .swipe-in::after { background: rgb(var(--n-800)); }
 /* En pantallas táctiles se usa el gesto; los iconos de lápiz y papelera quedan para el mouse */
 @media (pointer: coarse) { .mv-btns { display: none; } }
+
+/* Transición al entrar/salir de una pantalla dentro de "Más" (como el push de iOS) */
+@keyframes slideFwd { from { opacity: 0; transform: translateX(36px); } to { opacity: 1; transform: none; } }
+@keyframes slideBack { from { opacity: 0; transform: translateX(-36px); } to { opacity: 1; transform: none; } }
+#appMain.nav-fwd { animation: slideFwd .38s cubic-bezier(.32, .72, 0, 1) both; }
+#appMain.nav-back { animation: slideBack .38s cubic-bezier(.32, .72, 0, 1) both; }
+[data-col] { scroll-margin-top: calc(60px + env(safe-area-inset-top, 0px)); }
+
+/* Formulario de movimiento: monto grande y cuadrícula de categorías */
+#amt.amt-big { font-size: 44px !important; line-height: 1.1; }
+.cat-tile { -webkit-tap-highlight-color: transparent; }
+.cat-tile .cat-ic { transition: transform .15s ease, box-shadow .15s ease; }
+.cat-tile:active .cat-ic { transform: scale(.92); }
+.cat-tile.on .cat-ic { box-shadow: 0 0 0 3px rgb(var(--n-50)), 0 0 0 5px rgb(var(--p-500)); }
+.dark .cat-tile.on .cat-ic { box-shadow: 0 0 0 3px rgb(var(--n-900)), 0 0 0 5px rgb(var(--p-400)); }
+.cat-tile.on .cat-nm { color: rgb(var(--p-600)); font-weight: 600; }
+.dark .cat-tile.on .cat-nm { color: rgb(var(--p-400)); }

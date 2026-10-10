@@ -5,7 +5,7 @@ const N = ["Inicio", "Cuentas", "Ahorro", "Inversión", "Gráficas", "Tarjetas",
 const V = [vHome, vCue, vAho, vInv, vGra, vTar, vDeu, vSet];
 // Pestañas que viven dentro del menú "Más" de la barra inferior (índices de N)
 const MORE = [3, 4, 6, 7];
-const APP_VER = "5";
+const APP_VER = "6";
 const MORE_IC = { "Inversión": ["fa-chart-line", "#34C759"], "Gráficas": ["fa-chart-pie", "#FF9500"], "Deudas": ["fa-hand-holding-dollar", "#FF3B30"], "Ajustes": ["fa-gear", "#8E8E93"] };
 function vMore() {
     return `
@@ -23,7 +23,9 @@ function vMore() {
 // ---------- Piezas de Inicio ----------
 // Sección que se pliega al tocar su encabezado (se anima con CSS, sin volver a pintar la pantalla). El estado queda guardado en S.th.col ({ id: 1 } = plegada).
 // head = encabezado siempre visible, peek = resumen que se ve solo cuando está plegada, body = contenido.
-const colOpen = id => !((S.th.col || {})[id]);
+// Secciones de Inicio que arrancan plegadas (hasta que la persona las abra: queda guardado)
+const DEF_CLOSED = ["mov", "cats", "tips", "nw"];
+const colOpen = id => { const c = (S.th.col || {})[id]; return c === undefined ? !DEF_CLOSED.includes(id) : !c; };
 function colSec(id, head, peek, body, cls) {
     const open = colOpen(id);
     return `
@@ -124,10 +126,10 @@ function fltUI(m) {
 }
 
 // Lista de movimientos (se redibuja sola mientras escribes en el buscador)
-function movListHTML() {
-    const rows = baseItems().filter(fltMatch).filter(matchQ).sort((a, b) => b.d.localeCompare(a.d) || b.id - a.id);
+function movListHTML(lim) { // lim: solo los últimos N (ignora filtros y buscador); sin lim: la lista completa filtrada
+    const rows = (lim ? baseItems() : baseItems().filter(fltMatch).filter(matchQ)).sort((a, b) => b.d.localeCompare(a.d) || b.id - a.id).slice(0, lim || 1e9);
     if (!rows.length) return '<p class="text-xs text-slate-400 text-center py-4">' + (flt.k != "all" || sqry ? "No hay movimientos con este filtro." : "Toca el botón + para anotar tu primer movimiento.") + '</p>';
-    const head = sqry || sall ? (() => {
+    const head = !lim && (sqry || sall) ? (() => {
         const g = rows.filter(x => x.t == "g").reduce((s, x) => s + x.a, 0), i = rows.filter(x => x.t == "i").reduce((s, x) => s + x.a, 0);
         return `<p class="text-[11px] text-slate-400 pb-2">${rows.length} resultado${rows.length == 1 ? "" : "s"} · gastos ${fmt(g)} · ingresos ${fmt(i)}</p>`;
     })() : "";
@@ -260,43 +262,54 @@ function recUI() {
 
 // ---------- Formulario "Anotar movimiento" (vive en un modal que abre el botón flotante +) ----------
 function movFormHTML() {
-    const cats = (type == "g" ? G.filter(x => x[0] != "Ahorro").map(x => x[0]) : I).map(c => `<option>${c}</option>`).join("") + (type == "g" ? '<option value="__new">＋ Nueva categoría…</option>' : "");
-    const sel = "w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-white";
+    const names = type == "g" ? G.filter(x => x[0] != "Ahorro").map(x => x[0]) : I;
+    // El <select id="cat"> sigue existiendo (escondido): guardar, editar y "nueva categoría" lo leen. La cuadrícula de iconos solo lo maneja.
+    const cats = names.map(c => `<option>${c}</option>`).join("") + (type == "g" ? '<option value="__new">＋ Nueva categoría…</option>' : "");
+    const tile = (c, i) => { const ic = catIc(c); return `<button type="button" data-cat="${esc(c)}" onclick="pickCat(this.dataset.cat)" class="cat-tile ${i == 0 ? "on" : ""} flex flex-col items-center gap-1 min-w-0"><span class="cat-ic w-12 h-12 rounded-full flex items-center justify-center text-white text-lg" style="background:${ic[1]}"><i class="fa-solid ${ic[0]}"></i></span><span class="cat-nm text-[11px] text-slate-500 dark:text-slate-400 w-full truncate text-center">${esc(c)}</span></button>`; };
+    const newTile = type == "g" ? `<button type="button" data-cat="__new" onclick="pickCat('__new')" class="cat-tile flex flex-col items-center gap-1 min-w-0"><span class="w-12 h-12 rounded-full flex items-center justify-center text-slate-400 border-2 border-dashed border-slate-300 dark:border-slate-600 text-lg"><i class="fa-solid fa-plus"></i></span><span class="text-[11px] text-slate-500 dark:text-slate-400">Nueva</span></button>` : "";
+    const sel = "w-full px-3.5 py-3 bg-slate-100 dark:bg-slate-800 border-0 rounded-xl text-sm text-slate-800 dark:text-white";
     return `
         <div class="flex justify-between items-center mb-4">
             <h3 class="text-base font-bold text-slate-800 dark:text-white">Anotar movimiento</h3>
             <div class="flex items-center gap-2">
-                <button onclick="newTransfer()" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold">↔ Transferir</button>
+                <button onclick="newTransfer()" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-full text-xs font-semibold">↔ Transferir</button>
                 <button onclick="closeModal()" aria-label="Cerrar" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 flex items-center justify-center transition"><i class="fa-solid fa-xmark"></i></button>
             </div>
         </div>
-            <div class="grid grid-cols-2 gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl mb-4">
-                <button type="button" onclick="setType('g')" class="py-2 rounded-xl text-xs font-bold transition ${type == 'g' ? 'bg-white dark:bg-slate-700 text-rose-600 shadow-sm' : 'text-slate-500'}">Gasto</button>
-                <button type="button" onclick="setType('i')" class="py-2 rounded-xl text-xs font-bold transition ${type == 'i' ? 'bg-white dark:bg-slate-700 text-emerald-600 shadow-sm' : 'text-slate-500'}">Ingreso</button>
+        <div class="grid grid-cols-2 gap-0.5 p-0.5 bg-slate-100 dark:bg-slate-800 rounded-[10px] mb-3">
+            <button type="button" onclick="setType('g')" class="py-1.5 rounded-lg text-sm font-semibold transition ${type == 'g' ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400'}">Gasto</button>
+            <button type="button" onclick="setType('i')" class="py-1.5 rounded-lg text-sm font-semibold transition ${type == 'i' ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400'}">Ingreso</button>
+        </div>
+        <div class="space-y-4">
+            <div class="flex items-center justify-center gap-1.5 py-1">
+                <span class="text-3xl font-semibold text-slate-400">$</span>
+                <input id="amt" inputmode="numeric" enterkeyhint="done" placeholder="0" oninput="fa(this);cuotaPreview();metaPreview()" onkeydown="if(event.key==='Enter')this.blur()" class="amt-big min-w-0 w-full max-w-[260px] bg-transparent border-0 p-0 text-center font-bold tracking-tight text-slate-800 dark:text-white focus:ring-0 focus:outline-none" autocomplete="off">
             </div>
-            <div class="space-y-3">
-                <input id="amt" inputmode="numeric" placeholder="Monto en pesos" oninput="fa(this);cuotaPreview();metaPreview()" class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-lg font-bold text-slate-800 dark:text-white focus:ring-2 focus:ring-indigo-500" autocomplete="off">
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <select id="cat" onchange="catChange(this)" class="${sel}">${cats}</select>
+            <select id="cat" onchange="catChange(this)" class="hidden" aria-hidden="true" tabindex="-1">${cats}</select>
+            <div id="catGrid" class="grid grid-cols-4 gap-x-1 gap-y-3">${names.map(tile).join("")}${newTile}</div>
+            ${type == "g" ? `
+                <div class="grid grid-cols-2 gap-2">
                     <input id="date" type="date" value="${today()}" class="${sel}">
-                </div>
-                ${type == "g" ? `
                     <select id="cardSel" onchange="togCardOpts()" class="${sel}">
                         <optgroup label="Cuenta">${WH.map(x => `<option>${esc(x)}</option>`).join("")}</optgroup>
                         ${S.cards.length ? `<optgroup label="Tarjeta">${S.cards.map(c => `<option>${esc(c.n)}</option>`).join("")}</optgroup>` : ""}
                         ${S.acc.filter(a => !a.f).length ? `<optgroup label="Meta de ahorro">${S.acc.filter(a => !a.f).map(a => `<option value="meta:${a.id}">🎯 ${esc(a.n)}</option>`).join("")}</optgroup>` : ""}
                     </select>
-                    <div id="cardOpts" class="space-y-3 hidden">
-                        <input id="cq" inputmode="numeric" placeholder="Cuotas (ej. 3)" oninput="cuotaPreview()" class="${sel}">
-                        <select id="ci" onchange="cuotaPreview()" class="${sel}"><option>Con la tasa de la tarjeta</option><option>Sin interés</option></select>
-                        <p id="cqPrev" class="text-[11px] text-indigo-500 font-semibold min-h-[14px]"></p>
-                    </div>
-                    <p id="metaPrev" class="text-[11px] text-indigo-500 font-semibold min-h-[14px]"></p>` : `
-                    <select id="whSel" class="${sel}">${WH.map(w => `<option>${w}</option>`).join("")}</select>${destUI()}`}
-                <input id="note" placeholder="Nota o descripción (opcional)" class="${sel}" autocomplete="off">
-                <p class="text-rose-500 text-xs" id="msg"></p>
-                <button onclick="addMov()" class="w-full py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs shadow-lg shadow-indigo-500/20 transition">Guardar ${type == "g" ? "Gasto" : "Ingreso"}</button>
-            </div>
+                </div>
+                <div id="cardOpts" class="space-y-3 hidden">
+                    <input id="cq" inputmode="numeric" placeholder="Cuotas (ej. 3)" oninput="cuotaPreview()" class="${sel}">
+                    <select id="ci" onchange="cuotaPreview()" class="${sel}"><option>Con la tasa de la tarjeta</option><option>Sin interés</option></select>
+                    <p id="cqPrev" class="text-[11px] text-indigo-500 font-semibold min-h-[14px]"></p>
+                </div>
+                <p id="metaPrev" class="text-[11px] text-indigo-500 font-semibold min-h-[14px] -mt-2"></p>` : `
+                <div class="grid grid-cols-2 gap-2">
+                    <input id="date" type="date" value="${today()}" class="${sel}">
+                    <select id="whSel" class="${sel}">${WH.map(w => `<option>${w}</option>`).join("")}</select>
+                </div>${destUI()}`}
+            <input id="note" placeholder="Nota o descripción (opcional)" class="${sel}" autocomplete="off">
+            <p class="text-rose-500 text-xs" id="msg"></p>
+            <button onclick="addMov()" class="w-full py-3.5 rounded-[14px] bg-indigo-600 active:bg-indigo-700 text-white font-semibold text-base transition">Guardar ${type == "g" ? "gasto" : "ingreso"}</button>
+        </div>
     `;
 }
 
@@ -373,17 +386,6 @@ function vHome() {
             </div>
         </section>
 
-        <button onclick="openSim()" class="${CARD} w-full p-4 flex items-center gap-3 text-left hover:border-indigo-500 transition lift">
-            <div class="w-10 h-10 shrink-0 rounded-xl flex items-center justify-center bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400"><i class="fa-solid fa-circle-question"></i></div>
-            <div class="min-w-0 flex-1">
-                <p class="text-sm font-bold text-slate-800 dark:text-white">¿Puedo permitírmelo?</p>
-                <p class="text-[11px] text-slate-400 mt-0.5">Simula una compra y mira cómo cambia tu disponible antes de hacerla</p>
-            </div>
-            <i class="fa-solid fa-chevron-right text-xs text-slate-300"></i>
-        </button>
-
-        ${nwUI()}
-
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div onclick="goTab(${N.indexOf("Ahorro")})" class="${CARD} p-4 cursor-pointer hover:border-indigo-500 transition lift">
                 <div class="flex justify-between items-center mb-1"><span class="text-xs font-semibold text-slate-500">Ahorros y Metas</span><i class="fa-solid fa-piggy-bank text-indigo-500"></i></div>
@@ -397,11 +399,30 @@ function vHome() {
             </div>
         </div>
 
-        ${tipsUI(by)}
+        <section class="${CARD} p-5">
+            <div class="flex items-center justify-between mb-1">
+                <h3 class="text-sm font-bold text-slate-800 dark:text-white">Últimos movimientos</h3>
+                <button onclick="openAllMov()" class="text-xs font-semibold text-indigo-600 dark:text-indigo-400">Ver todos</button>
+            </div>
+            ${movListHTML(4)}
+        </section>
+
+        ${movSec}
 
         ${catsSec}
 
-        ${movSec}
+        ${tipsUI(by)}
+
+        ${nwUI()}
+
+        <button onclick="openSim()" class="${CARD} w-full p-4 flex items-center gap-3 text-left hover:border-indigo-500 transition lift">
+            <div class="w-10 h-10 shrink-0 rounded-xl flex items-center justify-center bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400"><i class="fa-solid fa-circle-question"></i></div>
+            <div class="min-w-0 flex-1">
+                <p class="text-sm font-bold text-slate-800 dark:text-white">¿Puedo permitírmelo?</p>
+                <p class="text-[11px] text-slate-400 mt-0.5">Simula una compra y mira cómo cambia tu disponible antes de hacerla</p>
+            </div>
+            <i class="fa-solid fa-chevron-right text-xs text-slate-300"></i>
+        </button>
     `;
 }
 

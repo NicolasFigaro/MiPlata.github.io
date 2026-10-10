@@ -4,7 +4,7 @@
 const G0 = [["Vivienda","n"],["Comida","n"],["Transporte","n"],["Servicios","n"],["Deudas/Tarjeta","n"],["Ocio","g"],["Compras","g"],["Otros","g"],["Ahorro","a"]];
 const G = G0.slice(); // lista viva: base + categorías propias (se rearma con syncG)
 // Icono y color de cada categoría (las que crea el usuario toman uno según su tipo: n necesidad, g gusto, a ahorro)
-const CAT_IC = { "Vivienda": ["fa-house", "#5856D6"], "Comida": ["fa-utensils", "#FF9500"], "Transporte": ["fa-car", "#007AFF"], "Servicios": ["fa-bolt", "#FFB300"], "Deudas/Tarjeta": ["fa-credit-card", "#FF3B30"], "Ocio": ["fa-ticket", "#AF52DE"], "Compras": ["fa-bag-shopping", "#FF2D55"], "Otros": ["fa-ellipsis", "#8E8E93"], "Ahorro": ["fa-piggy-bank", "#34C759"] };
+const CAT_IC = { "Vivienda": ["fa-house", "#5856D6"], "Comida": ["fa-utensils", "#FF9500"], "Transporte": ["fa-car", "#007AFF"], "Servicios": ["fa-bolt", "#FFB300"], "Deudas/Tarjeta": ["fa-credit-card", "#FF3B30"], "Ocio": ["fa-ticket", "#AF52DE"], "Compras": ["fa-bag-shopping", "#FF2D55"], "Otros": ["fa-ellipsis", "#8E8E93"], "Ahorro": ["fa-piggy-bank", "#34C759"], "Sueldo": ["fa-briefcase", "#34C759"], "Extra": ["fa-star", "#FFB300"], "Otro ingreso": ["fa-plus", "#8E8E93"] };
 const catIc = c => CAT_IC[c] || ["fa-tag", { n: "#30B0C7", g: "#AF52DE", a: "#34C759" }[(G.find(g => g[0] == c) || [])[1]] || "#8E8E93"];
 const I = ["Sueldo","Extra","Otro ingreso"];
 const WH_DEF = ["Efectivo","Cuenta de ahorros","Billetera digital (Nequi, Daviplata)"]; // las 3 billeteras de siempre: con ellas se crean las primeras cuentas

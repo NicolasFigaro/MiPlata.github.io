@@ -66,12 +66,16 @@ function draw() {
     if (keep) { openMov(); restoreForm(); } // volvió de crear una categoría: reabre el formulario con lo que había escrito
     if (N[tab] == "Gráficas") drawCharts();
     if (N[tab] == "Tarjetas") runCupoAnim();
-    if (anim) { anim = false; const m = document.getElementById("appMain"); m.classList.remove("enter"); void m.offsetWidth; m.classList.add("enter"); countUp(); }
+    if (anim) { anim = false; const m = document.getElementById("appMain"); m.classList.remove("enter", "nav-fwd", "nav-back"); void m.offsetWidth; m.classList.add(navDir ? "nav-" + navDir : "enter"); navDir = null; countUp(); }
     if (keepY !== null) window.scrollTo(0, keepY);
     updNav();
 }
 function go(n) { cur.setMonth(cur.getMonth() + n); draw(); }
-function goTab(i) { tab = i; anim = true; draw(); window.scrollTo(0, 0); updNav(); }
+let navDir = null; // "fwd" / "back" al entrar o salir de una pantalla dentro de "Más"; null = cambio de pestaña (entra con fundido)
+function goTab(i) {
+    navDir = tab == -1 && MORE.includes(i) ? "fwd" : MORE.includes(tab) && i == -1 ? "back" : null;
+    tab = i; anim = true; draw(); window.scrollTo(0, 0); updNav();
+}
 window.addEventListener("scroll", updNav, { passive: true });
 function openModalExport() { goTab(N.length - 1); }
 
@@ -221,8 +225,8 @@ function fa(e) { const v = e.value.replace(/\D/g, ""); e.value = v ? Number(v).t
 let colSaveT = null;
 function togCol(id) {
     S.th.col = S.th.col || {};
-    const closed = !S.th.col[id];
-    if (closed) S.th.col[id] = 1; else delete S.th.col[id];
+    const closed = colOpen(id); // true = estaba abierta y ahora se pliega
+    S.th.col[id] = closed ? 1 : 0;
     const el = document.querySelector('[data-col="' + id + '"]');
     if (!el) { save(); return draw(); }
     // Primero la animación; el guardado (pesado en el celular) se hace después, cuando ya terminó
@@ -429,6 +433,23 @@ function delCat(id) {
     });
 }
 // Desde el selector de Inicio: "＋ Nueva categoría…" guarda lo escrito, crea la categoría y la deja elegida
+// Cuadrícula de categorías del formulario: elige en el <select id="cat"> escondido y pinta la selección
+function syncCatGrid() {
+    const s = document.getElementById("cat");
+    document.querySelectorAll("#catGrid .cat-tile").forEach(b => b.classList.toggle("on", !!s && b.dataset.cat == s.value));
+}
+function pickCat(c) {
+    const s = document.getElementById("cat"); if (!s) return;
+    s.value = c;
+    const a = document.getElementById("amt"); if (a) a.blur(); // baja el teclado para ver el resto del formulario
+    if (c == "__new") return catChange(s);
+    syncCatGrid();
+}
+// "Ver todos" de Inicio: abre la sección completa de movimientos y baja hasta ella
+function openAllMov() {
+    if (!colOpen("mov")) togCol("mov");
+    setTimeout(() => { const el = document.querySelector('[data-col="mov"]'); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80);
+}
 function catChange(sel) {
     if (sel.value != "__new") return;
     const g = id => document.getElementById(id), v = id => g(id) ? g(id).value : "";
@@ -439,7 +460,7 @@ function catChange(sel) {
 function restoreForm() {
     const g = id => document.getElementById(id), k = keep; keep = null;
     const put = (id, val) => { if (g(id) && val != null && val !== "") g(id).value = val; };
-    put("amt", k.amt); put("note", k.note); put("date", k.date); put("cat", k.cat);
+    put("amt", k.amt); put("note", k.note); put("date", k.date); put("cat", k.cat); syncCatGrid();
     put(g("cardSel") ? "cardSel" : "whSel", k.sel); put("cq", k.cq); put("ci", k.ci);
     togCardOpts(); cuotaPreview(); metaPreview();
 }
@@ -1062,5 +1083,31 @@ window.addEventListener("DOMContentLoaded", () => {
         c.style.transition = ""; c.style.transform = "";
         const close = dy > 90; y0 = null; dy = 0;
         if (close) cancelModal();
+    });
+})();
+
+// Gesto de regreso: arrastrar desde el borde izquierdo para volver de Inversión, Gráficas, Deudas o Ajustes a "Más"
+(() => {
+    const m = document.getElementById("appMain");
+    let x0 = null, y0 = 0, dx = 0, drag = false;
+    document.addEventListener("touchstart", e => {
+        x0 = null;
+        if (!MORE.includes(tab) || !document.getElementById("generalModal").classList.contains("hidden")) return;
+        const t = e.touches[0];
+        if (t.clientX <= 24) { x0 = t.clientX; y0 = t.clientY; dx = 0; drag = false; }
+    }, { passive: true });
+    document.addEventListener("touchmove", e => {
+        if (x0 === null) return;
+        const t = e.touches[0], dy = t.clientY - y0; dx = t.clientX - x0;
+        if (!drag) { if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 8) { x0 = null; return; } if (dx > 8) drag = true; }
+        if (drag) { const k = Math.max(0, dx); m.style.transition = "none"; m.style.transform = "translateX(" + k + "px)"; m.style.opacity = String(1 - Math.min(0.5, k / 400)); }
+    }, { passive: true });
+    document.addEventListener("touchend", () => {
+        if (x0 === null) return;
+        const back = drag && dx > 90;
+        m.style.transition = back ? "" : "transform .25s cubic-bezier(.32,.72,0,1), opacity .25s"; m.style.transform = ""; m.style.opacity = "";
+        setTimeout(() => { m.style.transition = ""; }, 280);
+        x0 = null; drag = false;
+        if (back) goTab(-1);
     });
 })();
