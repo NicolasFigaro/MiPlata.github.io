@@ -439,6 +439,8 @@ function vHome() {
 
         ${weekUI()}
 
+        ${yearTeaser()}
+
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div onclick="goTab(${N.indexOf("Ahorro")})" class="${CARD} p-4 cursor-pointer hover:border-indigo-500 transition lift">
                 <div class="flex justify-between items-center mb-1"><span class="text-xs font-semibold text-slate-500">Ahorros y Metas</span><i class="fa-solid fa-piggy-bank text-indigo-500"></i></div>

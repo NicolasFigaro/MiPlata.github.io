@@ -139,6 +139,27 @@ function vYear() {
         <p class="text-[11px] text-slate-400 text-center">Se calcula con lo que anotaste en ${y}. Las cuentas que ocultes en Ajustes no cuentan.</p>`;
 }
 
+// Tarjeta de Inicio que muestra un adelanto del resumen del año y lleva a él. Si aún no hay movimientos este año, no aparece.
+function yearTeaser() {
+    const y = new Date().getFullYear(), s = yearStats(y); if (!s.n) return "";
+    const bits = [s.cats[0] ? "⭐ " + esc(s.cats[0][0]) : "", s.streak > 1 ? "🔥 " + s.streak + " días seguidos" : "", s.best ? "🏅 " + MES[s.best.i] : ""].filter(Boolean);
+    const go = "goTab(" + N.indexOf("Resumen") + ")";
+    return `<section class="yt lift" role="button" tabindex="0" aria-label="Ver el resumen de tu año" onclick="${go}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${go}}">
+        <div class="yt-txt">
+            <span class="yt-chip">Nuevo · Tu año ${y}</span>
+            <h3 class="yt-title">Tu año en Mi Plata</h3>
+            <p class="yt-sub">Gastaste <b>${fmt(s.gas)}</b> este año${s.rate !== null && s.rate > 0 ? " y te quedó el <b>" + Math.round(s.rate * 100) + "%</b>" : ""}. Mira qué descubrimos.</p>
+            ${bits.length ? `<div class="yt-bits">${bits.map(b => `<span>${b}</span>`).join("")}</div>` : ""}
+            <span class="yt-go">Ver mi resumen <i class="fa-solid fa-arrow-right"></i></span>
+        </div>
+        <div class="yt-stack" aria-hidden="true">
+            <i style="background:linear-gradient(160deg,#34C759,#248A3D);--r:-14deg;left:0;top:14px"><b class="fa-solid fa-medal"></b></i>
+            <i style="background:linear-gradient(160deg,#FF9500,#FF3B30);--r:-2deg;left:26px;top:4px"><b class="fa-solid fa-crown"></b></i>
+            <i style="background:linear-gradient(160deg,#AF52DE,#5856D6);--r:11deg;left:52px;top:16px"><b class="fa-solid fa-bolt"></b></i>
+        </div>
+    </section>`;
+}
+
 // ---------- Guía de bienvenida ----------
 const WEL = [
     ["fa-plus", "#007AFF", "Anota en segundos", "Toca el botón + para registrar un gasto o un ingreso. Si lo repites seguido, mantén presionado el movimiento para duplicarlo."],
