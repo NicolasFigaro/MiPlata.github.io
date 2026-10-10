@@ -500,7 +500,7 @@ function walPanel(a) {
         const g = p.m ? S.acc.find(x => x.id == p.m) : null, gt = g && g.g ? Math.min(100, goalAll(g) / g.g * 100) : null;
         return `
         <div class="flex items-center justify-between gap-2 py-2.5 border-b border-slate-100 dark:border-slate-800 last:border-0">
-            <div class="min-w-0"><b class="text-xs text-slate-800 dark:text-white block truncate"><i class="fa-solid fa-box-archive ${g ? "text-emerald-500" : "text-slate-300"} mr-1.5"></i>${esc(p.n)}</b><small class="text-[11px] text-slate-400">${fmt(p.v)}${g ? ` · <span class="text-emerald-600 dark:text-emerald-400">🎯 ${esc(g.n)}${gt !== null ? " · " + gt.toFixed(0) + "%" : ""}</span>` : ""}</small></div>
+            <div class="min-w-0"><b class="text-xs text-slate-800 dark:text-white block truncate"><i class="fa-solid fa-box-archive ${g ? "text-emerald-500" : "text-slate-300"} mr-1.5"></i>${esc(p.n)}</b><small class="text-[11px] text-slate-400">${fmt(p.v)}${g ? ` · <span class="text-emerald-600 dark:text-emerald-400">🎯 ${esc(g.n)} · lleva ${fm(g, goalAll(g))}${g.g ? " de " + fm(g, g.g) + " (" + gt.toFixed(0) + "%)" : ""}</span>` : ""}</small></div>
             <div class="flex space-x-1.5 shrink-0">
                 ${ib("bg-emerald-50 text-emerald-600", `pkMove(${a.id},${p.id},1)`, "fa-plus", "Meter")}
                 ${ib("bg-rose-50 text-rose-600", `pkMove(${a.id},${p.id},-1)`, "fa-minus", "Sacar")}

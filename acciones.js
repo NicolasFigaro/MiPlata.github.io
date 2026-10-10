@@ -667,13 +667,15 @@ function newPk(wid) {
 // ---- Bolsillos ↔ metas de ahorro ----
 // Un bolsillo puede "pertenecer" a una meta (p.m = id de la meta): la plata sigue en la cuenta, pero cuenta para el avance de la meta.
 const NO_GOAL = "Ninguna";
-const goalOpts = () => { const g = S.acc.filter(a => !a.f); return g.length ? [NO_GOAL].concat(g.map(a => "🎯 " + esc(a.n))) : null; };
-const goalByOpt = t => S.acc.find(a => !a.f && "🎯 " + a.n == t);
+// Cada opción muestra cuánto lleva la meta (ahorrado + bolsillos ya vinculados) y su objetivo
+const goalLabel = a => "🎯 " + a.n + " · lleva " + fm(a, goalAll(a)) + (a.g ? " de " + fm(a, a.g) : "");
+const goalOpts = () => { const g = S.acc.filter(a => !a.f); return g.length ? [NO_GOAL].concat(g.map(a => esc(goalLabel(a)))) : null; };
+const goalByOpt = t => S.acc.find(a => !a.f && goalLabel(a) == t);
 function linkPk(wid, pid) {
     const a = S.wal.find(x => x.id == wid), p = a && a.pk.find(x => x.id == pid); if (!p) return;
     const cur = p.m ? S.acc.find(g => g.id == p.m) : null, o = goalOpts();
     if (!o) return showToast("Primero crea una meta de ahorro", true);
-    openCustomModal("Vincular «" + esc(p.n) + "» a una meta", [{ l: "Meta de ahorro", o, v: cur ? "🎯 " + esc(cur.n) : NO_GOAL }], v => {
+    openCustomModal("Vincular «" + esc(p.n) + "» a una meta", [{ l: "Meta de ahorro", o, v: cur ? esc(goalLabel(cur)) : NO_GOAL }], v => {
         const g = goalByOpt(v[0]);
         if (g) p.m = g.id; else delete p.m;
         save();
