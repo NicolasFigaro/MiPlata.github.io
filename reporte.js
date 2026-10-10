@@ -147,7 +147,7 @@ function rpHtml() {
     // ----- Metas -----
     const ms = S.acc.filter(a => !a.f);
     const mT = ms.length ? `<table><thead><tr><th>Meta</th><th class="r">Ahorrado</th><th class="r">Objetivo</th><th style="width:90px"></th><th class="r">Avance</th><th class="r">Fecha límite</th></tr></thead><tbody>${ms.map(a => {
-        const t = goalTotal(a), p = a.g ? Math.min(100, t / a.g * 100) : 0, gi = goalInfo(a);
+        const t = goalAll(a), p = a.g ? Math.min(100, t / a.g * 100) : 0, gi = goalInfo(a);
         return `<tr><td>${esc(a.n)}</td><td class="r"><b>${fm(a, t)}</b></td><td class="r">${a.g ? fm(a, a.g) : "—"}</td><td>${a.g ? `<div class="rp-track"><i style="width:${p}%"></i></div>` : ""}</td><td class="r">${a.g ? Math.round(p) + "%" : "—"}</td><td class="r ${gi && gi.late ? "rp-bad" : gi && !gi.ok && !gi.done ? "rp-warn" : ""}">${a.dl ? dmy(a.dl) : "—"}</td></tr>`;
     }).join("")}</tbody></table>` : "";
 

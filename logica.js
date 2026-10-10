@@ -84,6 +84,7 @@ if (!S.wal.length) {
     S.wal = WH_DEF.concat(extra).map((n, i) => ({ id: Date.now() + i, n, t: guess(n), pk: [] }));
 }
 S.wal.forEach(a => { if (!Array.isArray(a.pk)) a.pk = []; if (!WTYPES[a.t]) a.t = "other"; });
+S.wal.forEach(a => a.pk.forEach(p => { if (p.m && !S.acc.some(g => g.id == p.m)) delete p.m; })); // bolsillo vinculado a una meta que ya no existe: se suelta
 const syncWH = () => { WH.length = 0; S.wal.forEach(a => WH.push(a.n)); };
 syncWH();
 const walOf = n => S.wal.find(a => a.n == n);
@@ -152,6 +153,12 @@ const yieldOf = (id, r) => {
     }, 0);
 };
 const goalTotal = a => svb(a.id) + Math.max(0, yieldOf(a.id, a.r));
+// Bolsillos vinculados a una meta (p.m = id de la meta): la plata sigue en su cuenta, pero cuenta para el avance de la meta.
+// goalTotal = solo lo que está en la meta (movimientos + rendimiento). goalAll = eso + lo que hay en sus bolsillos.
+// El patrimonio neto sigue usando goalTotal, porque los bolsillos ya están dentro del saldo de las cuentas (no se duplica).
+const goalPks = a => { const r = []; S.wal.forEach(w => (w.pk || []).forEach(p => { if (p.m == a.id) r.push({ w, p }); })); return r; };
+const goalPkSum = a => goalPks(a).reduce((s, x) => s + x.p.v, 0) / (a.u ? S.trm : 1);
+const goalAll = a => goalTotal(a) + goalPkSum(a);
 // Meta como una "cajita" de Nu: el rendimiento se acumula día a día (interés compuesto sobre la tasa E.A.) y se suma al saldo.
 // Saldo de la meta en una fecha ("YYYY-MM-DD"): cada depósito o retiro crece desde su fecha hasta esa fecha.
 const goalBalAt = (a, k) => S.sv.filter(x => x.a == a.id && x.d <= k).reduce((s, x) => s + x.v * Math.pow(1 + (a.r || 0) / 100, dayDiff(x.d, k) / 365), 0);
@@ -380,7 +387,7 @@ const goalStart = a => {
 };
 function goalInfo(a) {
     if (!a.dl || !a.g) return null;
-    const t = goalTotal(a), falta = a.g - t, t0 = midnight();
+    const t = goalAll(a), falta = a.g - t, t0 = midnight();
     const end = new Date(a.dl + "T00:00:00"), st = new Date(goalStart(a) + "T00:00:00");
     const days = daysBetween(t0, end), total = Math.max(1, daysBetween(st, end)), el = daysBetween(st, t0);
     const pexp = Math.min(1, Math.max(0, el / total)), exp = a.g * pexp;
@@ -669,7 +676,7 @@ function tipsList(by) {
         else add(1, "fa-gauge-high", "Vas al " + Math.floor(r * 100) + "% de tu presupuesto en " + c, "Te quedan " + fmt(b - v) + (nowM && dLeft > 0 ? " para " + dLeft + (dLeft == 1 ? " día" : " días") + " (≈ " + fmt((b - v) / dLeft) + " por día)." : "."));
     });
 
-    const ah = S.acc.filter(a => !a.f).reduce((t, a) => t + goalTotal(a) * (a.u ? S.trm : 1), 0); // ahorrado + rendimiento
+    const ah = S.acc.filter(a => !a.f).reduce((t, a) => t + goalAll(a) * (a.u ? S.trm : 1), 0); // ahorrado + rendimiento + bolsillos de la meta
     if (gas > 0 && ah < gas * 3) add(2, "fa-shield-halved", "Arma tu fondo de emergencia", "Meta: 3 meses de gastos (≈ " + fmt(gas * 3) + "). Llevas " + Math.round(ah / (gas * 3) * 100) + "%.");
     if (!T.length) add(3, "fa-wand-magic-sparkles", "Todo en orden", "Sigue registrando tus movimientos y aquí aparecerán sugerencias a tu medida.");
     return { list: T.sort((a, b) => a.lv - b.lv).slice(0, 4), ing, nec, gus, aho };

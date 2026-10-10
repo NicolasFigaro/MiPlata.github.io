@@ -656,12 +656,46 @@ function newPk(wid) {
     openCustomModal("Nuevo bolsillo en " + esc(a.n), [
         { l: "Nombre", p: "Ej. Arriendo, Viaje" },
         { l: "¿Cuánto apartas ahora? (libre: " + fmt(Math.max(0, pkFree(a))) + ")", m: "numeric", p: "0" }
-    ], v => {
+    ].concat(goalOpts() ? [{ l: "Para una meta de ahorro (opcional)", o: goalOpts() }] : []), v => {
         if (!v[0] || v[0].length > 24) return "Escribe un nombre (hasta 24 letras).";
         if (a.pk.some(p => p.n.toLowerCase() == v[0].toLowerCase())) return "Ya tienes un bolsillo con ese nombre en esta cuenta.";
         const m = num(v[1]);
         if (m > Math.max(0, pkFree(a))) return "Solo tienes " + fmt(Math.max(0, pkFree(a))) + " libres en esta cuenta.";
-        a.pk.push({ id: Date.now(), n: v[0], v: m }); save();
+        const g = goalByOpt(v[2]), p = { id: Date.now(), n: v[0], v: m }; if (g) p.m = g.id; a.pk.push(p); save();
+    });
+}
+// ---- Bolsillos ↔ metas de ahorro ----
+// Un bolsillo puede "pertenecer" a una meta (p.m = id de la meta): la plata sigue en la cuenta, pero cuenta para el avance de la meta.
+const NO_GOAL = "Ninguna";
+const goalOpts = () => { const g = S.acc.filter(a => !a.f); return g.length ? [NO_GOAL].concat(g.map(a => "🎯 " + esc(a.n))) : null; };
+const goalByOpt = t => S.acc.find(a => !a.f && "🎯 " + a.n == t);
+function linkPk(wid, pid) {
+    const a = S.wal.find(x => x.id == wid), p = a && a.pk.find(x => x.id == pid); if (!p) return;
+    const cur = p.m ? S.acc.find(g => g.id == p.m) : null, o = goalOpts();
+    if (!o) return showToast("Primero crea una meta de ahorro", true);
+    openCustomModal("Vincular «" + esc(p.n) + "» a una meta", [{ l: "Meta de ahorro", o, v: cur ? "🎯 " + esc(cur.n) : NO_GOAL }], v => {
+        const g = goalByOpt(v[0]);
+        if (g) p.m = g.id; else delete p.m;
+        save();
+    });
+}
+// Desde la meta: apartar plata en un bolsillo (de la cuenta que elijas) ya vinculado a esa meta
+function pkGoal(gid) {
+    const g = S.acc.find(x => x.id == gid); if (!g) return;
+    openCustomModal("Apartar para " + esc(g.n), [
+        { l: "¿De qué cuenta? (el bolsillo queda dentro de ella)", o: WH.map(w => w) },
+        { l: "Monto en pesos", m: "numeric" }
+    ], v => {
+        const a = S.wal.find(x => v[0].startsWith(x.n)), m = num(v[1]);
+        if (!a) return "Elige una cuenta.";
+        if (!(m > 0)) return "Escribe un monto válido.";
+        if (m > Math.max(0, pkFree(a))) return "Solo tienes " + fmt(Math.max(0, pkFree(a))) + " libres en " + esc(a.n) + ".";
+        let p = a.pk.find(q => q.m == g.id);
+        if (!p) {
+            const nm = g.n.slice(0, 24); p = a.pk.find(q => q.n.toLowerCase() == nm.toLowerCase() && !q.m); // si ya hay uno con el nombre de la meta, se vincula
+            if (p) p.m = g.id; else { p = { id: Date.now(), n: nm, v: 0, m: g.id }; a.pk.push(p); }
+        }
+        p.v += m; save();
     });
 }
 function pkMove(wid, pid, s) {
@@ -718,7 +752,7 @@ function editAcc(id) {
         save();
     });
 }
-function delAcc(id) { confirmAction("¿Borrar meta y sus movimientos?", () => { S.acc = S.acc.filter(x => x.id != id); S.sv = S.sv.filter(x => x.a != id); save(); }); }
+function delAcc(id) { confirmAction("¿Borrar meta y sus movimientos?" + (goalPks({ id }).length ? " Sus bolsillos no se borran: la plata sigue en tus cuentas." : ""), () => { S.wal.forEach(w => w.pk.forEach(p => { if (p.m == id) delete p.m; })); S.acc = S.acc.filter(x => x.id != id); S.sv = S.sv.filter(x => x.a != id); save(); }); }
 function archAcc(id) { const a = S.acc.find(x => x.id == id); a.f = a.f ? 0 : 1; save(); draw(); }
 // all = 1: "Sacar todo", deja escrito el saldo completo (lo ahorrado + el rendimiento ganado)
 function mov(id, s, all) {
