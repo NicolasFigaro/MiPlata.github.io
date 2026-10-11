@@ -166,5 +166,15 @@ html.dark[data-theme="ios"] :is(.text-rose-500, .text-rose-600, .dark\:text-rose
 /* La hoja no pasa el scroll a la página de atrás */
 #modalContainer { overscroll-behavior: contain; }
 /* Fecha del formulario: alineada a la izquierda y con la misma altura que el selector */
-#date { -webkit-appearance: none; appearance: none; text-align: left; min-height: 48px; display: block; min-width: 0; }
 #cardSel, #whSel { min-width: 0; }
+/* Campos de fecha (en todos los modales): nunca se salen del contenedor y quedan alineados */
+input[type="date"], input[type="month"], input[type="time"] { -webkit-appearance: none; appearance: none; display: block; width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; text-align: left; min-height: 44px; }
+input[type="date"]::-webkit-date-and-time-value, input[type="month"]::-webkit-date-and-time-value { text-align: left; margin: 0; min-width: 0; }
+#modalContainer { overflow-x: hidden; }
+#modalContainer input, #modalContainer select, #modalContainer textarea { max-width: 100%; box-sizing: border-box; }
+
+/* Sin zoom: la app se siente como app, no como página web */
+html { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+html, body { overscroll-behavior-x: none; }
+body { -webkit-touch-callout: none; }
+input, textarea, select, [contenteditable] { -webkit-user-select: text; user-select: text; }

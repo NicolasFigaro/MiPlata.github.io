@@ -1,4 +1,4 @@
-const C = "miplata-v9", SHELL = ["./", "index.html", "styles.css", "mejoras.css", "pantallas.css", "estetica.css", "tema.js", "idioma.js", "idioma-datos.js", "estetica.js", "manifest.json", "icon-192.png"];
+const C = "miplata-v10", SHELL = ["./", "index.html", "styles.css", "mejoras.css", "pantallas.css", "estetica.css", "tema.js", "idioma.js", "idioma-datos.js", "estetica.js", "zoom.js", "logica.js", "pantallas.js", "vistas.js", "acciones.js", "reporte.js", "rapido.js", "respaldo.js", "manifest.json", "icon-192.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(C).then(c => c.addAll(SHELL))); self.skipWaiting(); });
 self.addEventListener("activate", e => { e.waitUntil(caches.keys().then(k => Promise.all(k.filter(n => n != C).map(n => caches.delete(n)))).then(() => self.clients.claim())); });
 self.addEventListener("fetch", e => {

@@ -343,6 +343,10 @@ function movFormHTML() {
             <button type="button" onclick="setType('i')" class="py-1.5 rounded-lg text-sm font-semibold transition ${type == 'i' ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400'}">Ingreso</button>
         </div>
         <div class="space-y-4">
+            <div>
+                <input id="qe" enterkeyhint="done" placeholder="Rápido: almuerzo 15000" oninput="qeParse(this.value)" onkeydown="if(event.key==='Enter')this.blur()" class="${sel}" autocomplete="off" autocapitalize="none">
+                <p id="qeHint" class="text-[11px] text-indigo-500 font-semibold mt-1 empty:hidden"></p>
+            </div>
             <div class="flex items-center justify-center gap-1.5 py-1">
                 <span class="text-3xl font-semibold text-slate-400">$</span>
                 <input id="amt" inputmode="numeric" enterkeyhint="done" placeholder="0" oninput="fa(this);fitAmt(this);cuotaPreview();metaPreview()" onkeydown="if(event.key==='Enter')this.blur()" style="width:1ch" class="amt-big min-w-0 max-w-full bg-transparent border-0 p-0 text-center font-bold tracking-tight text-slate-800 dark:text-white focus:ring-0 focus:outline-none" autocomplete="off">
@@ -1262,6 +1266,7 @@ function vSet() {
         </section>
         <section class="${card}"><h3 class="text-base font-bold">Bloqueo con PIN</h3><p class="text-xs text-slate-400">Bloquea la pantalla al abrir la app. No cifra los datos.</p><button onclick="setPin()" class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-xl text-xs">${S.pin ? "Cambiar o quitar PIN" : "Crear PIN"}</button></section>
         <section class="${card}"><h3 class="text-base font-bold">Copia de seguridad</h3>
+            ${typeof rbUI == "function" ? rbUI() : ""}
             <p class="text-xs ${bkDue() ? "text-amber-500 font-semibold" : "text-slate-400"}">${S.bk ? "Última copia: " + dmy(S.bk) + " (hace " + bkDaysAgo() + " d). Te lo recuerdo cada " + BK_DAYS + " días." : "Aún no has hecho ninguna copia. Tus datos solo están en este celular."}</p>
             <button onclick="downloadBackup()" class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-xl text-xs">Descargar copia (.json)</button>
             <button onclick="exportCsv()" class="px-4 py-2 bg-slate-800 dark:bg-slate-700 text-white font-semibold rounded-xl text-xs">Descargar CSV</button>
