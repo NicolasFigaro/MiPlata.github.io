@@ -779,7 +779,7 @@ window.I18N_ROWS = [
 ["venció hace {} día","was due {} day ago","était échu il y a {} jour","war vor {} Tag fällig","срок истёк {} дн. назад"],
 ["venció hace {} días","was due {} days ago","était échu il y a {} jours","war vor {} Tagen fällig","срок истёк {} дн. назад"],
 ["venció","expired","échu","abgelaufen","истёк"],
-["Rápido: almuerzo 15000","Quick: lunch 15000","Rapide : déjeuner 15000","Schnell: Mittagessen 15000","Быстро: обед 15000"],
+["Anotar rápido","Quick add","Saisie rapide","Schnell erfassen","Быстрая запись"],
 ["Google Drive","Google Drive","Google Drive","Google Drive","Google Drive"],
 ["Pegar ID de cliente","Paste client ID","Coller l'ID client","Client-ID einfügen","Вставить ID клиента"],
 ["Cambiar ID de cliente","Change client ID","Changer l'ID client","Client-ID ändern","Изменить ID клиента"],

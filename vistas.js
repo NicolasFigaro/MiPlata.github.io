@@ -344,7 +344,7 @@ function movFormHTML() {
         </div>
         <div class="space-y-4">
             <div>
-                <input id="qe" enterkeyhint="done" placeholder="Rápido: almuerzo 15000" oninput="qeParse(this.value)" onkeydown="if(event.key==='Enter')this.blur()" class="${sel}" autocomplete="off" autocapitalize="none">
+                <input id="qe" enterkeyhint="done" placeholder="Anotar rápido" oninput="qeParse(this.value)" onkeydown="if(event.key==='Enter')this.blur()" class="${sel}" autocomplete="off" autocapitalize="none">
                 <p id="qeHint" class="text-[11px] text-indigo-500 font-semibold mt-1 empty:hidden"></p>
             </div>
             <div class="flex items-center justify-center gap-1.5 py-1">
