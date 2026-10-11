@@ -393,8 +393,8 @@ function vHome() {
     const MT = S.acc.filter(a => !a.f).map(a => {
         const t = goalAll(a), p = a.g ? Math.min(100, t / a.g * 100) : 0, gi = goalInfo(a);
         const tag = gi && !gi.done ? `<span class="${gi.late ? "text-rose-500" : gi.days <= 30 || !gi.ok ? "text-amber-500" : "text-slate-400"} ml-1">· ${gi.late ? "venció" : gi.days + " d"}</span>` : "";
-        const gc = goalCol(a), em = `<span class="text-[19px] leading-none">${goalEmo(a)}</span>`;
-        return `<div class="flex items-center gap-3 mb-3 last:mb-0">${a.g ? ring({ p, c: gc, size: 46, w: 11, inner: em }) : `<span class="goal-tint w-[46px] h-[46px] shrink-0" style="background:${gc}22">${em}</span>`}<div class="min-w-0 flex-1"><div class="flex justify-between gap-2 text-xs font-medium"><span class="truncate">${esc(a.n)}${tag}</span><span class="shrink-0">${fm(a, t)}</span></div>${a.g ? `<div class="text-[11px] text-slate-400">${Math.round(p)}% de ${fm(a, a.g)}</div>` : ""}</div></div>`;
+        const gc = goalCol(a);
+        return `<div class="mb-3 last:mb-0"><div class="flex justify-between text-xs mb-1 font-medium"><span>${goalEmo(a)} ${esc(a.n)}${tag}</span><span>${fm(a, t)}${a.g ? " de " + fm(a, a.g) : ""}</span></div>${a.g ? `<div class="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden"><div class="bar-seg h-full rounded-full" style="width:${p}%;background:${gc}"></div></div>` : ""}</div>`;
     }).join("") || '<p class="text-xs text-slate-400 text-center py-2">Aún no tienes metas. Toca aquí para crear la primera.</p>';
 
     // Secciones que se pliegan (ver colSec): lo gastado por categoría y la lista de movimientos
@@ -404,9 +404,9 @@ function vHome() {
                 ${by.map(([c, v]) => {
                     const bi = budInfo(c, ym(cur)), b = bi.tot, r = b ? v / b : v / mx;
                     return `<div class="text-xs cursor-pointer rounded-xl -mx-2 px-2 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition" role="button" tabindex="0" onclick="openCat('${esc(c)}')" onkeydown="if(event.key==='Enter')openCat('${esc(c)}')" title="Ver las compras de ${esc(c)}">
-                      <div class="flex items-center gap-3">${ring({ p: b ? r * 100 : (gasTot ? v / gasTot * 100 : 0), c: b && r >= 1 ? "#FF3B30" : b && r >= 0.8 ? "#FF9500" : catIc(c)[1], size: 46, w: 11, inner: `<i class="fa-solid ${catIc(c)[0]} text-[14px]" style="color:${catIc(c)[1]}"></i>` })}<div class="min-w-0 flex-1">
+                      <div class="flex items-center gap-3">${catChip(c)}<div class="min-w-0 flex-1">
                         <div class="flex justify-between mb-1 font-medium"><span>${esc(c)}<i class="fa-solid fa-chevron-right text-[8px] text-slate-300 ml-1.5"></i></span><span>${fmt(v)}${b ? " de " + fmt(b) : ""}</span></div>
-                        <div class="text-[11px] ${b && r >= 1 ? "text-rose-500 font-semibold" : b && r >= 0.8 ? "text-amber-500 font-semibold" : "text-slate-400"}">${b ? Math.round(r * 100) + "% del presupuesto" : (gasTot ? Math.round(v / gasTot * 100) : 0) + "% de tus gastos"}</div>${b && (bi.carry > 0 || bi.ov) ? `<div class="text-[10px] text-slate-400 mt-1">${[bi.ov ? "ajustado solo este mes" : "", bi.carry > 0 ? "incluye " + fmt(bi.carry) + " que sobraron del mes anterior" : ""].filter(Boolean).join(" · ")}</div>` : ""}
+                        <div class="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden"><div class="bar-seg h-full rounded-full ${b && r >= 1 ? "bg-rose-500" : b && r >= 0.8 ? "bg-amber-500" : "bg-indigo-600"}" style="width:${Math.min(100, r * 100)}%"></div></div>${b && (bi.carry > 0 || bi.ov) ? `<div class="text-[10px] text-slate-400 mt-1">${[bi.ov ? "ajustado solo este mes" : "", bi.carry > 0 ? "incluye " + fmt(bi.carry) + " que sobraron del mes anterior" : ""].filter(Boolean).join(" · ")}</div>` : ""}
                       </div></div>
                     </div>`;
                 }).join("") || emptyUI("fa-chart-pie", "#FF9500", "Aún no hay gastos este mes", "Cuando anotes gastos, aquí verás en qué categorías se va tu plata.", "Anotar un gasto", "openMov()", true)}`;
@@ -630,7 +630,7 @@ function vAho() {
                     <span class="text-xs text-slate-400">${a.u ? "USD · " : ""}${a.r ? a.r + "% E.A." : "sin rendimiento"}</span>
                 </div>
                 <div class="flex items-center gap-4 mb-3">
-                    ${a.g ? ring({ p, c: goalCol(a), size: 92, w: 10, mark: gi0 && !gi0.done && !gi0.late && gi0.pexp > 0 ? gi0.pexp * 100 : 0, inner: `<span class="text-[26px] leading-none">${goalEmo(a)}</span><span class="ring-pct mt-1" style="color:${goalCol(a)}">${Math.round(p)}%</span>` }) : `<span class="goal-tint w-[72px] h-[72px] shrink-0 text-[34px]" style="background:${goalCol(a)}22">${goalEmo(a)}</span>`}
+                    <span class="goal-tint w-[56px] h-[56px] shrink-0 text-[28px]" style="background:${goalCol(a)}22">${goalEmo(a)}</span>
                     <div class="min-w-0 flex-1">
                         <div class="text-2xl font-extrabold text-slate-800 dark:text-white mb-0.5" data-cu="goal${a.id}">${fm(a, t)}</div>
                         ${a.g ? `<div class="text-xs text-slate-400">${t >= a.g ? "¡Meta lograda! 🎉" : "de " + fm(a, a.g)}</div>` : ""}
@@ -638,7 +638,7 @@ function vAho() {
                     </div>
                 </div>
                 ${a.r > 0 ? `<div class="grid grid-cols-3 gap-2 mb-1">${[["Hoy", gy.daily], ["Este mes", gy.month], ["Total ganado", gy.total]].map(([l, v]) => `<div class="p-2.5 rounded-2xl bg-emerald-50 dark:bg-emerald-500/10"><span class="text-[10px] uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block leading-tight">${l}</span><b class="text-xs text-emerald-600 dark:text-emerald-400">+${fm(a, v)}</b></div>`).join("")}</div><p class="text-[10px] text-slate-400 mb-3"><i class="fa-solid fa-seedling mr-1"></i>Rendimiento estimado, ya incluido en el saldo. Crece cada día con interés compuesto (${tf(a.r)}% E.A.).</p>` : ""}
-                ${pkBox}${a.g ? `<div class="flex justify-between text-[11px] text-slate-400 mb-3"><span>${gi0 && !gi0.done && !gi0.late && gi0.pexp > 0 ? "<span class='inline-block w-2 h-2 rounded-full border border-slate-400 mr-1'></span>Dónde deberías ir hoy" : ""}</span><span>${t >= a.g ? "¡Meta lograda!" : "Faltan " + fm(a, a.g - t)}</span></div>${gb.info}` : ""}
+                ${pkBox}${a.g ? `${gb.bar.replace('bg-emerald-500 h-full', 'h-full').replace('style="width:' + p + '%"', 'style="width:' + p + '%;background:' + goalCol(a) + '"')}<div class="flex justify-between text-[11px] text-slate-400 mb-3"><span>${p.toFixed(0)}% de ${fm(a, a.g)}</span><span>${t >= a.g ? "¡Meta lograda!" : "Faltan " + fm(a, a.g - t)}</span></div>${gb.info}` : ""}
                 <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
                     <button onclick="mov(${a.id}, 1)" class="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-xl text-xs font-semibold">＋ Meter</button>
                     <button onclick="mov(${a.id}, -1)" class="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-xl text-xs font-semibold">－ Sacar</button>
