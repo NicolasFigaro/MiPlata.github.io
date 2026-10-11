@@ -451,7 +451,7 @@ function netWorth() {
 // ---------- Comparar meses ----------
 const monthKey = off => ym(new Date(cur.getFullYear(), cur.getMonth() - off, 1));
 const catTotals = k => G.map(([c]) => [c, S.items.filter(x => x.d.startsWith(k) && x.t == "g" && x.c == c && !x.s && vis(x)).reduce((s, x) => s + x.a, 0)]);
-const monLabel = k => new Date(k + "-01T00:00:00").toLocaleDateString("es-CO", { month: "short", year: "numeric" });
+const monLabel = k => new Date(k + "-01T00:00:00").toLocaleDateString(DLOC, { month: "short", year: "numeric" });
 
 // ---------- Buscador ----------
 const matchQ = x => {

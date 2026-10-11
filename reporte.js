@@ -80,8 +80,8 @@ function rpBuild(d) {
 
 function rpHtml() {
     const k = ym(cur), pk = monthKey(1), nowK = ym(new Date());
-    const mlabel = cur.toLocaleDateString("es-CO", { month: "long", year: "numeric" });
-    const plabel = new Date(pk + "-01T00:00:00").toLocaleDateString("es-CO", { month: "long" });
+    const mlabel = cur.toLocaleDateString(DLOC, { month: "long", year: "numeric" });
+    const plabel = new Date(pk + "-01T00:00:00").toLocaleDateString(DLOC, { month: "long" });
     const m = mon();
 
     // ----- Cifras del mes -----
@@ -179,13 +179,13 @@ function rpHtml() {
         ${S.inv.length ? sec("Inversiones", invT) : ""}
         ${sec("Patrimonio", nwT, "foto de hoy")}
         ${sec("Observaciones", obsT)}
-        <div class="rp-foot">Generado el ${dmy(ymd(now))} a las ${now.toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" })}. Los movimientos marcados «fuera del resumen» y los elementos ocultos en Ajustes no se cuentan. El patrimonio, las deudas y la deuda de tarjetas reflejan el estado de hoy, no el del mes elegido. Cifras estimadas: no es asesoría financiera.</div>
+        <div class="rp-foot">Generado el ${dmy(ymd(now))} a las ${now.toLocaleTimeString(DLOC, { hour: "2-digit", minute: "2-digit" })}. Los movimientos marcados «fuera del resumen» y los elementos ocultos en Ajustes no se cuentan. El patrimonio, las deudas y la deuda de tarjetas reflejan el estado de hoy, no el del mes elegido. Cifras estimadas: no es asesoría financiera.</div>
     </div>`;
 }
 
 function rpRender() {
     const o = document.getElementById("rpOverlay"); if (!o) return;
-    const lbl = rpD.toLocaleDateString("es-CO", { month: "long", year: "numeric" });
+    const lbl = rpD.toLocaleDateString(DLOC, { month: "long", year: "numeric" });
     o.innerHTML = `
         <div class="rp-bar">
             <div class="rp-nav"><button onclick="rpGo(-1)" aria-label="Mes anterior">‹</button><span>${lbl}</span><button onclick="rpGo(1)" aria-label="Mes siguiente">›</button></div>

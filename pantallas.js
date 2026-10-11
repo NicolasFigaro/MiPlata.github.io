@@ -5,11 +5,16 @@
 const MES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 const DIAS_SEM = ["domingos", "lunes", "martes", "miércoles", "jueves", "viernes", "sábados"];
 const p2 = n => String(n).padStart(2, "0");
+if (window.syncNames) syncNames(); // pone los nombres de los meses en el idioma elegido (idioma.js)
 
 // ---------- Calendario ----------
 let calM = new Date(); calM.setDate(1);
 let calSel = null; // día elegido ("YYYY-MM-DD")
-function calGo(n) { calM.setMonth(calM.getMonth() + n); calSel = null; draw(); }
+let calDir = 0, calSk = false, calSkT = null; // calDir: hacia dónde se mueve el mes (animación); calSk: esqueleto mientras "carga" el mes
+function calGo(n) {
+    calM.setMonth(calM.getMonth() + n); calSel = null; calDir = n; calSk = true; draw();
+    clearTimeout(calSkT); calSkT = setTimeout(() => { calSk = false; if (N[tab] == "Calendario") draw(); }, 240);
+}
 function calPick(d) { calSel = calSel == d ? null : d; draw(); }
 function calToday() { calM = new Date(); calM.setDate(1); calSel = today(); draw(); }
 
@@ -25,12 +30,13 @@ function vCal() {
     const ing = sum(its, x => x.t == "i"), gas = sum(its, x => x.t == "g");
     const evIc = { g: "fa-flag-checkered", c: "fa-credit-card", d: "fa-hand-holding-dollar" };
 
+    const dirCls = calDir > 0 ? "cal-in-r" : calDir < 0 ? "cal-in-l" : ""; calDir = 0;
     let cells = "";
     for (let i = 0; i < off; i++) cells += "<span></span>";
     for (let d = 1; d <= dim; d++) {
         const k = nm + "-" + p2(d), L = byD[k] || [], hasG = L.some(x => x.t == "g"), hasI = L.some(x => x.t == "i"), hasE = !!evD[k];
         const sel = calSel == k, isT = k == td;
-        cells += `<button onclick="calPick('${k}')" aria-label="${d} de ${MES[m]}" class="cal-day ${sel ? "cal-sel" : ""} ${isT ? "cal-today" : ""}">
+        cells += `<button onclick="calPick('${k}')" aria-label="${dm(d, m)}" class="cal-day ${sel ? "cal-sel" : ""} ${isT ? "cal-today" : ""}">
             <span class="text-[13px] font-medium">${d}</span>
             <span class="cal-dots">${hasI ? '<i style="background:#34C759"></i>' : ""}${hasG ? '<i style="background:#FF3B30"></i>' : ""}${hasE ? '<i style="background:#FF9500"></i>' : ""}</span>
         </button>`;
@@ -46,7 +52,7 @@ function vCal() {
     let detail;
     if (calSel && calSel.startsWith(nm)) {
         const L = (byD[calSel] || []).slice().sort((a, b) => b.id - a.id), E = evD[calSel] || [];
-        detail = `<h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">${+calSel.slice(8)} de ${MES[m].toLowerCase()}</h4>`
+        detail = `<h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">${dm(+calSel.slice(8), m)}</h4>`
             + (E.length || L.length ? E.map(evRow).join("") + L.map(itRow).join("") : '<p class="text-xs text-slate-400 text-center py-5">Nada anotado ni por vencer este día.</p>');
     } else {
         const nx = evs.slice().sort((a, b) => a.date.localeCompare(b.date));
@@ -54,6 +60,7 @@ function vCal() {
             + (nx.length ? nx.map(evRow).join("") : '<p class="text-xs text-slate-400 text-center py-5">No tienes metas, tarjetas ni deudas que venzan este mes. Toca un día para ver sus movimientos.</p>');
     }
 
+    if (calSk) detail = `<div class="mb-1">${sk(120, 12)}</div>` + skRows(3);
     return `
         <section class="${CARD} p-4">
             <div class="flex items-center justify-between mb-3">
@@ -61,15 +68,15 @@ function vCal() {
                 <div class="text-center"><b class="text-[17px] text-slate-800 dark:text-white">${MES[m]} ${y}</b>${nm != ym(new Date()) ? `<button onclick="calToday()" class="block mx-auto text-[11px] text-indigo-600 dark:text-indigo-400 font-semibold">Ir a hoy</button>` : ""}</div>
                 <button onclick="calGo(1)" aria-label="Mes siguiente" class="nav-btn"><i class="fa-solid fa-chevron-right text-xs"></i></button>
             </div>
-            <div class="cal-grid text-[11px] text-slate-400 uppercase mb-1">${["L", "M", "M", "J", "V", "S", "D"].map(d => `<span>${d}</span>`).join("")}</div>
-            <div class="cal-grid">${cells}</div>
+            <div class="cal-grid text-[11px] text-slate-400 uppercase mb-1">${WD_INI().map(d => `<span>${d}</span>`).join("")}</div>
+            <div class="cal-grid ${dirCls}">${cells}</div>
             <div class="flex flex-wrap gap-x-4 gap-y-1 mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-400">
                 <span><i class="cal-lg" style="background:#34C759"></i>Ingreso</span><span><i class="cal-lg" style="background:#FF3B30"></i>Gasto</span><span><i class="cal-lg" style="background:#FF9500"></i>Vence</span>
             </div>
         </section>
         <section class="grid grid-cols-2 gap-3">
-            <div class="${CARD} p-4"><small class="text-[10px] uppercase tracking-wider text-slate-400 block">Ingresos del mes</small><b class="text-base text-emerald-500">${fmt(ing)}</b></div>
-            <div class="${CARD} p-4"><small class="text-[10px] uppercase tracking-wider text-slate-400 block">Gastos del mes</small><b class="text-base text-slate-800 dark:text-white">${fmt(gas)}</b></div>
+            <div class="${CARD} p-4"><small class="text-[10px] uppercase tracking-wider text-slate-400 block">Ingresos del mes</small><b class="text-base text-emerald-500">${calSk ? sk(86, 18) : fmt(ing)}</b></div>
+            <div class="${CARD} p-4"><small class="text-[10px] uppercase tracking-wider text-slate-400 block">Gastos del mes</small><b class="text-base text-slate-800 dark:text-white">${calSk ? sk(86, 18) : fmt(gas)}</b></div>
         </section>
         <section class="${CARD} p-5">${detail}</section>`;
 }
@@ -109,9 +116,9 @@ function yearText(y) {
         + "• Racha más larga anotando: " + s.streak + (s.streak == 1 ? " día" : " días");
 }
 function yrShare() {
-    const t = yearText(yrSel); if (!t) return;
-    if (navigator.share) navigator.share({ title: "Mi año en Mi Plata", text: t }).catch(() => {});
-    else if (navigator.clipboard) navigator.clipboard.writeText(t).then(() => showToast("Resumen copiado")).catch(() => showToast("No se pudo copiar", true));
+    const tx = t(yearText(yrSel)); if (!tx) return;
+    if (navigator.share) navigator.share({ title: t("Mi año en Mi Plata"), text: tx }).catch(() => {});
+    else if (navigator.clipboard) navigator.clipboard.writeText(tx).then(() => showToast("Resumen copiado")).catch(() => showToast("No se pudo copiar", true));
 }
 
 function vYear() {
@@ -121,22 +128,84 @@ function vYear() {
         <b class="text-[17px] text-slate-800 dark:text-white">${y}</b>
         <button onclick="yrGo(1)" aria-label="Año siguiente" class="nav-btn"><i class="fa-solid fa-chevron-right text-xs"></i></button></div>`;
     if (!s.n) return nav + `<section class="${CARD} p-5">${emptyUI("fa-wand-magic-sparkles", "#AF52DE", "Aún no hay nada de " + y, "Anota tus movimientos y aquí aparecerá el resumen de tu año: tu categoría estrella, tu mejor mes y tu racha.", "Anotar un movimiento", "openMov()")}</section>`;
-    const card = (bg, ic, kick, big, sub) => `<div class="yr-card" style="background:${bg}">
+    // o = { to: número final, k: "m" (dinero) o "n" (entero), suf: texto después del número } → la cifra cuenta de 0 al llegar a la tarjeta
+    const card = (bg, ic, kick, big, sub, o) => `<div class="yr-card" style="background:${bg}">
+        <div class="yr-shapes" aria-hidden="true"><i class="s1"></i><i class="s2"></i><i class="s3"></i></div><i class="yr-deco fa-solid ${ic}" aria-hidden="true"></i>
         <div><span class="yr-ic"><i class="fa-solid ${ic}"></i></span><p class="text-[11px] uppercase tracking-widest opacity-80 mt-4">${kick}</p></div>
-        <div><p class="yr-big">${big}</p><p class="text-sm opacity-90 mt-2 leading-snug">${sub}</p></div></div>`;
+        <div><p class="yr-big" ${o ? `data-yto="${o.to}" data-yk="${o.k}" data-ysuf="${esc(o.suf || "")}"` : ""}>${big}</p><p class="text-sm opacity-90 mt-2 leading-snug">${sub}</p></div></div>`;
     const C = [];
-    C.push(card("linear-gradient(160deg, rgb(var(--p-500)), rgb(var(--s-700)))", "fa-wand-magic-sparkles", "Tu año " + y, fmt(s.gas), "gastaste en total. Ingresaste " + fmt(s.ing) + (s.rate !== null ? (s.rate >= 0 ? " y te quedó el " + Math.round(s.rate * 100) + "%." : " y gastaste más de lo que entró.") : ".")));
+    C.push(card("linear-gradient(160deg, rgb(var(--p-500)), rgb(var(--s-700)))", "fa-wand-magic-sparkles", "Tu año " + y, fmt(s.gas), "gastaste en total. Ingresaste " + fmt(s.ing) + (s.rate !== null ? (s.rate >= 0 ? " y te quedó el " + Math.round(s.rate * 100) + "%." : " y gastaste más de lo que entró.") : "."), { to: Math.round(s.gas), k: "m" }));
     if (s.cats[0]) C.push(card("linear-gradient(160deg,#FF9500,#FF3B30)", "fa-crown", "Tu categoría estrella", esc(s.cats[0][0]), fmt(s.cats[0][1]) + (s.gas > 0 ? " · el " + Math.round(s.cats[0][1] / s.gas * 100) + "% de tus gastos" : "") + (s.cats[1] ? ". Le sigue " + esc(s.cats[1][0]) + "." : "")));
-    if (s.big) C.push(card("linear-gradient(160deg,#AF52DE,#5856D6)", "fa-bolt", "Tu gasto más grande", fmt(s.big.a), esc(s.big.n || s.big.c) + " · " + dmy(s.big.d).slice(0, 5)));
+    if (s.big) C.push(card("linear-gradient(160deg,#AF52DE,#5856D6)", "fa-bolt", "Tu gasto más grande", fmt(s.big.a), esc(s.big.n || s.big.c) + " · " + dmy(s.big.d).slice(0, 5), { to: Math.round(s.big.a), k: "m" }));
     if (s.best) C.push(card("linear-gradient(160deg,#34C759,#248A3D)", "fa-medal", "Tu mejor mes", MES[s.best.i], (s.best.net >= 0 ? "Te sobraron " : "Quedaste en ") + fmt(s.best.net) + " después de gastar." + (s.priciest && s.priciest.i != s.best.i ? " El más caro fue " + MES[s.priciest.i].toLowerCase() + " (" + fmt(s.priciest.g) + ")." : "")));
-    if (s.wdV > 0) C.push(card("linear-gradient(160deg,#007AFF,#5AC8FA)", "fa-calendar-day", "Tu día de gastar", "Los " + DIAS_SEM[s.wdTop], "Es cuando más sale plata: " + fmt(s.wdV) + " en el año."));
-    C.push(card("linear-gradient(160deg,#FF2D55,#AF52DE)", "fa-fire", "Tu racha", s.streak + (s.streak == 1 ? " día" : " días"), "seguidos anotando. Anotaste " + s.n + " movimientos en " + s.ndays + " días distintos."));
-    if (s.goals) C.push(card("linear-gradient(160deg,#30B0C7,#34C759)", "fa-piggy-bank", "Tus metas", fmt(s.saved), "ahorrados entre " + s.goals + (s.goals == 1 ? " meta" : " metas") + (s.done ? " · " + s.done + (s.done == 1 ? " lograda 🎉" : " logradas 🎉") : "") + "."));
+    if (s.wdV > 0) C.push(card("linear-gradient(160deg,#007AFF,#5AC8FA)", "fa-calendar-day", "Tu día de gastar", T_WD(s.wdTop), "Es cuando más sale plata: " + fmt(s.wdV) + " en el año."));
+    C.push(card("linear-gradient(160deg,#FF2D55,#AF52DE)", "fa-fire", "Tu racha", s.streak + (s.streak == 1 ? " día" : " días"), "seguidos anotando. Anotaste " + s.n + " movimientos en " + s.ndays + " días distintos.", { to: s.streak, k: "n", suf: " " + t(s.streak == 1 ? "día" : "días") }));
+    if (s.goals) C.push(card("linear-gradient(160deg,#30B0C7,#34C759)", "fa-piggy-bank", "Tus metas", fmt(s.saved), "ahorrados entre " + s.goals + (s.goals == 1 ? " meta" : " metas") + (s.done ? " · " + s.done + (s.done == 1 ? " lograda 🎉" : " logradas 🎉") : "") + ".", { to: Math.round(s.saved), k: "m" }));
+    // Tarjeta de cierre: el año en cuatro cifras y un botón para compartirlo como imagen
+    C.push(`<div class="yr-card yr-end"><div class="yr-shapes" aria-hidden="true"><i class="s1"></i><i class="s2"></i><i class="s3"></i></div>
+        <div><span class="yr-ic"><i class="fa-solid fa-flag-checkered"></i></span><p class="text-[11px] uppercase tracking-widest opacity-80 mt-4">Mi Plata · ${y}</p></div>
+        <div><p class="yr-big">Tu año en una imagen</p>
+            <div class="yr-end-grid">
+                <div><small>Ingresos</small><b>${fmt(s.ing)}</b></div><div><small>Gastos</small><b>${fmt(s.gas)}</b></div>
+                <div><small>Te quedó</small><b>${s.rate !== null ? Math.round(s.rate * 100) + "%" : "—"}</b></div><div><small>Racha</small><b>${s.streak} ${s.streak == 1 ? "día" : "días"}</b></div>
+            </div>
+            <button class="yr-end-btn" onclick="yrImage()"><i class="fa-solid fa-image mr-2"></i>Compartir como imagen</button></div></div>`);
     return `${nav}
         <div class="yr-row no-scrollbar">${C.join("")}</div>
         <p class="text-center text-[11px] text-slate-400 -mt-1"><i class="fa-solid fa-hand-pointer mr-1"></i>Desliza para ver más</p>
-        <button onclick="yrShare()" class="w-full py-3 rounded-2xl bg-indigo-600 active:bg-indigo-700 text-white text-sm font-semibold"><i class="fa-solid fa-share-nodes mr-2"></i>Compartir mi resumen</button>
+        <button onclick="yrImage()" class="w-full py-3 rounded-2xl bg-indigo-600 active:bg-indigo-700 text-white text-sm font-semibold"><i class="fa-solid fa-image mr-2"></i>Compartir como imagen</button>
+        <button onclick="yrShare()" class="w-full py-3 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-semibold"><i class="fa-solid fa-share-nodes mr-2"></i>Compartir como texto</button>
         <p class="text-[11px] text-slate-400 text-center">Se calcula con lo que anotaste en ${y}. Las cuentas que ocultes en Ajustes no cuentan.</p>`;
+}
+
+// Las cifras de las tarjetas cuentan de 0 a su valor cuando la tarjeta aparece en pantalla
+function yrInit() {
+    const els = [...document.querySelectorAll("[data-yto]")];
+    if (!els.length || masked() || matchMedia("(prefers-reduced-motion: reduce)").matches || !("IntersectionObserver" in window)) return;
+    const txt = (el, v) => { el.textContent = el.dataset.yk == "m" ? fmt(v) : Math.round(v) + (el.dataset.ysuf || ""); };
+    const run = el => {
+        const to = +el.dataset.yto, t0 = performance.now(), dur = 1100;
+        const step = now => { const k = Math.min(1, (now - t0) / dur); txt(el, to * (1 - Math.pow(1 - k, 3))); if (k < 1) requestAnimationFrame(step); };
+        requestAnimationFrame(step);
+    };
+    const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { io.unobserve(e.target); run(e.target.querySelector("[data-yto]")); } }), { root: document.querySelector(".yr-row"), threshold: .6 });
+    els.forEach(el => { txt(el, 0); io.observe(el.closest(".yr-card")); });
+}
+
+// La última tarjeta se comparte como imagen (se dibuja en un canvas: no depende de ninguna librería)
+function yrImage() {
+    const y = yrSel, s = yearStats(y); if (!s.n) return;
+    const W = 1080, H = 1350, cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+    const g = cv.getContext("2d"), F = '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, system-ui, sans-serif';
+    const bg = g.createLinearGradient(0, 0, W, H); bg.addColorStop(0, accent(500)); bg.addColorStop(1, accent(800, 1, "s")); g.fillStyle = bg; g.fillRect(0, 0, W, H);
+    const blob = (x, yy, r, a) => { g.beginPath(); g.arc(x, yy, r, 0, 7); g.fillStyle = "rgba(255,255,255," + a + ")"; g.fill(); };
+    blob(930, 130, 400, .10); blob(90, 1190, 340, .08); blob(930, 1010, 70, .13); blob(150, 620, 34, .14);
+    g.lineWidth = 10; g.strokeStyle = "rgba(255,255,255,.18)"; g.beginPath(); g.arc(860, 560, 46, 0, 7); g.stroke();
+    const text = (str, x, yy, size, wt, a, align, maxW) => {
+        let sz = size; g.textAlign = align || "left"; g.fillStyle = "rgba(255,255,255," + a + ")";
+        do { g.font = wt + " " + sz + "px " + F; sz -= 2; } while (maxW && g.measureText(str).width > maxW && sz > 18);
+        g.fillText(str, x, yy);
+    };
+    text("Mi Plata", 80, 120, 46, 700, .92);
+    text(t("Mi año"), 80, 330, 66, 600, .85);
+    text(String(y), 80, 500, 210, 800, 1);
+    text(t("Gastaste"), 80, 660, 42, 500, .8);
+    text(fmt(s.gas), 80, 790, 150, 800, 1, "left", W - 160);
+    g.fillStyle = "rgba(0,0,0,.2)"; g.beginPath(); g.roundRect ? g.roundRect(60, 880, 960, 330, 44) : g.rect(60, 880, 960, 330); g.fill();
+    const cells = [
+        [t("Ingresos"), fmt(s.ing)],
+        [t("Te quedó"), s.rate !== null ? Math.round(s.rate * 100) + "%" : "—"],
+        [t("Categoría estrella"), s.cats[0] ? t(s.cats[0][0]) : "—"],
+        [t("Racha"), s.streak + " " + t(s.streak == 1 ? "día" : "días")]
+    ];
+    cells.forEach((c, i) => { const x = 110 + (i % 2) * 470, yy = 960 + Math.floor(i / 2) * 140; text(c[0], x, yy, 30, 500, .7); text(c[1], x, yy + 62, 54, 800, 1, "left", 420); });
+    text("Mi Plata", W / 2, 1290, 36, 600, .75, "center");
+    cv.toBlob(b => {
+        if (!b) return;
+        const f = new File([b], "mi-plata-" + y + ".png", { type: "image/png" });
+        if (navigator.canShare && navigator.canShare({ files: [f] })) navigator.share({ files: [f], title: t("Mi año en Mi Plata") }).catch(() => {});
+        else { const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = f.name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); showToast("Imagen guardada"); }
+    }, "image/png");
 }
 
 // Tarjeta de Inicio que muestra un adelanto del resumen del año y lleva a él. Se puede plegar (queda guardado, como las demás secciones de Inicio).

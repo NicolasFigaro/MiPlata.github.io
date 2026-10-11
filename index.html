@@ -15,8 +15,12 @@
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="mejoras.css">
     <link rel="stylesheet" href="pantallas.css">
+    <link rel="stylesheet" href="estetica.css">
     <!-- Temas de color: se aplica antes de pintar para que no parpadee -->
     <script src="tema.js"></script>
+    <!-- Idioma: el diccionario y el traductor van antes que todo lo demás para que nada aparezca en español por un instante -->
+    <script src="idioma-datos.js"></script>
+    <script src="idioma.js"></script>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -97,8 +101,9 @@
     </div>
 
 
-    <!-- Orden importante: datos y cálculos → pantallas nuevas → pantallas → acciones -->
+    <!-- Orden importante: datos y cálculos → piezas visuales → pantallas nuevas → pantallas → acciones -->
     <script src="logica.js"></script>
+    <script src="estetica.js"></script>
     <script src="pantallas.js"></script>
     <script src="vistas.js"></script>
     <script src="acciones.js"></script>

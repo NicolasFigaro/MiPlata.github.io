@@ -114,7 +114,8 @@ function draw() {
     if (keep) { openMov(); restoreForm(); } // volvió de crear una categoría: reabre el formulario con lo que había escrito
     if (N[tab] == "Gráficas") drawCharts();
     if (N[tab] == "Tarjetas") runCupoAnim();
-    if (anim) { anim = false; const m = document.getElementById("appMain"); m.classList.remove("enter", "nav-fwd", "nav-back"); void m.offsetWidth; m.classList.add(navDir ? "nav-" + navDir : "enter"); navDir = null; countUp(); }
+    if (N[tab] == "Resumen") yrInit();
+    if (anim) { anim = false; const m = document.getElementById("appMain"); m.classList.remove("enter", "nav-fwd", "nav-back"); void m.offsetWidth; m.classList.add(navDir ? "nav-" + navDir : "enter"); navDir = null; countUp(true); } else countUp(false);
     if (keepY !== null) window.scrollTo(0, keepY);
     updNav();
 }
@@ -186,13 +187,23 @@ function runCupoAnim() {
         requestAnimationFrame(step);
     });
 }
-function countUp() {
-    if (masked() || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    document.querySelectorAll("#appMain h2.text-3xl, #appMain div.text-3xl, #appMain h4.text-lg").forEach(el => {
-        const t = el.textContent.trim();
-        if (!/^-?\$/.test(t)) return;
-        const to = (t[0] == "-" ? -1 : 1) * Number(t.replace(/\D/g, "")), t0 = performance.now();
-        const step = now => { const k = Math.min(1, (now - t0) / 700); el.textContent = fmt(to * (1 - Math.pow(1 - k, 3))); if (k < 1) requestAnimationFrame(step); };
+// Cifras que cuentan hacia arriba. Al abrir una pantalla (first) parten de 0; en un redibujo normal (guardar un movimiento,
+// cambiar de mes) solo se animan las que cambiaron, desde el valor que mostraban antes. Se marcan con data-cu="clave".
+const CU = {};
+function countUp(first) {
+    const calm = masked() || matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let n = 0;
+    document.querySelectorAll("#appMain h2.text-3xl, #appMain div.text-3xl, #appMain h4.text-lg, #appMain [data-cu]").forEach(el => {
+        const tx = el.textContent.trim();
+        if (!/^-?\$/.test(tx) || tx.indexOf("•") >= 0) return;
+        const key = tab + ":" + (el.dataset.cu || (el.dataset.cu = "a" + n)); n++;
+        const to = (tx[0] == "-" ? -1 : 1) * Number(tx.replace(/\D/g, "")), prev = CU[key];
+        CU[key] = to;
+        const from = first || prev === undefined ? 0 : prev;
+        if (calm || from === to) return;
+        const t0 = performance.now(), dur = first ? 700 : 600;
+        const step = now => { const k = Math.min(1, (now - t0) / dur); el.textContent = fmt(from + (to - from) * (1 - Math.pow(1 - k, 3))); if (k < 1) requestAnimationFrame(step); };
+        el.textContent = fmt(from);
         requestAnimationFrame(step);
     });
 }
@@ -213,7 +224,7 @@ function openCustomModal(title, fields, onSubmitCallback, onCancel) {
             ${fields.map((f, i) => `
                 <div>
                     <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1 uppercase tracking-wider">${f.l}</label>
-                    ${f.o ? `
+                    ${f.sw ? swHTML(f, i) : f.o ? `
                         <select name="f${i}" class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-800 dark:text-white focus:ring-2 focus:ring-indigo-500 text-sm">
                             ${f.o.map(x => `<option ${x == f.v ? "selected" : ""}>${x}</option>`).join("")}
                         </select>
@@ -656,12 +667,13 @@ function newPk(wid) {
     openCustomModal("Nuevo bolsillo en " + esc(a.n), [
         { l: "Nombre", p: "Ej. Arriendo, Viaje" },
         { l: "¿Cuánto apartas ahora? (libre: " + fmt(Math.max(0, pkFree(a))) + ")", m: "numeric", p: "0" }
-    ].concat(goalOpts() ? [{ l: "Para una meta de ahorro (opcional)", o: goalOpts() }] : []), v => {
+    ].concat(goalOpts() ? [{ l: "Para una meta de ahorro (opcional)", o: goalOpts() }] : []).concat([{ l: "Ícono", sw: icoSw(), v: "", cls: "sw-ic" }, { l: "Color", sw: colSw(), v: "" }]), v => {
+        const kI = goalOpts() ? 3 : 2;
         if (!v[0] || v[0].length > 24) return "Escribe un nombre (hasta 24 letras).";
         if (a.pk.some(p => p.n.toLowerCase() == v[0].toLowerCase())) return "Ya tienes un bolsillo con ese nombre en esta cuenta.";
         const m = num(v[1]);
         if (m > Math.max(0, pkFree(a))) return "Solo tienes " + fmt(Math.max(0, pkFree(a))) + " libres en esta cuenta.";
-        const g = goalByOpt(v[2]), p = { id: Date.now(), n: v[0], v: m }; if (g) p.m = g.id; a.pk.push(p); save();
+        const g = goalByOpt(v[2]), p = { id: Date.now(), n: v[0], v: m }; if (g) p.m = g.id; if (v[kI]) p.ic = v[kI]; if (v[kI + 1]) p.c = v[kI + 1]; a.pk.push(p); save();
     });
 }
 // ---- Bolsillos ↔ metas de ahorro ----
@@ -712,10 +724,10 @@ function pkMove(wid, pid, s) {
 }
 function editPk(wid, pid) {
     const a = S.wal.find(x => x.id == wid), p = a && a.pk.find(x => x.id == pid); if (!p) return;
-    openCustomModal("Renombrar bolsillo", [{ l: "Nombre", v: esc(p.n) }], v => {
+    openCustomModal("Renombrar bolsillo", [{ l: "Nombre", v: esc(p.n) }, { l: "Ícono", sw: icoSw(), v: p.ic || "", cls: "sw-ic" }, { l: "Color", sw: colSw(), v: p.c || "" }], v => {
         if (!v[0] || v[0].length > 24) return "Escribe un nombre (hasta 24 letras).";
         if (a.pk.some(q => q.id != pid && q.n.toLowerCase() == v[0].toLowerCase())) return "Ya tienes un bolsillo con ese nombre en esta cuenta.";
-        p.n = v[0]; save();
+        p.n = v[0]; if (v[1]) p.ic = v[1]; else delete p.ic; if (v[2]) p.c = v[2]; else delete p.c; save();
     });
 }
 function delPk(wid, pid) {
@@ -731,12 +743,16 @@ function newAcc() {
         { l: "Meta (monto)", m: "decimal" },
         { l: "Fecha límite (opcional)", t: "date" },
         { l: "Rendimiento anual E.A. % (0 si no gana)", v: "0", m: "decimal" },
-        { l: "Ya tengo ahorrado (opcional)", m: "decimal" }
+        { l: "Ya tengo ahorrado (opcional)", m: "decimal" },
+        { l: "Emoji", sw: emoSw(), v: "" },
+        { l: "Color", sw: colSw(), v: "" }
     ], v => {
         if (!v[0]) return "Escribe un nombre.";
         if (v[3] && v[3] <= today()) return "La fecha límite debe ser futura.";
         const u = v[1].startsWith("USD"), P = s => u ? (pr(s) || 0) : num(s), id = Date.now();
-        S.acc.push({ id, n: v[0], g: P(v[2]), r: pr(v[4]) || 0, u: u ? 1 : 0, dl: v[3] || "", s0: today() });
+        const ng = { id, n: v[0], g: P(v[2]), r: pr(v[4]) || 0, u: u ? 1 : 0, dl: v[3] || "", s0: today() };
+        if (v[6]) ng.e = v[6]; if (v[7]) ng.c = v[7];
+        S.acc.push(ng);
         if (P(v[5])) S.sv.push({ id: id + 1, a: id, d: today(), v: P(v[5]), i: 1 });
         save();
     });
@@ -747,10 +763,14 @@ function editAcc(id) {
         { l: "Nombre", v: esc(a.n) },
         { l: "Meta", v: tf(a.g), m: "decimal" },
         { l: "Fecha límite (opcional)", v: a.dl || "", t: "date" },
-        { l: "Rendimiento E.A. %", v: tf(a.r), m: "decimal" }
+        { l: "Rendimiento E.A. %", v: tf(a.r), m: "decimal" },
+        { l: "Emoji", sw: emoSw(), v: a.e || "" },
+        { l: "Color", sw: colSw(), v: a.c || "" }
     ], v => {
         if (v[0]) a.n = v[0];
         a.g = pr(v[1]); a.dl = v[2] || ""; a.r = pr(v[3]) || 0;
+        if (v[4]) a.e = v[4]; else delete a.e;
+        if (v[5]) a.c = v[5]; else delete a.c;
         save();
     });
 }
