@@ -104,25 +104,43 @@ function qeVoiceText(raw) {
     t = t.replace(/\b(pesos|peso|cop)\b/gi, " ");                  // "quince mil pesos" → "quince mil"
     return t.replace(/\s+/g, " ").trim();
 }
-let qeRec = null;
+let qeRec = null, qeWd = 0;
+const qeEl = id => document.getElementById(id);
+// Se busca el micrófono y el campo cada vez: "Anotar rápido" redibuja el formulario al cambiar entre gasto e ingreso y los elementos viejos quedan sueltos.
+const qeMicState = on => { const b = qeEl("qeMic"); if (b) b.classList.toggle("qe-rec", !!on); };
+function qeVoiceStop() { // corta y limpia todo, aunque el navegador no avise que terminó
+    clearTimeout(qeWd);
+    const r = qeRec; qeRec = null; qeMicState(false);
+    if (r) { r.onresult = r.onerror = r.onend = r.onstart = null; try { r.abort(); } catch (e) {} }
+}
 function qeVoice() {
-    const q = document.getElementById("qe"), b = document.getElementById("qeMic");
     if (!QE_SR) return showToast("Dictado por voz no disponible en este navegador. Usa el micrófono del teclado.", true);
-    if (qeRec) { try { qeRec.stop(); } catch (e) {} return; }
+    if (qeRec) { // ya está escuchando: este toque termina el dictado (si el navegador no responde, se fuerza)
+        try { qeRec.stop(); } catch (e) {}
+        clearTimeout(qeWd); qeWd = setTimeout(qeVoiceStop, 1200); return;
+    }
+    qeVoiceStop();
     const r = qeRec = new QE_SR();
     r.lang = { es: "es-CO", en: "en-US", fr: "fr-FR", de: "de-DE", ru: "ru-RU" }[LANG] || "es-CO";
     r.interimResults = true; r.continuous = false; r.maxAlternatives = 1;
-    r.onstart = () => { if (b) b.classList.add("qe-rec"); if (typeof buzz == "function") try { buzz(); } catch (e) {} };
+    r.onstart = () => { if (qeRec !== r) return; qeMicState(true); if (typeof buzz == "function") try { buzz(); } catch (e) {} };
     r.onresult = e => {
+        if (qeRec !== r) return;
         let t = ""; for (const x of e.results) t += x[0].transcript + " ";
+        const q = qeEl("qe"); if (!q) return;
         q.value = qeVoiceText(t); qeParse(q.value);
+        qeMicState(true); // qeParse puede redibujar el formulario
     };
     r.onerror = e => {
+        if (qeRec !== r) return;
         const err = e && e.error;
         if (err == "not-allowed" || err == "service-not-allowed") showToast("Permite el micrófono para dictar.", true);
         else if (err == "no-speech") showToast("No te escuché. Intenta de nuevo.", true);
+        else if (err == "audio-capture") showToast("No encuentro un micrófono disponible.", true);
         else if (err != "aborted") showToast("El servicio de voz no responde. Prueba en Chrome o Safari, o usa el micrófono del teclado.", true);
+        qeVoiceStop();
     };
-    r.onend = () => { qeRec = null; if (b) b.classList.remove("qe-rec"); };
-    try { r.start(); } catch (e) { qeRec = null; }
+    r.onend = () => { if (qeRec === r) qeVoiceStop(); };
+    qeWd = setTimeout(qeVoiceStop, 20000); // seguro: si algo se cuelga, a los 20 s se libera
+    try { r.start(); } catch (e) { qeVoiceStop(); showToast("No se pudo iniciar el micrófono. Intenta de nuevo.", true); }
 }

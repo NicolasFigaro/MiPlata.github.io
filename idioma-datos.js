@@ -800,4 +800,6 @@ window.I18N_ROWS = [
 ["No te escuché. Intenta de nuevo.","I didn't hear you. Try again.","Je ne vous ai pas entendu. Réessayez.","Ich habe dich nicht gehört. Versuche es erneut.","Я вас не расслышал. Попробуйте ещё раз."],
 ["El servicio de voz no responde. Prueba en Chrome o Safari, o usa el micrófono del teclado.","The voice service isn't responding. Try Chrome or Safari, or use your keyboard's microphone.","Le service vocal ne répond pas. Essayez Chrome ou Safari, ou utilisez le micro du clavier.","Der Sprachdienst antwortet nicht. Probiere Chrome oder Safari oder nutze das Mikrofon der Tastatur.","Голосовой сервис не отвечает. Попробуйте Chrome или Safari либо микрофон клавиатуры."],
 ["Dictar movimiento","Dictate entry","Dicter un mouvement","Eintrag diktieren","Продиктовать запись"],
+["No encuentro un micrófono disponible.","I can't find an available microphone.","Je ne trouve aucun micro disponible.","Ich finde kein verfügbares Mikrofon.","Не удаётся найти доступный микрофон."],
+["No se pudo iniciar el micrófono. Intenta de nuevo.","Couldn't start the microphone. Try again.","Impossible de démarrer le micro. Réessayez.","Das Mikrofon konnte nicht gestartet werden. Versuche es erneut.","Не удалось включить микрофон. Попробуйте ещё раз."],
 ];
