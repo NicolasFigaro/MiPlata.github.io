@@ -344,7 +344,10 @@ function movFormHTML() {
         </div>
         <div class="space-y-4">
             <div>
-                <input id="qe" enterkeyhint="done" placeholder="Anotar rápido" oninput="qeParse(this.value)" onkeydown="if(event.key==='Enter')this.blur()" class="${sel}" autocomplete="off" autocapitalize="none">
+                <div class="relative">
+                    <input id="qe" enterkeyhint="done" placeholder="Anotar rápido" oninput="qeParse(this.value)" onkeydown="if(event.key==='Enter')this.blur()" class="${sel}${qeCanVoice() ? ' pr-12' : ''}" autocomplete="off" autocapitalize="none">
+                    ${qeCanVoice() ? `<button id="qeMic" type="button" onclick="qeVoice()" title="Dictar" aria-label="Dictar movimiento" class="absolute right-1.5 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full flex items-center justify-center text-indigo-600 dark:text-indigo-400 active:scale-95 transition"><i class="fa-solid fa-microphone"></i></button>` : ""}
+                </div>
                 <p id="qeHint" class="text-[11px] text-indigo-500 font-semibold mt-1 empty:hidden"></p>
             </div>
             <div class="flex items-center justify-center gap-1.5 py-1">

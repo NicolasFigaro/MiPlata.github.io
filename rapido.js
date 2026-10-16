@@ -67,3 +67,62 @@ function qeParse(v) {
     const h = g("qeHint");
     if (h) h.textContent = a || c ? (c || "Sin categoría clara") + (a ? " · " + fmt(a.n) : "") : "";
 }
+
+// ===== Dictado por voz =====
+// Toca el micrófono, di "almuerzo quince mil" y se llena igual que si lo hubieras escrito.
+// Usa el reconocimiento de voz del navegador (Chrome/Edge/Safari). Necesita https y permiso de micrófono.
+const QE_SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const qeCanVoice = () => !!QE_SR;
+const QE_NUM = { cero: 0, un: 1, uno: 1, una: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10, once: 11, doce: 12, trece: 13, catorce: 14, quince: 15, dieciseis: 16, diecisiete: 17, dieciocho: 18, diecinueve: 19, veinte: 20, veintiun: 21, veintiuno: 21, veintidos: 22, veintitres: 23, veinticuatro: 24, veinticinco: 25, veintiseis: 26, veintisiete: 27, veintiocho: 28, veintinueve: 29, treinta: 30, cuarenta: 40, cincuenta: 50, sesenta: 60, setenta: 70, ochenta: 80, noventa: 90, cien: 100, ciento: 100, doscientos: 200, trescientos: 300, cuatrocientos: 400, quinientos: 500, seiscientos: 600, setecientos: 700, ochocientos: 800, novecientos: 900 };
+// "quince mil" → "15000", "dos millones quinientos mil" → "2500000". Solo convierte si el resultado es >= 100 (así "un almuerzo" no se vuelve "1 almuerzo").
+function qeWordsToNum(txt) {
+    const tk = txt.split(/\s+/).filter(Boolean), out = [];
+    const isNum = w => qeNorm(w) in QE_NUM, isMul = w => /^(mil|millon|millones)$/.test(qeNorm(w));
+    for (let i = 0; i < tk.length;) {
+        const prevDigit = out.length && /\d/.test(out[out.length - 1]);
+        if (!(isNum(tk[i]) || (isMul(tk[i]) && !prevDigit))) { out.push(tk[i++]); continue; }
+        let j = i, total = 0, cur = 0;
+        while (j < tk.length) {
+            const n = qeNorm(tk[j]);
+            if (n in QE_NUM) cur += QE_NUM[n];
+            else if (n == "mil") { total += (cur || 1) * 1e3; cur = 0; }
+            else if (n == "millon" || n == "millones") { total += (cur || 1) * 1e6; cur = 0; }
+            else if (n == "y" && j + 1 < tk.length && isNum(tk[j + 1])) { /* conector: "treinta y cinco" */ }
+            else break;
+            j++;
+        }
+        const v = total + cur;
+        if (v >= 100) out.push(String(v)); else out.push(...tk.slice(i, j));
+        i = j;
+    }
+    return out.join(" ");
+}
+function qeVoiceText(raw) {
+    let t = String(raw || "").replace(/[$]/g, " ");
+    if (LANG == "es") t = qeWordsToNum(t);
+    t = t.replace(/(\d{1,3})\s(\d{3})(?!\d)/g, "$1$2");            // "15 000" → "15000"
+    t = t.replace(/\b(pesos|peso|cop)\b/gi, " ");                  // "quince mil pesos" → "quince mil"
+    return t.replace(/\s+/g, " ").trim();
+}
+let qeRec = null;
+function qeVoice() {
+    const q = document.getElementById("qe"), b = document.getElementById("qeMic");
+    if (!QE_SR) return showToast("Dictado por voz no disponible en este navegador. Usa el micrófono del teclado.", true);
+    if (qeRec) { try { qeRec.stop(); } catch (e) {} return; }
+    const r = qeRec = new QE_SR();
+    r.lang = { es: "es-CO", en: "en-US", fr: "fr-FR", de: "de-DE", ru: "ru-RU" }[LANG] || "es-CO";
+    r.interimResults = true; r.continuous = false; r.maxAlternatives = 1;
+    r.onstart = () => { if (b) b.classList.add("qe-rec"); if (typeof buzz == "function") try { buzz(); } catch (e) {} };
+    r.onresult = e => {
+        let t = ""; for (const x of e.results) t += x[0].transcript + " ";
+        q.value = qeVoiceText(t); qeParse(q.value);
+    };
+    r.onerror = e => {
+        const err = e && e.error;
+        if (err == "not-allowed" || err == "service-not-allowed") showToast("Permite el micrófono para dictar.", true);
+        else if (err == "no-speech") showToast("No te escuché. Intenta de nuevo.", true);
+        else if (err != "aborted") showToast("El servicio de voz no responde. Prueba en Chrome o Safari, o usa el micrófono del teclado.", true);
+    };
+    r.onend = () => { qeRec = null; if (b) b.classList.remove("qe-rec"); };
+    try { r.start(); } catch (e) { qeRec = null; }
+}

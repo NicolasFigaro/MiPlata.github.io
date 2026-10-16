@@ -55,3 +55,7 @@ html .leading-\[41px\] { line-height: calc(41px * var(--fs, 1)); }
 /* La barra de pestañas se queda con su tamaño (como en iOS) para que no se desarme */
 html #tabBar .text-\[10px\] { font-size: 10px; }
 html #tabBar .text-\[21px\] { font-size: 21px; }
+
+/* Micrófono de "Anotar rápido": late en rojo mientras escucha */
+#qeMic.qe-rec { background: #FF3B30; color: #fff; animation: qePulse 1.1s ease-in-out infinite; }
+@keyframes qePulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(255,59,48,.5); } 50% { box-shadow: 0 0 0 8px rgba(255,59,48,0); } }

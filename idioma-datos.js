@@ -795,4 +795,9 @@ window.I18N_ROWS = [
 ["ID de cliente de Google","Google client ID","ID client Google","Google-Client-ID","ID клиента Google"],
 ["ID guardado","ID saved","ID enregistré","ID gespeichert","ID сохранён"],
 ["No hay copia en tu Drive todavía","There is no backup in your Drive yet","Aucune sauvegarde dans votre Drive pour l'instant","Noch keine Sicherung in deinem Drive","В вашем Drive пока нет копии"],
+["Dictado por voz no disponible en este navegador. Usa el micrófono del teclado.","Voice dictation is not available in this browser. Use your keyboard's microphone.","La dictée vocale n'est pas disponible dans ce navigateur. Utilisez le micro du clavier.","Spracheingabe ist in diesem Browser nicht verfügbar. Nutze das Mikrofon der Tastatur.","Голосовой ввод недоступен в этом браузере. Используйте микрофон клавиатуры."],
+["Permite el micrófono para dictar.","Allow the microphone to dictate.","Autorisez le micro pour dicter.","Erlaube das Mikrofon zum Diktieren.","Разрешите микрофон для диктовки."],
+["No te escuché. Intenta de nuevo.","I didn't hear you. Try again.","Je ne vous ai pas entendu. Réessayez.","Ich habe dich nicht gehört. Versuche es erneut.","Я вас не расслышал. Попробуйте ещё раз."],
+["El servicio de voz no responde. Prueba en Chrome o Safari, o usa el micrófono del teclado.","The voice service isn't responding. Try Chrome or Safari, or use your keyboard's microphone.","Le service vocal ne répond pas. Essayez Chrome ou Safari, ou utilisez le micro du clavier.","Der Sprachdienst antwortet nicht. Probiere Chrome oder Safari oder nutze das Mikrofon der Tastatur.","Голосовой сервис не отвечает. Попробуйте Chrome или Safari либо микрофон клавиатуры."],
+["Dictar movimiento","Dictate entry","Dicter un mouvement","Eintrag diktieren","Продиктовать запись"],
 ];
