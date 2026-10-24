@@ -16,33 +16,18 @@
     <link rel="stylesheet" href="mejoras.css">
     <link rel="stylesheet" href="pantallas.css">
     <link rel="stylesheet" href="estetica.css">
+    <!-- Tailwind ya compilado (antes se compilaba en el celular en cada apertura con cdn.tailwindcss.com). Va al final, igual que antes, para que sus utilidades ganen en la cascada -->
+    <link rel="stylesheet" href="tailwind.css">
     <!-- Temas de color: se aplica antes de pintar para que no parpadee -->
     <script src="tema.js"></script>
     <script src="zoom.js"></script>
     <!-- Idioma: el diccionario y el traductor van antes que todo lo demás para que nada aparezca en español por un instante -->
-    <script src="idioma-datos.js"></script>
+    <script>try{if((localStorage.getItem("miplata_lang")||"es")!=="es")document.write('<script src="idioma-datos.js"><\/script>')}catch(e){}</script>
     <script src="idioma.js"></script>
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        // indigo, violet y slate leen variables CSS (ver tema.js y styles.css): así todo el diseño cambia de tema sin tocar las clases
-        const sc = v => Object.fromEntries([50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950].map(k => [k, 'rgb(var(--' + v + '-' + k + ') / <alpha-value>)']));
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: {
-                        indigo: sc('p'), violet: sc('s'), slate: sc('n'),
-                        brand: { 50: '#eef2ff', 100: '#e0e7ff', 500: '#6366f1', 600: '#4f46e5', 700: '#4338ca' }
-                    }
-                }
-            }
-        }
-    </script>
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
+    <!-- Chart.js se carga solo al abrir Gráficas (ensureChart en vistas.js) -->
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 min-h-full flex flex-col transition-colors duration-300">
 

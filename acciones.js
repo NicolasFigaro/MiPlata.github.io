@@ -15,6 +15,8 @@ function buzz() {
     let el = null, x0 = 0, y0 = 0, base = 0, mode = null, v = 0, opened = null;
     L.addEventListener("touchstart", e => {
         if (opened && !opened.isConnected) opened = null;
+        // Tocar Editar / Borrar (están debajo de la fila): NO cerrar la fila, o se desliza encima del botón y el toque se pierde
+        if (e.target.closest(".swipe-act")) { el = null; return; }
         const r = e.target.closest(".swipe-in");
         if (opened && opened !== r) { opened.style.transform = ""; opened = null; }
         if (!r) { el = null; return; }
@@ -467,17 +469,36 @@ function dupMov(id) {
 }
 function editM(id) {
     const x = S.items.find(y => y.id == id); if (!x) return;
-    openCustomModal("Editar movimiento", [
-        { l: "Monto", v: x.a, m: "numeric" },
+    const cards = S.cards.map(c => c.n);
+    const withCur = (list, cur) => cur && !list.includes(cur) ? [cur].concat(list) : list; // si la opción actual ya no existe (cuenta oculta o borrada) se conserva, así editar no la cambia sin querer
+    const cats = withCur(x.t == "g" ? G.filter(g => g[0] != "Ahorro").map(g => g[0]) : x.t == "p" ? ["Pago tarjeta"] : x.t == "tr" ? ["Transferencia"] : I.slice(), x.c);
+    const F = [
+        { l: "Monto", v: Math.round(x.a), m: "numeric" },
         { l: "Nota", v: esc(x.n) },
-        { l: "Categoría", o: x.t == "g" ? G.filter(g => g[0] != "Ahorro").map(g => g[0]) : x.t == "p" ? ["Pago tarjeta"] : x.t == "tr" ? ["Transferencia"] : I, v: x.c },
+        { l: "Categoría", o: cats, v: x.c },
         { l: "Fecha", v: x.d, t: "date" },
         { l: "¿Contar en el resumen de categorías?", o: ["Sí", "No"], v: x.s ? "No" : "Sí" }
-    ], v => {
+    ];
+    // Dónde quedó el movimiento: cuenta, tarjeta o (en transferencias) origen y destino. Los gastos pagados desde una meta de ahorro no se cambian aquí.
+    const cur0 = x.k || x.w, kind = x.t == "g" ? (x.sav ? "" : "pay") : x.t == "i" ? "in" : x.t == "p" ? "out" : x.t == "tr" ? "tr" : "";
+    if (kind == "pay") F.push({ l: "Se pagó con (cuenta o tarjeta)", o: withCur(WH.concat(cards), cur0), v: cur0 });
+    else if (kind == "in") F.push({ l: "Cuenta donde entró", o: withCur(WH.slice(), x.w), v: x.w });
+    else if (kind == "out") F.push({ l: "Cuenta de donde salió", o: withCur(WH.slice(), x.w), v: x.w });
+    else if (kind == "tr") F.push({ l: "Desde", o: withCur(WH.slice(), x.w), v: x.w }, { l: "Hacia", o: withCur(WH.slice(), x.to), v: x.to });
+    openCustomModal("Editar movimiento", F, v => {
         const a = num(v[0]);
         if (!a) return "Escribe un monto mayor a cero.";
         if (!/^\d{4}-\d{2}-\d{2}$/.test(v[3])) return "Fecha inválida.";
-        Object.assign(x, { a, n: v[1], c: v[2], d: v[3], s: v[4] == "No" ? 1 : 0 }); save();
+        if (kind == "tr" && v[5] == v[6]) return "Elige cuentas distintas.";
+        Object.assign(x, { a, n: v[1], c: v[2], d: v[3], s: v[4] == "No" ? 1 : 0 });
+        if (kind == "pay" && v[5] != cur0) {
+            if (cards.includes(v[5])) { // pasa a una tarjeta
+                const c = S.cards.find(y => y.n == v[5]);
+                x.k = v[5]; x.w = ""; x.q = x.q > 1 ? x.q : 1; x.ir = x.q > 1 && !x.ni ? (c.ir || 0) : 0;
+            } else { x.w = v[5]; x.k = ""; x.q = 1; x.ni = 0; x.ir = 0; } // pasa a una cuenta: ya no hay cuotas
+        } else if (kind == "in" || kind == "out") x.w = v[5];
+        else if (kind == "tr") { x.w = v[5]; x.to = v[6]; x.n = wlabel(v[5]) + " → " + wlabel(v[6]); }
+        save(); showToast("Movimiento actualizado");
     });
 }
 function newTransfer(from) {
@@ -793,7 +814,8 @@ function mov(id, s, all) {
 
 // ---------- Avisos: metas, tarjetas y deudas ----------
 // Copia de los avisos en IndexedDB para que el service worker los lea aunque la app esté cerrada
-const idb = () => new Promise((ok, no) => { if (!window.indexedDB) return no(); const r = indexedDB.open("miplata", 1); r.onupgradeneeded = () => r.result.createObjectStore("kv"); r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error); });
+let idbP = null; // una sola conexión reutilizada (antes cada guardado abría dos nuevas y no las cerraba)
+const idb = () => idbP || (idbP = new Promise((ok, no) => { if (!window.indexedDB) return no(); const r = indexedDB.open("miplata", 1); r.onupgradeneeded = () => r.result.createObjectStore("kv"); r.onsuccess = () => ok(r.result); r.onerror = () => { idbP = null; no(r.error); }; }));
 const kvGet = k => idb().then(db => new Promise(ok => { const q = db.transaction("kv").objectStore("kv").get(k); q.onsuccess = () => ok(q.result); q.onerror = () => ok(undefined); })).catch(() => undefined);
 const kvSet = (k, v) => idb().then(db => new Promise(ok => { const t = db.transaction("kv", "readwrite"); t.objectStore("kv").put(v, k); t.oncomplete = ok; t.onerror = ok; })).catch(() => {});
 function mirrorEvents() {
@@ -930,7 +952,7 @@ function upInv(id) {
 // de acciones recalcula su valor actual: valor = acciones × precio (× TRM si la inversión está en COP).
 const FK = "miplata_finnhub_key";
 const getFk = () => { try { return localStorage.getItem(FK) || ""; } catch (e) { return ""; } };
-const pq = s => parseFloat(String(s || "").replace(",", ".")) || 0; // acepta 0,36 y 0.36 (pr() quitaría el punto)
+const pq = s => { const t = String(s || "").trim(); return (t.includes(",") ? pr(t) : parseFloat(t)) || 0; }; // cantidad de acciones: acepta 0,36 y 0.36 (aquí el punto siempre es decimal)
 let pxBusy = false;
 function fkModal() {
     openCustomModal("Clave de Finnhub", [{ l: "API key (gratis en finnhub.io)", v: esc(getFk()) }], v => {
@@ -974,7 +996,8 @@ function rbCalc() {
 function setRb(k, v) { S.rb[k] = Math.max(0, Math.min(100, pr(v) || 0)); save(); rbCalc(); }
 function setTrmVal() {
     const v = pr(document.getElementById("trmInput").value);
-    if (v > 0) { S.trm = v; save(); showToast("TRM actualizada"); draw(); }
+    if (!(v >= 100 && v <= 100000)) return showToast("Escribe una TRM válida, por ejemplo 3221,56", true);
+    S.trm = Math.round(v * 100) / 100; save(); showToast("TRM actualizada: " + fmtD(S.trm)); draw();
 }
 
 // ---------- Tarjetas ----------

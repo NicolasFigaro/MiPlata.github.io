@@ -29,8 +29,26 @@ const ym = d => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"
 const ymd = d => ym(d) + "-" + String(d.getDate()).padStart(2, "0");
 const today = () => ymd(new Date());
 const num = s => Number(String(s || "").replace(/\D/g, ""));
-const tf = n => String(n).replace(".", ",");
-const pr = s => parseFloat(String(s || "").replace(/\./g, "").replace(",", ".")) || 0;
+const tf = n => String(Math.round((+n || 0) * 1e8) / 1e8).replace(".", ","); // 3221.56 → "3221,56" (sin ruido de coma flotante)
+// Lee un número escrito por una persona, con coma O punto decimal:
+//   "3221,56" → 3221.56 · "3221.56" → 3221.56 · "3.221,56" → 3221.56 · "1.234.567" → 1234567 · "3.221" → 3221 (miles) · "0.36" → 0.36
+// Regla: si hay coma y punto, el último es el decimal. Una sola coma siempre es decimal (formato colombiano).
+// Un solo punto es de miles solo si tiene exactamente 3 dígitos detrás y 1-3 delante ("3.221"); en cualquier otro caso es decimal.
+const pr = s => {
+    let t = String(s ?? "").trim().replace(/[^\d.,-]/g, "");
+    const neg = t.charAt(0) == "-"; t = t.replace(/-/g, "");
+    if (!t) return 0;
+    const lc = t.lastIndexOf(","), ld = t.lastIndexOf("."), nc = (t.match(/,/g) || []).length, nd = (t.match(/\./g) || []).length;
+    let at = -1; // posición del separador decimal (-1 = no hay)
+    if (lc >= 0 && ld >= 0) at = Math.max(lc, ld);
+    else if (lc >= 0) at = nc == 1 ? lc : -1;
+    else if (ld >= 0) at = nd == 1 && !(t.length - ld - 1 == 3 && ld >= 1 && ld <= 3 && t.charAt(0) != "0") ? ld : -1;
+    const ip = (at >= 0 ? t.slice(0, at) : t).replace(/[.,]/g, ""), fp = at >= 0 ? t.slice(at + 1).replace(/[.,]/g, "") : "";
+    const v = parseFloat((ip || "0") + (fp ? "." + fp : ""));
+    return isFinite(v) ? (neg ? -v : v) : 0;
+};
+// Pesos con decimales cuando los hay (para la TRM: $3.221,56)
+const fmtD = n => masked() ? "$ ••••" : "$" + (+n || 0).toLocaleString("es-CO", { maximumFractionDigits: 2 });
 const dmy = d => d ? d.slice(8) + "/" + d.slice(5, 7) + "/" + d.slice(0, 4) : "";
 const midnight = () => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); };
 const daysBetween = (a, b) => Math.round((b - a) / 864e5);
@@ -138,10 +156,17 @@ const fm = (a, v) => a.u ? fu(v) : fmt(v);
 const svm = () => S.sv.filter(x => x.d.startsWith(ym(cur)) && !x.i).reduce((s, x) => s + (x.cp ?? x.v), 0);
 const upto = (x, k) => !k || x.d.slice(0, 7) <= k;
 const svb = (id, k) => S.sv.filter(x => x.a == id && upto(x, k)).reduce((s, x) => s + x.v, 0);
-const bal = (w, k) => (S.ini[w] || 0)
-    + S.items.filter(x => x.t == "tr" && x.to == w && upto(x, k)).reduce((s, x) => s + x.a, 0)
-    + S.items.filter(x => upto(x, k)).reduce((s, x) => x.w != w ? s : x.t == "i" ? s + x.a : x.k ? s : s - x.a, 0)
-    - S.sv.filter(x => x.w == w && !x.i && upto(x, k)).reduce((s, x) => s + (x.cp ?? x.v), 0);
+// Saldo de una cuenta hasta el mes k. Una sola pasada por los movimientos (antes eran tres filter + reduce por cuenta, y se llama muchas veces por pantalla)
+const bal = (w, k) => {
+    let s = S.ini[w] || 0;
+    for (const x of S.items) {
+        if (k && x.d.slice(0, 7) > k) continue;
+        if (x.t == "tr" && x.to == w) s += x.a;
+        if (x.w == w) { if (x.t == "i") s += x.a; else if (!x.k) s -= x.a; }
+    }
+    for (const x of S.sv) if (x.w == w && !x.i && (!k || x.d.slice(0, 7) <= k)) s -= (x.cp ?? x.v);
+    return s;
+};
 const sum = (m, f) => m.filter(f).reduce((s, x) => s + x.a, 0);
 const vis = x => x.t != "g" || !(S.hide || {})[x.k || x.w || ""];
 const monAll = () => S.items.filter(x => x.d.startsWith(ym(cur)));

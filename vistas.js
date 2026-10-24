@@ -641,7 +641,7 @@ function vAho() {
                     <div class="min-w-0 flex-1">
                         <div class="text-2xl font-extrabold text-slate-800 dark:text-white mb-0.5" data-cu="goal${a.id}">${fm(a, t)}</div>
                         ${a.g ? `<div class="text-xs text-slate-400">${t >= a.g ? "¡Meta lograda! 🎉" : "de " + fm(a, a.g)}</div>` : ""}
-                        ${a.u ? `<small class="text-xs text-slate-400 block mt-0.5">≈ ${fmt(t * S.trm)} (TRM ${fmt(S.trm)})</small>` : ""}
+                        ${a.u ? `<small class="text-xs text-slate-400 block mt-0.5">≈ ${fmt(t * S.trm)} (TRM ${fmtD(S.trm)})</small>` : ""}
                     </div>
                 </div>
                 ${a.r > 0 ? `<div class="grid grid-cols-3 gap-2 mb-1">${[["Hoy", gy.daily], ["Este mes", gy.month], ["Total ganado", gy.total]].map(([l, v]) => `<div class="p-2.5 rounded-2xl bg-emerald-50 dark:bg-emerald-500/10"><span class="text-[10px] uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block leading-tight">${l}</span><b class="text-xs text-emerald-600 dark:text-emerald-400">+${fm(a, v)}</b></div>`).join("")}</div><p class="text-[10px] text-slate-400 mb-3"><i class="fa-solid fa-seedling mr-1"></i>Rendimiento estimado, ya incluido en el saldo. Crece cada día con interés compuesto (${tf(a.r)}% E.A.).</p>` : ""}
@@ -730,9 +730,10 @@ function vInv() {
         <div class="${CARD} p-5 mb-6">
             <h3 class="text-sm font-bold mb-3">Tasa de Cambio (TRM) y Moneda</h3>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2">
-                <input id="trmInput" inputmode="decimal" value="${tf(S.trm)}" class="px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs">
+                <input id="trmInput" inputmode="decimal" value="${tf(S.trm)}" placeholder="Ej. 3221,56" onkeydown="if(event.key==='Enter')setTrmVal()" class="px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs" autocomplete="off">
                 <button onclick="setTrmVal()" class="py-2.5 bg-indigo-600 text-white font-semibold rounded-xl text-xs shadow-md">Actualizar TRM</button>
             </div>
+            <p class="text-[11px] text-slate-400">TRM actual: <b>${fmtD(S.trm)}</b> por dólar. Puedes escribir los decimales con coma o con punto.</p>
         </div>
         <div class="${CARD} p-5 mb-6">
             <h3 class="text-sm font-bold mb-1">Precios en vivo</h3>
@@ -890,9 +891,20 @@ function donutCenter(by) {
     };
 }
 
+// Chart.js pesa ~200 KB y solo se usa en Gráficas: se descarga la primera vez que abres esa pestaña (y queda en caché para uso sin conexión)
+let chartLoad = null;
+function ensureChart(cb) {
+    if (typeof Chart != "undefined") return cb();
+    if (!chartLoad) chartLoad = new Promise((ok, no) => {
+        const s = document.createElement("script");
+        s.src = "https://cdn.jsdelivr.net/npm/chart.js@4.4.1"; s.onload = ok; s.onerror = () => { chartLoad = null; no(); };
+        document.head.appendChild(s);
+    });
+    chartLoad.then(cb).catch(() => {});
+}
 function drawCharts() {
     charts.forEach(c => c.destroy()); charts = [];
-    if (typeof Chart == "undefined") return;
+    if (typeof Chart == "undefined") { ensureChart(() => { if (N[tab] == "Gráficas") drawCharts(); }); return; }
     const dark = document.documentElement.classList.contains("dark");
     Chart.defaults.color = dark ? "#94a3b8" : "#64748b";
     // Estilo iOS: sin cuadrícula vertical, líneas suaves, barras redondeadas, leyenda con puntos y tipografía del sistema

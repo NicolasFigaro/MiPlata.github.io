@@ -1,9 +1,20 @@
-const C = "miplata-v12", SHELL = ["./", "index.html", "styles.css", "mejoras.css", "pantallas.css", "estetica.css", "tema.js", "idioma.js", "idioma-datos.js", "estetica.js", "zoom.js", "logica.js", "pantallas.js", "vistas.js", "acciones.js", "reporte.js", "rapido.js", "respaldo.js", "manifest.json", "icon-192.png", "icon-512.png"];
-self.addEventListener("install", e => { e.waitUntil(caches.open(C).then(c => c.addAll(SHELL))); self.skipWaiting(); });
+const C = "miplata-v13", SHELL = ["./", "index.html", "styles.css", "mejoras.css", "pantallas.css", "estetica.css", "tailwind.css", "tema.js", "idioma.js", "idioma-datos.js", "estetica.js", "zoom.js", "logica.js", "pantallas.js", "vistas.js", "acciones.js", "reporte.js", "rapido.js", "respaldo.js", "manifest.json", "icon-192.png", "icon-512.png"];
+// Instalar: se descarga todo saltándose la caché HTTP (GitHub Pages guarda 10 min), así una versión nueva nunca queda a medias
+self.addEventListener("install", e => { e.waitUntil(caches.open(C).then(c => Promise.all(SHELL.map(u => c.add(new Request(u, { cache: "reload" })))))); self.skipWaiting(); });
 self.addEventListener("activate", e => { e.waitUntil(caches.keys().then(k => Promise.all(k.filter(n => n != C).map(n => caches.delete(n)))).then(() => self.clients.claim())); });
+// Abrir la app = leer de la caché al instante (antes esperaba a la red en cada apertura y en cada archivo) y refrescar en segundo plano para la próxima vez.
+// Los archivos de otros sitios (Font Awesome, Chart.js) llevan la versión en la URL: no cambian, se sirven de caché sin revalidar.
 self.addEventListener("fetch", e => {
-  if (e.request.method != "GET" || e.request.url.includes("finnhub.io")) return; // cotizaciones: siempre en vivo, nunca de caché
-  e.respondWith(fetch(e.request, e.request.url.startsWith(self.location.origin) ? { cache: "no-cache" } : undefined).then(r => { const cp = r.clone(); caches.open(C).then(c => c.put(e.request, cp)); return r; }).catch(() => caches.match(e.request)));
+  const r = e.request;
+  if (r.method != "GET" || r.url.includes("finnhub.io")) return; // cotizaciones: siempre en vivo, nunca de caché
+  const same = r.url.startsWith(self.location.origin);
+  e.respondWith(caches.open(C).then(async cache => {
+    const hit = await cache.match(r, { ignoreSearch: same });
+    if (hit && !same) return hit;
+    const net = fetch(r, same ? { cache: "no-cache" } : undefined).then(res => { if (res && (res.ok || res.type == "opaque")) cache.put(r, res.clone()); return res; });
+    if (hit) { e.waitUntil(net.catch(() => {})); return hit; }
+    return net.catch(() => caches.match(r));
+  }));
 });
 
 // ---- Avisos en segundo plano ----

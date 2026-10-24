@@ -9,7 +9,8 @@
         var n = Date.now();
         if (n - last < 350 && e.changedTouches && e.changedTouches.length == 1) {
             var tg = e.target;
-            if (!(tg && tg.closest && tg.closest("input,textarea,select,[contenteditable]"))) e.preventDefault();
+            // Solo se bloquea el doble toque sobre texto o fondo. Botones y enlaces nunca: si no, un segundo toque rápido (ej. "Editar" justo después de deslizar) se pierde
+            if (!(tg && tg.closest && tg.closest("input,textarea,select,button,a,label,summary,[onclick],[role=button],[contenteditable],.swipe-act"))) e.preventDefault();
         }
         last = n;
     }, { passive: false });
