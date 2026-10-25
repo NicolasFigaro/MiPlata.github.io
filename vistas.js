@@ -465,6 +465,13 @@ function vHome() {
             </div>
         </section>
 
+        <div class="qa-row">
+            <button onclick="openMov()" class="qa main"><i class="fa-solid fa-plus"></i>Agregar movimiento</button>
+            <button onclick="newTransfer()" class="qa"><i class="fa-solid fa-right-left"></i>Transferir</button>
+            <button onclick="goTab(2)" class="qa"><i class="fa-solid fa-bullseye"></i>Metas</button>
+            <button onclick="goTab(-1)" class="qa"><i class="fa-solid fa-ellipsis"></i>Más</button>
+        </div>
+
         ${weekUI()}
 
         ${yearTeaser()}
@@ -1223,7 +1230,7 @@ function hidUI() { return hideNames().map((n, i) => `<label class="flex items-ce
 
 // Apariencia: modo (claro/oscuro/automático) + tema de color + color propio
 function themeUI() {
-    const cur = S.th.t || "ios", md = S.th.m || "auto", on = "border-indigo-500 bg-indigo-50/60 dark:bg-indigo-500/10", off = "border-transparent bg-slate-50 dark:bg-slate-800/60 hover:border-slate-300 dark:hover:border-slate-600";
+    const cur = S.th.t || "noche", md = S.th.m || "auto", on = "border-indigo-500 bg-indigo-50/60 dark:bg-indigo-500/10", off = "border-transparent bg-slate-50 dark:bg-slate-800/60 hover:border-slate-300 dark:hover:border-slate-600";
     const mb = (v, l, ic) => `<button onclick="setMode('${v}')" class="flex-1 py-1.5 rounded-lg text-xs font-semibold transition ${md == v ? "bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm" : "text-slate-500 dark:text-slate-400"}"><i class="fa-solid ${ic} mr-1.5"></i>${l}</button>`;
     const sw = t => `<button onclick="setTheme('${t.id}')" class="p-2.5 rounded-2xl border-2 transition text-center ${cur == t.id ? on : off}"><span class="block h-9 rounded-xl" style="background:linear-gradient(135deg,${t.p},${t.s})"></span><span class="block text-[11px] font-semibold mt-1.5 text-slate-700 dark:text-slate-200">${t.n}</span></button>`;
     const ct = customTheme(S.th.c);

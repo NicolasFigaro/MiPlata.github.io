@@ -9,6 +9,8 @@ const SH = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950];
 // p = tono 600 del color principal (el de los botones, con texto blanco: debe ser oscuro), s = tono 600 del secundario,
 // h = matiz de los neutros (grados), f = cuánto color llevan los neutros (1 = igual que el gris azulado original).
 const THEMES = [
+    // Noche: azul medianoche (diseño por defecto). Fondo #050916, tarjetas #0C1328, azul eléctrico
+    { id: "noche", n: "Noche", p: "#2563EB", s: "#38BDF8", ns: ["238 243 255", "222 231 250", "196 210 238", "150 168 205", "112 130 168", "84 101 140", "62 78 116", "34 48 84", "20 31 58", "12 19 40", "5 9 22"] },
     // iOS: colores de sistema de Apple. "ns" = escala de neutros propia (los grises de iOS: gray6 de fondo, #1C1C1E tarjetas oscuras, negro puro de fondo oscuro)
     { id: "ios", n: "iOS", p: "#007AFF", s: "#0062CC", ns: ["242 242 247", "229 229 234", "209 209 214", "199 199 204", "174 174 178", "142 142 147", "99 99 102", "72 72 74", "44 44 46", "28 28 30", "0 0 0"] },
     { id: "indigo", n: "Índigo", p: "#4f46e5", s: "#7c3aed", raw: true },
@@ -68,9 +70,10 @@ function applyTheme(th) {
     const t = th.t == "custom" ? customTheme(th.c) : (THEMES.find(x => x.id == th.t) || THEMES[0]);
     if (!t.raw) { const v = themeVars(t); Object.keys(v).forEach(k => st.setProperty(k, v[k])); }
     document.documentElement.dataset.theme = t.id;
+    if (t.id == "noche") document.documentElement.classList.add("dark"); // Noche siempre es oscuro
     // Barra de estado del celular: en iOS toma el color del fondo; en los demás temas, el color principal
     const dark = document.documentElement.classList.contains("dark"), m = document.querySelector('meta[name="theme-color"]');
-    if (m) m.content = t.id == "ios" ? (dark ? "#000000" : "#F2F2F7") : t.p;
+    if (m) m.content = t.id == "noche" ? "#050916" : t.id == "ios" ? (dark ? "#000000" : "#F2F2F7") : t.p;
 }
 // Color del tema activo para las gráficas (n = tono, a = transparencia, v = "p" principal o "s" secundario)
 const accent = (n, a, v) => {

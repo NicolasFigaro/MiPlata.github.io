@@ -136,7 +136,7 @@ window.addEventListener("scroll", updNav, { passive: true });
 function openModalExport() { goTab(N.indexOf("Ajustes")); }
 
 function applyTh() {
-    const isDark = S.th.m == "dark" || (S.th.m == "auto" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    const isDark = (S.th.t || "noche") == "noche" || S.th.m == "dark" || (S.th.m == "auto" && window.matchMedia("(prefers-color-scheme: dark)").matches);
     document.documentElement.classList.toggle("dark", isDark);
     applyTheme(S.th); // actualiza también el color de la barra de estado según claro/oscuro
 }

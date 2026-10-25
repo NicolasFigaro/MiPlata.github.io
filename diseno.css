@@ -1,0 +1,48 @@
+/* ===== Mi Plata · diseno.css — tema "Noche" (azul medianoche, tarjetas de vidrio, azul eléctrico) ===== */
+html[data-theme="noche"] body { background: radial-gradient(120% 55% at 50% -8%, rgb(37 99 235 / .22), transparent 62%), #050916; background-attachment: fixed; letter-spacing: -.005em; }
+html[data-theme="noche"] { background: #050916; --card: linear-gradient(180deg, rgb(19 30 60 / .92), rgb(11 18 38 / .94)); --line: rgb(96 140 255 / .14); }
+
+/* Título grande y barra superior */
+html[data-theme="noche"] #largeTitle { font-size: 30px; font-weight: 700; letter-spacing: -.03em; }
+html[data-theme="noche"] .nav-btn { background: rgb(20 31 62 / .9); border: 1px solid var(--line); color: rgb(var(--p-300)); }
+html[data-theme="noche"] .ios-nav.scrolled { background: rgb(5 9 22 / .78); border-bottom-color: var(--line); }
+
+/* Tarjetas: vidrio oscuro, borde azulado, esquinas amplias */
+html[data-theme="noche"].dark section[class*="rounded-[20px]"]:not([data-hero]):not(.yt-sec),
+html[data-theme="noche"].dark div[class*="rounded-[20px]"][class*="border"] { background: var(--card); border: 1px solid var(--line); border-radius: 22px; box-shadow: 0 10px 30px -14px rgb(0 0 0 / .7), inset 0 1px 0 rgb(255 255 255 / .04); }
+html[data-theme="noche"].dark .ios-row:not(:last-child)::after, html[data-theme="noche"].dark .swipe:not(:last-child) > .swipe-in::after { background: rgb(96 140 255 / .1); }
+
+/* Tarjeta principal: azul eléctrico con brillo */
+html[data-theme="noche"] [data-hero] { background: radial-gradient(90% 120% at 100% 0%, rgb(56 189 248 / .45), transparent 55%), linear-gradient(150deg, #1D4ED8 0%, #2563EB 45%, #0B2E8A 100%); border: 1px solid rgb(147 197 253 / .25); border-radius: 26px; box-shadow: 0 18px 40px -16px rgb(37 99 235 / .75), inset 0 1px 0 rgb(255 255 255 / .22); }
+html[data-theme="noche"] [data-hero] h2 { font-size: calc(2.4rem * var(--fs, 1)); font-weight: 700; letter-spacing: -.04em; }
+html[data-theme="noche"] [data-hero] .border-t { border: 0; padding-top: 0; gap: 8px; }
+html[data-theme="noche"] [data-hero] .grid > div { background: rgb(5 12 40 / .38); border: 1px solid rgb(255 255 255 / .1); border-radius: 16px; padding: 10px 10px 9px; }
+html[data-theme="noche"] [data-hero] .grid > div b { font-size: 14px; font-weight: 700; }
+html[data-theme="noche"] [data-hero] .grid small { text-transform: none; letter-spacing: 0; font-size: 10.5px; }
+
+/* Acciones rápidas (nuevo, debajo de la tarjeta principal) */
+.qa-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.qa { display: flex; flex-direction: column; align-items: center; gap: 7px; padding: 12px 4px 10px; border-radius: 18px; font-size: 11px; font-weight: 600; line-height: 1.15; text-align: center; color: rgb(var(--n-200)); background: var(--card, rgb(var(--n-100))); border: 1px solid var(--line, rgb(var(--n-200))); transition: transform .12s ease; }
+.qa:active { transform: scale(.95); }
+.qa i { width: 34px; height: 34px; border-radius: 9999px; display: flex; align-items: center; justify-content: center; font-size: 14px; color: rgb(var(--n-200)); background: rgb(96 140 255 / .12); }
+.qa.main i { background: linear-gradient(135deg, #3B82F6, #2563EB); color: #fff; box-shadow: 0 6px 16px -4px rgb(37 99 235 / .8); }
+
+/* Barras de progreso */
+html[data-theme="noche"] .bar-seg, html[data-theme="noche"] .cupo-bar { border-radius: 9999px; }
+html[data-theme="noche"] .bar-seg.bg-indigo-600 { background: linear-gradient(90deg, #2563EB, #38BDF8); }
+html[data-theme="noche"].dark .bg-slate-100.h-2, html[data-theme="noche"].dark .bg-slate-100.h-1\.5 { background: rgb(96 140 255 / .12); }
+
+/* Barra inferior: oscura, esquinas redondas, pestaña activa con brillo */
+html[data-theme="noche"] #tabBar { background: rgb(7 12 28 / .94); border-top: 1px solid var(--line); border-radius: 24px 24px 0 0; box-shadow: 0 -12px 30px -12px rgb(0 0 0 / .7); }
+html[data-theme="noche"] #tabBar button { position: relative; color: rgb(var(--n-400)); }
+html[data-theme="noche"] #tabBar button[aria-current="page"] { color: #4C9AFF; }
+html[data-theme="noche"] #tabBar button[aria-current="page"]::before { content: ""; position: absolute; top: 0; left: 28%; right: 28%; height: 3px; border-radius: 0 0 4px 4px; background: #3B82F6; box-shadow: 0 4px 14px 2px rgb(59 130 246 / .8); }
+html[data-theme="noche"] #tabBar i { font-size: 20px; }
+
+/* Botón + flotante */
+html[data-theme="noche"] #fab { background: linear-gradient(135deg, #3B82F6, #1D4ED8); box-shadow: 0 10px 26px -6px rgb(37 99 235 / .85), inset 0 1px 0 rgb(255 255 255 / .3); }
+
+/* Campos y hojas inferiores */
+html[data-theme="noche"].dark input:not([type=checkbox]):not([type=range]):not([type=color]), html[data-theme="noche"].dark select, html[data-theme="noche"].dark textarea { background: rgb(14 23 48 / .9); border-color: var(--line); border-radius: 14px; }
+html[data-theme="noche"].dark #modalContainer { background: linear-gradient(180deg, #0F1932, #0A1126); border-color: var(--line); }
+html[data-theme="noche"] .ios-switch:checked { background: #3B82F6; }
