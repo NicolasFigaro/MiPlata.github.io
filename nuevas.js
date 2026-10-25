@@ -489,6 +489,45 @@ function setNuevas(card) {
         </section>`;
 }
 
+
+/* =====================================================================
+   4) NOVEDADES: aviso de «lo nuevo», se muestra una sola vez por versión
+   ===================================================================== */
+const NEWS_VER = "11";
+const NEWS = [
+    ["fa-wand-magic-sparkles", "#AF52DE", "Mi Plata tiene novedades", "Más rápida, con arreglos importantes y cuatro funciones nuevas. Te las cuento en un momento."],
+    ["fa-bolt", "#FF9500", "Más rápida y más fiable", "Abre al instante (antes esperaba a internet cada vez). Arreglamos los decimales de la TRM: ya puedes escribir 3221,56 o 3221.56. Y «Editar» en un movimiento deslizado ya no se pierde."],
+    ["fa-pen", "#007AFF", "Editar movimientos, completo", "Ahora puedes cambiar la cuenta o tarjeta de un gasto (por ejemplo, de Efectivo a Cuenta de ahorros), la cuenta de un ingreso y el origen o destino de una transferencia."],
+    ["fa-file-csv", "#34C759", "Importa el extracto del banco", "En Ajustes sube el .csv de tu banco o de Nequi. La app sugiere categorías, no duplica lo que ya tienes y te deja revisar antes de importar."],
+    ["fa-chart-line", "#5856D6", "Inversiones con más detalle", "Anota dividendos y ventas (con ganancia o pérdida realizada) y mira la evolución de tu portafolio en Gráficas. El valor se empieza a guardar desde hoy."],
+    ["fa-comment-dots", "#32ADE6", "Asistente con IA", "En Más → Asistente: pregúntale por tus finanzas o dile «gasté 20 mil en almuerzo». Es gratis con una clave de Gemini (aistudio.google.com). El resumen del mes funciona sin clave."]
+];
+let newsI = 0;
+function paintNews() {
+    const w = NEWS[newsI], last = newsI == NEWS.length - 1;
+    document.getElementById("modalContainer").innerHTML = `
+        <div class="flex flex-col items-center text-center py-2">
+            <span class="w-20 h-20 rounded-[22px] flex items-center justify-center text-3xl text-white mb-5 shadow-lg" style="background:${w[1]}"><i class="fa-solid ${w[0]}"></i></span>
+            <h3 class="text-xl font-bold text-slate-800 dark:text-white">${w[2]}</h3>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-2 max-w-[17rem] leading-relaxed">${w[3]}</p>
+            <div class="flex gap-1.5 my-5">${NEWS.map((_, i) => `<i class="w-2 h-2 rounded-full ${i == newsI ? "bg-indigo-600" : "bg-slate-300 dark:bg-slate-700"}"></i>`).join("")}</div>
+            <button onclick="newsNext()" class="w-full py-3 rounded-2xl bg-indigo-600 active:bg-indigo-700 text-white font-semibold text-sm">${last ? "Entendido" : "Siguiente"}</button>
+            ${last ? "" : `<button onclick="closeModal()" class="mt-3 text-xs text-slate-400">Saltar</button>`}
+        </div>`;
+}
+function newsNext() { if (newsI < NEWS.length - 1) { newsI++; paintNews(); } else closeModal(); }
+function openNews() { newsI = 0; showModal(""); paintNews(); }
+// Se muestra una sola vez por versión. Si hay una hoja abierta o el PIN está puesto, espera su turno (hasta ~30 s).
+function tryNews(n) {
+    if (S.th.seenNews == NEWS_VER) return;
+    const vacio = !S.items.length && !S.acc.length && !S.inv.length && !S.cards.length && !S.dbt.length;
+    if (vacio) { S.th.seenNews = NEWS_VER; save(); return; } // quien empieza de cero ve la guía de bienvenida, no las novedades
+    const busy = !document.getElementById("generalModal").classList.contains("hidden") || document.querySelector('body > .fixed input[type=password]');
+    if (busy) { if ((n || 0) < 20) setTimeout(() => tryNews((n || 0) + 1), 1500); return; }
+    S.th.seenNews = NEWS_VER; save(); openNews(); // se marca como visto al mostrarlo: no vuelve a salir aunque lo cierres con la X
+}
+window.addEventListener("load", () => setTimeout(tryNews, 1500));
+
 // ---------- Registro de la pantalla nueva ----------
 N.push("Asistente"); V.push(vAsist); MORE.unshift(N.length - 1);
 MORE_IC["Asistente"] = ["fa-comment-dots", "#32ADE6"];

@@ -5,7 +5,7 @@ const N = ["Inicio", "Cuentas", "Ahorro", "Inversión", "Gráficas", "Tarjetas",
 const V = [vHome, vCue, vAho, vInv, vGra, vTar, vDeu, vCal, vYear, vSet]; // vCal y vYear viven en pantallas.js
 // Pestañas que viven dentro del menú "Más" de la barra inferior (índices de N)
 const MORE = [3, 4, 6, 7, 8, 9];
-const APP_VER = "10";
+const APP_VER = "11";
 const MORE_IC = { "Inversión": ["fa-chart-line", "#34C759"], "Gráficas": ["fa-chart-pie", "#FF9500"], "Deudas": ["fa-hand-holding-dollar", "#FF3B30"], "Calendario": ["fa-calendar-days", "#007AFF"], "Resumen": ["fa-wand-magic-sparkles", "#AF52DE"], "Ajustes": ["fa-gear", "#8E8E93"] };
 function vMore() {
     return `
@@ -18,6 +18,7 @@ function vMore() {
                 </button>`).join("")}
         </section>
         <button onclick="openWelcome()" class="w-full text-center text-xs text-indigo-600 dark:text-indigo-400 font-semibold pt-4">Ver la guía de bienvenida</button>
+        <button onclick="openNews()" class="w-full text-center text-xs text-indigo-600 dark:text-indigo-400 font-semibold pt-3">Ver las novedades</button>
         <p class="text-center text-[11px] text-slate-400 pt-2">Mi Plata · versión ${APP_VER}</p>`;
 }
 
