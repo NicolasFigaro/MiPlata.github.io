@@ -500,7 +500,7 @@ const NEWS = [
     ["fa-pen", "#007AFF", "Editar movimientos, completo", "Ahora puedes cambiar la cuenta o tarjeta de un gasto (por ejemplo, de Efectivo a Cuenta de ahorros), la cuenta de un ingreso y el origen o destino de una transferencia."],
     ["fa-file-csv", "#34C759", "Importa el extracto del banco", "En Ajustes sube el .csv de tu banco o de Nequi. La app sugiere categorías, no duplica lo que ya tienes y te deja revisar antes de importar."],
     ["fa-chart-line", "#5856D6", "Inversiones con más detalle", "Anota dividendos y ventas (con ganancia o pérdida realizada) y mira la evolución de tu portafolio en Gráficas. El valor se empieza a guardar desde hoy."],
-    ["fa-comment-dots", "#32ADE6", "Asistente con IA", "En Más → Asistente: pregúntale por tus finanzas o dile «gasté 20 mil en almuerzo». Es gratis con una clave de Gemini (aistudio.google.com). El resumen del mes funciona sin clave."]
+    ["fa-comment-dots", "#32ADE6", "Asistente con IA", "En la pestaña Asistente (abajo): pregúntale por tus finanzas o dile «gasté 20 mil en almuerzo». Es gratis con una clave de Gemini (aistudio.google.com). El resumen del mes funciona sin clave."]
 ];
 let newsI = 0;
 function paintNews() {
@@ -529,5 +529,5 @@ function tryNews(n) {
 window.addEventListener("load", () => setTimeout(tryNews, 1500));
 
 // ---------- Registro de la pantalla nueva ----------
-N.push("Asistente"); V.push(vAsist); MORE.unshift(N.length - 1);
-MORE_IC["Asistente"] = ["fa-comment-dots", "#32ADE6"];
+// El Asistente tiene su propia pestaña en la barra inferior, justo antes de «Más» (no vive dentro de «Más»)
+N.push("Asistente"); V.push(vAsist); TB.splice(TB.length - 1, 0, [N.length - 1, "Asistente", "fa-comment-dots"]);
