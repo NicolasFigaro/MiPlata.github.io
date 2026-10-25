@@ -5,7 +5,7 @@ const N = ["Inicio", "Cuentas", "Ahorro", "Inversión", "Gráficas", "Tarjetas",
 const V = [vHome, vCue, vAho, vInv, vGra, vTar, vDeu, vCal, vYear, vSet]; // vCal y vYear viven en pantallas.js
 // Pestañas que viven dentro del menú "Más" de la barra inferior (índices de N)
 const MORE = [3, 4, 6, 7, 8, 9];
-const APP_VER = "9";
+const APP_VER = "10";
 const MORE_IC = { "Inversión": ["fa-chart-line", "#34C759"], "Gráficas": ["fa-chart-pie", "#FF9500"], "Deudas": ["fa-hand-holding-dollar", "#FF3B30"], "Calendario": ["fa-calendar-days", "#007AFF"], "Resumen": ["fa-wand-magic-sparkles", "#AF52DE"], "Ajustes": ["fa-gear", "#8E8E93"] };
 function vMore() {
     return `
@@ -704,6 +704,7 @@ function vInv() {
                         <small class="text-xs ${g >= 0 ? "text-emerald-500" : "text-rose-500"}">${pct1(tot)} total</small>
                     </div>
                 </div>
+                ${invExtraLine(x)}
                 <div class="flex items-center justify-between mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
                     <div class="text-[11px] text-slate-400">Desde ${dmy(x.d)} · ${days} d · ${annTxt}</div>
                     <div class="flex space-x-2 shrink-0">
@@ -712,6 +713,10 @@ function vInv() {
                         <button onclick="editInv(${x.id})" class="p-2 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs" title="Editar"><i class="fa-solid fa-pen"></i></button>
                         <button onclick="delInv(${x.id})" class="p-2 bg-rose-50 text-rose-600 rounded-xl text-xs" title="Borrar"><i class="fa-solid fa-trash"></i></button>
                     </div>
+                </div>
+                <div class="flex gap-2 mt-3">
+                    <button onclick="divInv(${x.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-xl text-[11px] font-semibold text-slate-600 dark:text-slate-300"><i class="fa-solid fa-coins mr-1.5"></i>Dividendo</button>
+                    <button onclick="sellInv(${x.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-xl text-[11px] font-semibold text-slate-600 dark:text-slate-300"><i class="fa-solid fa-hand-holding-dollar mr-1.5"></i>Vender</button>
                 </div>
                 <div class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
                     <button onclick="togH(${x.id})" class="w-full flex items-center justify-between text-[11px] font-semibold text-slate-500"><span><i class="fa-solid fa-clock-rotate-left mr-1.5"></i>Historial · ${x.h.length} ${x.h.length == 1 ? "compra" : "compras"}</span><i class="fa-solid fa-chevron-${open ? "up" : "down"}"></i></button>
@@ -745,6 +750,7 @@ function vInv() {
         </div>
         <div class="flex justify-between items-center mb-4"><h3 class="text-base font-bold">Mis Inversiones</h3><button onclick="newInv()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold shadow-md">+ Nueva Inversión</button></div>
         ${R || emptyUI("fa-chart-line", "#34C759", "Aún no tienes inversiones", "Registra tus ETFs, acciones o CDT para ver cuánto rinden y cómo está repartido tu portafolio.", "Agregar la primera inversión", "newInv()")}
+        ${invExtraUI()}
         ${rbUI()}
         <p class="text-[11px] text-slate-400 mt-2">El rendimiento anual se calcula con la fecha de inicio y el valor actual, y solo aparece después de 30 días (antes exagera). Es una estimación: no descuenta comisiones ni impuestos.</p>
     `;
@@ -865,7 +871,8 @@ function vGra() {
         <section class="${CARD} p-5"><h3 class="text-sm font-bold mb-1">Patrimonio neto mes a mes</h3>
             <p class="text-[11px] text-slate-400 mb-4">Se guarda una foto cada vez que usas la app.</p>
             ${hasNW ? '<canvas id="chNW"></canvas>' : '<p class="text-xs text-slate-400 text-center py-6">Aparecerá cuando tengas al menos dos meses de datos.</p>'}
-        </section>`;
+        </section>
+        ${invChartUI()}`;
 }
 
 // Texto en el centro de la dona: total de gastos; al tocar o pasar el mouse por una porción, muestra esa categoría
@@ -939,6 +946,7 @@ function drawCharts() {
         const ks = Object.keys(S.nwh).sort().slice(-12);
         charts.push(new Chart(nw, { type: "line", options: hy, data: { labels: ks, datasets: [{ label: "Patrimonio neto", data: ks.map(k => S.nwh[k]), borderColor: accent(500), backgroundColor: accent(500, .15), fill: true, tension: .3 }] } }));
     }
+    drawInvChart(hy, GREEN); // evolución del portafolio (nuevas.js)
 }
 
 // ---------- Tarjetas ----------
@@ -1280,6 +1288,7 @@ function vSet() {
               : '<button onclick="askNotif()" class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-xl text-xs">Activar avisos</button>'}
         </section>
         <section class="${card}"><h3 class="text-base font-bold">Bloqueo con PIN</h3><p class="text-xs text-slate-400">Bloquea la pantalla al abrir la app. No cifra los datos.</p><button onclick="setPin()" class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-xl text-xs">${S.pin ? "Cambiar o quitar PIN" : "Crear PIN"}</button></section>
+        ${typeof setNuevas == "function" ? setNuevas(card) : ""}
         <section class="${card}"><h3 class="text-base font-bold">Copia de seguridad</h3>
             ${typeof rbUI == "function" ? rbUI() : ""}
             <p class="text-xs ${bkDue() ? "text-amber-500 font-semibold" : "text-slate-400"}">${S.bk ? "Última copia: " + dmy(S.bk) + " (hace " + bkDaysAgo() + " d). Te lo recuerdo cada " + BK_DAYS + " días." : "Aún no has hecho ninguna copia. Tus datos solo están en este celular."}</p>

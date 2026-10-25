@@ -143,6 +143,7 @@ let charts = [];
 const lastPct = {}, lastOk = {};
 
 const save = () => {
+    try { invSnap(); } catch (e) {} // foto diaria del portafolio (nuevas.js)
     try { S.nwh[ym(new Date())] = Math.round(netWorth().tot); } catch (e) {}
     try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {}
     try { mirrorEvents(); } catch (e) {}

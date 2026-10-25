@@ -113,6 +113,7 @@ function draw() {
     document.getElementById("navBack").classList.toggle("hidden", !inMore);
 
     document.getElementById("appMain").innerHTML = tab < 0 ? vMore() : V[tab]();
+    const fb = document.getElementById("fab"); if (fb) fb.classList.toggle("hidden", N[tab] == "Asistente"); // en el chat, el + estorba al escribir
     if (keep) { openMov(); restoreForm(); } // volvió de crear una categoría: reabre el formulario con lo que había escrito
     if (N[tab] == "Gráficas") drawCharts();
     if (N[tab] == "Tarjetas") runCupoAnim();
