@@ -148,6 +148,7 @@ const save = () => {
     try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {}
     try { mirrorEvents(); } catch (e) {}
     try { goalCheck(); } catch (e) {} // confeti si una meta se acaba de lograr (pantallas.js)
+    try { if (typeof budgetAlerts == "function") setTimeout(budgetAlerts, 60); } catch (e) {} // avisos de presupuesto 80 % / 100 % (nuevas.js)
 };
 const cop = (v, c) => c == "USD" ? v * S.trm : v;
 const show = c => usd ? fu(c / S.trm) : fmt(c);

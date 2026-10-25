@@ -334,7 +334,21 @@ function setCatDates() {
 
 // ---------- Movimientos ----------
 // El formulario vive en un modal que abre el botón flotante "+" (movFormHTML está en vistas.js)
+let amtUsd = false; // el monto del formulario está en dólares (se guarda en USD con decimales y su equivalente en pesos a la TRM de ese día)
+// Monto del formulario en pesos (si está en USD: dólares × TRM)
+const amtVal = () => { const e = document.getElementById("amt"); return !e ? 0 : amtUsd ? Math.round(pr(e.value) * S.trm) : num(e.value); };
+function fa2(e) { let v = e.value.replace(/[^\d.,]/g, ""); const i = v.search(/[.,]/); if (i >= 0) v = v.slice(0, i + 1) + v.slice(i + 1).replace(/[.,]/g, "").slice(0, 2); e.value = v; } // dólares: hasta 2 decimales, sin puntos de miles
+function amtIn(e) { if (amtUsd) fa2(e); else fa(e); fitAmt(e); cuotaPreview(); metaPreview(); usdPrev(); }
+function usdPrev() { const p = document.getElementById("usdPrev"); if (p) { const v = amtUsd ? amtVal() : 0; p.textContent = v ? "≈ " + fmt(v) + " a TRM " + fmtD(S.trm) : ""; } }
+function setCur(on, quiet) {
+    const a = document.getElementById("amt"); if (!a || amtUsd == on) return;
+    amtUsd = on; a.value = ""; fitAmt(a); a.inputMode = on ? "decimal" : "numeric";
+    const sym = document.getElementById("amtSym"); if (sym) sym.textContent = on ? "US$" : "$";
+    document.querySelectorAll("[data-cur]").forEach(b => { const me = (b.dataset.cur == "usd") == on; b.classList.toggle("bg-white", me); b.classList.toggle("dark:bg-slate-600", me); b.classList.toggle("shadow-sm", me); b.classList.toggle("text-slate-900", me); b.classList.toggle("dark:text-white", me); b.classList.toggle("text-slate-500", !me); });
+    cuotaPreview(); metaPreview(); usdPrev(); if (!quiet) a.focus();
+}
 function openMov() {
+    amtUsd = false;
     const modal = document.getElementById("generalModal"), container = document.getElementById("modalContainer");
     modalCancel = null;
     clearTimeout(modalTimer);
@@ -367,7 +381,7 @@ function togCardOpts() {
 function cuotaPreview() {
     const g = id => document.getElementById(id), p = g("cqPrev");
     if (!p || !g("cardSel")) return;
-    const a = num(g("amt").value), q = Math.max(1, num(g("cq").value) || 1), sel = g("cardSel").value, c = S.cards.find(x => x.n == sel);
+    const a = amtVal(), q = Math.max(1, num(g("cq").value) || 1), sel = g("cardSel").value, c = S.cards.find(x => x.n == sel);
     if (!c || !a || q < 2) { p.textContent = ""; return; }
     const con = g("ci").value.startsWith("Con"), i = con && c.ir > 0 ? c.ir / 100 : 0, C = pmt(a, q, i);
     p.textContent = q + " cuotas de " + fmt(C) + (i > 0 ? " · intereses totales " + fmt(C * q - a) : con && !c.ir ? " · esta tarjeta no tiene tasa registrada (Tarjetas → Editar)" : " · sin intereses");
@@ -379,13 +393,13 @@ function metaPreview() {
     if (!s.value.startsWith("meta:")) { p.textContent = ""; return; }
     const acc = S.acc.find(x => x.id == Number(s.value.slice(5)));
     if (!acc) { p.textContent = ""; return; }
-    const disp = goalTotal(acc) * (acc.u ? S.trm : 1), amt = num(g("amt").value);
+    const disp = goalTotal(acc) * (acc.u ? S.trm : 1), amt = amtVal();
     p.textContent = "Tienes " + fmt(disp) + " en esta meta" + (amt > disp ? " · quedaría en negativo, revisa el monto" : "");
 }
 
 function addMov() {
     const g = id => document.getElementById(id), er = t => { g("msg").textContent = t; };
-    const a = num(g("amt").value);
+    const u = amtUsd ? Math.round(pr(g("amt").value) * 100) / 100 : 0, a = amtUsd ? Math.round(u * S.trm) : num(g("amt").value);
     if (!a) return er("Escribe un monto mayor a cero.");
     const d = g("date").value || today(), note = g("note").value.trim(), cat = g("cat").value;
     const rawSel = type == "g" ? g("cardSel").value : "";
@@ -411,7 +425,7 @@ function addMov() {
         if (!(pa > 0)) return er("Esa deuda ya está pagada.");
     }
     const bk = d.slice(0, 7), bud = type == "g" ? budOf(cat, bk) : 0, before = bud ? catSpent(cat, bk) : 0;
-    S.items.push({ id: Date.now(), d, t: type, c: cat, n: note, a, k: card, w: wh, q: cq, ni, ir, sav: savAcc ? savAcc.id : undefined });
+    S.items.push(Object.assign({ id: Date.now(), d, t: type, c: cat, n: note, a, k: card, w: wh, q: cq, ni, ir, sav: savAcc ? savAcc.id : undefined }, u ? { u, r: S.trm } : {}));
     if (ds == "card") S.items.push({ id: Date.now() + 1, d, t: "p", c: "Pago tarjeta", n: "Pago " + pcSel, a: pa, k: "", pc: pcSel, w: wh, q: 1 });
     if (ds == "save") S.sv.push({ id: Date.now() + 1, a: ac.id, d, v: ac.u ? pa / S.trm : pa, cp: pa, w: wh });
     if (ds == "debt") S.items.push({ id: Date.now() + 1, d, t: "g", c: "Deudas/Tarjeta", n: "Pago deuda: " + db.n, a: pa, k: "", w: wh, q: 1, dbt: db.id });
@@ -423,8 +437,8 @@ function addMov() {
     let warn = "";
     if (bud) {
         const r0 = before / bud, r1 = catSpent(cat, bk) / bud;
-        if (r1 >= 1 && r0 < 1) warn = "Te pasaste del presupuesto de " + cat + " (" + fmt(catSpent(cat, bk)) + " de " + fmt(bud) + ")";
-        else if (r1 >= 0.8 && r0 < 0.8) warn = "Ya llevas el " + Math.floor(r1 * 100) + "% del presupuesto de " + cat + ". Te quedan " + fmt(bud - catSpent(cat, bk));
+        if (r1 >= 1 && r0 < 1) { warn = "Te pasaste del presupuesto de " + cat + " (" + fmt(catSpent(cat, bk)) + " de " + fmt(bud) + ")"; S.nt["bud:" + bk + ":" + cat + ":100"] = S.nt["bud:" + bk + ":" + cat + ":80"] = today(); }
+        else if (r1 >= 0.8 && r0 < 0.8) { warn = "Ya llevas el " + Math.floor(r1 * 100) + "% del presupuesto de " + cat + ". Te quedan " + fmt(bud - catSpent(cat, bk)); S.nt["bud:" + bk + ":" + cat + ":80"] = today(); }
     }
     buzz();
     showToast(warn || "Movimiento guardado exitosamente", !!warn);
@@ -459,7 +473,9 @@ function dupMov(id) {
     const acc = x.sav ? S.acc.find(a => a.id == x.sav) : null;
     if (x.sav && !acc) return showToast("La meta de este gasto ya no existe, no se puede duplicar.", true);
     let nid = Date.now(); while (S.items.some(y => y.id == nid || y.id == nid + 1) || S.sv.some(y => y.id == nid + 1)) nid += 2;
-    const n = Object.assign({}, x, { id: nid, d: today() }); delete n.rid; // no es el gasto fijo del mes, es uno nuevo
+    const n = Object.assign({}, x, { id: nid, d: today() }); delete n.rid;
+    if (n.u) { n.r = S.trm; n.a = Math.round(n.u * S.trm); } // gasto en dólares: se vuelve a convertir con la TRM de hoy
+    // no es el gasto fijo del mes, es uno nuevo
     S.items.push(n);
     let sv = null;
     if (acc) { sv = { id: nid + 1, a: acc.id, d: n.d, v: acc.u ? -(n.a / S.trm) : -n.a, cp: -n.a, w: "" }; S.sv.push(sv); } // sale de la misma meta, igual que el original
@@ -473,8 +489,9 @@ function editM(id) {
     const cards = S.cards.map(c => c.n);
     const withCur = (list, cur) => cur && !list.includes(cur) ? [cur].concat(list) : list; // si la opción actual ya no existe (cuenta oculta o borrada) se conserva, así editar no la cambia sin querer
     const cats = withCur(x.t == "g" ? G.filter(g => g[0] != "Ahorro").map(g => g[0]) : x.t == "p" ? ["Pago tarjeta"] : x.t == "tr" ? ["Transferencia"] : I.slice(), x.c);
+    const rate0 = x.r || S.trm; // movimientos en dólares: la TRM con la que se anotaron
     const F = [
-        { l: "Monto", v: Math.round(x.a), m: "numeric" },
+        x.u ? { l: "Monto en USD (a TRM " + fmtD(rate0) + ")", v: tf(x.u), m: "decimal" } : { l: "Monto", v: Math.round(x.a), m: "numeric" },
         { l: "Nota", v: esc(x.n) },
         { l: "Categoría", o: cats, v: x.c },
         { l: "Fecha", v: x.d, t: "date" },
@@ -482,21 +499,33 @@ function editM(id) {
     ];
     // Dónde quedó el movimiento: cuenta, tarjeta o (en transferencias) origen y destino. Los gastos pagados desde una meta de ahorro no se cambian aquí.
     const cur0 = x.k || x.w, kind = x.t == "g" ? (x.sav ? "" : "pay") : x.t == "i" ? "in" : x.t == "p" ? "out" : x.t == "tr" ? "tr" : "";
-    if (kind == "pay") F.push({ l: "Se pagó con (cuenta o tarjeta)", o: withCur(WH.concat(cards), cur0), v: cur0 });
+    if (kind == "pay") {
+        F.push({ l: "Se pagó con (cuenta o tarjeta)", o: withCur(WH.concat(cards), cur0), v: cur0 });
+        if (cards.length) F.push(
+            { l: "Cuotas (solo si pagas con tarjeta)", v: x.q > 1 ? x.q : "", m: "numeric", p: "1" },
+            { l: "Intereses de las cuotas", o: ["Con la tasa de la tarjeta", "Sin interés"], v: x.ni ? "Sin interés" : "Con la tasa de la tarjeta" });
+    }
     else if (kind == "in") F.push({ l: "Cuenta donde entró", o: withCur(WH.slice(), x.w), v: x.w });
     else if (kind == "out") F.push({ l: "Cuenta de donde salió", o: withCur(WH.slice(), x.w), v: x.w });
     else if (kind == "tr") F.push({ l: "Desde", o: withCur(WH.slice(), x.w), v: x.w }, { l: "Hacia", o: withCur(WH.slice(), x.to), v: x.to });
     openCustomModal("Editar movimiento", F, v => {
-        const a = num(v[0]);
-        if (!a) return "Escribe un monto mayor a cero.";
+        let a, u = 0;
+        if (x.u) { u = Math.round(pr(v[0]) * 100) / 100; a = Math.round(u * rate0); if (!(u > 0) || !a) return "Escribe un monto mayor a cero."; }
+        else { a = num(v[0]); if (!a) return "Escribe un monto mayor a cero."; }
         if (!/^\d{4}-\d{2}-\d{2}$/.test(v[3])) return "Fecha inválida.";
         if (kind == "tr" && v[5] == v[6]) return "Elige cuentas distintas.";
+        const q = kind == "pay" && cards.includes(v[5]) ? Math.max(1, num(v[6]) || 1) : 1;
+        if (q > 72) return "Máximo 72 cuotas.";
         Object.assign(x, { a, n: v[1], c: v[2], d: v[3], s: v[4] == "No" ? 1 : 0 });
-        if (kind == "pay" && v[5] != cur0) {
-            if (cards.includes(v[5])) { // pasa a una tarjeta
-                const c = S.cards.find(y => y.n == v[5]);
-                x.k = v[5]; x.w = ""; x.q = x.q > 1 ? x.q : 1; x.ir = x.q > 1 && !x.ni ? (c.ir || 0) : 0;
-            } else { x.w = v[5]; x.k = ""; x.q = 1; x.ni = 0; x.ir = 0; } // pasa a una cuenta: ya no hay cuotas
+        if (x.u) x.u = u;
+        if (kind == "pay") {
+            const to = v[5], c = cards.includes(to) ? S.cards.find(y => y.n == to) : null;
+            if (c) { // pagado con tarjeta: cuotas e intereses
+                const ni = q > 1 && v[7] == "Sin interés" ? 1 : 0, igual = x.k == to && q == (x.q > 1 ? x.q : 1) && ni == (x.ni ? 1 : 0);
+                x.k = to; x.w = ""; x.q = q; x.ni = ni;
+                if (!igual) x.ir = q > 1 && !ni ? (c.ir || 0) : 0; // la tasa queda guardada con la compra; solo se vuelve a tomar si cambian tarjeta, cuotas o interés
+                if (q <= 1) x.ir = 0;
+            } else if (to != cur0) { x.w = to; x.k = ""; x.q = 1; x.ni = 0; x.ir = 0; } // pasa a una cuenta: ya no hay cuotas
         } else if (kind == "in" || kind == "out") x.w = v[5];
         else if (kind == "tr") { x.w = v[5]; x.to = v[6]; x.n = wlabel(v[5]) + " → " + wlabel(v[6]); }
         save(); showToast("Movimiento actualizado");
@@ -1136,10 +1165,17 @@ function newRec() {
 }
 function editRec(id) {
     const r = S.rec.find(x => x.id == id); if (!r) return;
-    openCustomModal("Editar gasto fijo", [{ l: "Nombre", v: esc(r.n) }, { l: "Monto", v: Math.round(r.a), m: "numeric" }, { l: "Día del mes (1-28)", v: r.day, m: "numeric" }, { l: "¿El monto cambia cada mes?", o: RECV, v: RECV[r.vr ? 1 : 0] }], v => {
-        const a = num(v[1]), day = Math.min(28, Math.max(1, num(v[2]) || 1));
+    const cs = G.filter(g => g[0] != "Ahorro").map(g => g[0]), pays = WH.concat(S.cards.map(c => c.n)), cur0 = r.k || r.w;
+    const wc = (l, c) => c && !l.includes(c) ? [c].concat(l) : l;
+    openCustomModal("Editar gasto fijo", [
+        { l: "Nombre", v: esc(r.n) }, { l: "Monto", v: Math.round(r.a), m: "numeric" }, { l: "Día del mes (1-28)", v: r.day, m: "numeric" },
+        { l: "Categoría (desde el próximo registro)", o: wc(cs, r.c), v: r.c },
+        { l: "Se paga con (desde el próximo registro)", o: wc(pays, cur0), v: cur0 },
+        { l: "¿El monto cambia cada mes?", o: RECV, v: RECV[r.vr ? 1 : 0] }
+    ], v => {
+        const a = num(v[1]), day = Math.min(28, Math.max(1, num(v[2]) || 1)), isW = WH.includes(v[4]);
         if (!v[0] || !a) return "Escribe nombre y monto.";
-        Object.assign(r, { n: v[0], a, day, vr: v[3] == RECV[1] });
+        Object.assign(r, { n: v[0], a, day, c: v[3], k: isW ? "" : v[4], w: isW ? v[4] : "", vr: v[5] == RECV[1] });
         genRec(); // si ya pasó su día y no está registrado este mes, lo registra (o lo pide, si es variable)
     });
 }
@@ -1194,7 +1230,7 @@ function importBackup() {
 }
 function exportCsv() {
     const q = t => '"' + String(t ?? "").replace(/"/g, '""') + '"', tp = { i: "Ingreso", g: "Gasto", p: "Pago tarjeta", tr: "Transferencia" };
-    const rows = [["Fecha", "Tipo", "Categoría", "Nota", "Monto", "Billetera", "Tarjeta", "Cuotas"]].concat(S.items.slice().sort((a, b) => a.d.localeCompare(b.d)).map(x => [x.d, tp[x.t] || x.t, x.c, x.n, x.a, x.w, x.k || x.pc || "", x.q > 1 ? x.q : ""]));
+    const rows = [["Fecha", "Tipo", "Categoría", "Nota", "Monto", "Billetera", "Tarjeta", "Cuotas", "USD"]].concat(S.items.slice().sort((a, b) => a.d.localeCompare(b.d)).map(x => [x.d, tp[x.t] || x.t, x.c, x.n, x.a, x.w, x.k || x.pc || "", x.q > 1 ? x.q : "", x.u || ""]));
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob(["\ufeff" + rows.map(r => r.map(q).join(";")).join("\n")], { type: "text/csv" }));
     a.download = "mi-plata-" + today() + ".csv"; a.click();

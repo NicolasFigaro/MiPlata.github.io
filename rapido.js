@@ -59,6 +59,7 @@ function qeParse(v) {
         const q = g("qe"); q.value = keepV; q.focus(); try { q.setSelectionRange(pos, pos); } catch (e) {}
     }
     const amt = g("amt"), note = g("note");
+    if (a && amtUsd) setCur(false, true); // "Anotar rápido" escribe en pesos
     if (a) { amt.value = a.n.toLocaleString("es-CO"); fitAmt(amt); cuotaPreview(); metaPreview(); } else { amt.value = ""; fitAmt(amt); }
     const clean = rest.replace(/^[+\-]\s*/, "");
     note.value = clean ? clean.charAt(0).toUpperCase() + clean.slice(1) : "";

@@ -5,7 +5,7 @@ const N = ["Inicio", "Cuentas", "Ahorro", "Inversión", "Gráficas", "Tarjetas",
 const V = [vHome, vCue, vAho, vInv, vGra, vTar, vDeu, vCal, vYear, vSet]; // vCal y vYear viven en pantallas.js
 // Pestañas que viven dentro del menú "Más" de la barra inferior (índices de N)
 const MORE = [3, 4, 6, 7, 8, 9];
-const APP_VER = "11";
+const APP_VER = "12";
 const MORE_IC = { "Inversión": ["fa-chart-line", "#34C759"], "Gráficas": ["fa-chart-pie", "#FF9500"], "Deudas": ["fa-hand-holding-dollar", "#FF3B30"], "Calendario": ["fa-calendar-days", "#007AFF"], "Resumen": ["fa-wand-magic-sparkles", "#AF52DE"], "Ajustes": ["fa-gear", "#8E8E93"] };
 function vMore() {
     return `
@@ -177,7 +177,7 @@ function movListHTML(lim) { // lim: solo los últimos N (ignora filtros y buscad
             <span class="w-9 h-9 shrink-0 rounded-[10px] flex items-center justify-center text-sm text-white" style="background:${ic[1]}"><i class="fa-solid ${ic[0]}"></i></span>
             <div class="min-w-0 flex-1 pr-2">
                 <strong class="text-sm font-semibold text-slate-800 dark:text-white block truncate">${esc(x.n || x.c)}</strong>
-                <small class="text-xs text-slate-400">${x.n ? esc(x.c) + " · " : ""}${x.d.slice(8)}/${x.d.slice(5, 7)}${sall ? "/" + x.d.slice(2, 4) : ""}${x.k ? " · 💳 " + esc(x.k) : ""}${x.sav ? " · 🎯 " + esc((S.acc.find(a => a.id == x.sav) || {}).n || "meta borrada") : ""}${x.w ? " · " + esc(x.w) : ""}${x.q > 1 ? " · " + x.q + " cuotas de " + fmt(pmt(x.a, x.q, r)) + (r > 0 ? " (con interés)" : "") : ""}${x.s ? " · fuera del resumen" : ""}</small>
+                <small class="text-xs text-slate-400">${x.n ? esc(x.c) + " · " : ""}${x.d.slice(8)}/${x.d.slice(5, 7)}${sall ? "/" + x.d.slice(2, 4) : ""}${x.u ? " · " + fu(x.u) : ""}${x.k ? " · 💳 " + esc(x.k) : ""}${x.sav ? " · 🎯 " + esc((S.acc.find(a => a.id == x.sav) || {}).n || "meta borrada") : ""}${x.w ? " · " + esc(x.w) : ""}${x.q > 1 ? " · " + x.q + " cuotas de " + fmt(pmt(x.a, x.q, r)) + (r > 0 ? " (con interés)" : "") : ""}${x.s ? " · fuera del resumen" : ""}</small>
             </div>
             <div class="flex items-center space-x-2">
                 <span class="text-sm font-bold ${x.t == "i" ? "text-emerald-500" : "text-slate-800 dark:text-white"}">${x.t == "i" ? "+" : x.t == "tr" ? "↔ " : "-"}${fmt(x.a)}</span>
@@ -352,8 +352,14 @@ function movFormHTML() {
                 <p id="qeHint" class="text-[11px] text-indigo-500 font-semibold mt-1 empty:hidden"></p>
             </div>
             <div class="flex items-center justify-center gap-1.5 py-1">
-                <span class="text-3xl font-semibold text-slate-400">$</span>
-                <input id="amt" inputmode="numeric" enterkeyhint="done" placeholder="0" oninput="fa(this);fitAmt(this);cuotaPreview();metaPreview()" onkeydown="if(event.key==='Enter')this.blur()" style="width:1ch" class="amt-big min-w-0 max-w-full bg-transparent border-0 p-0 text-center font-bold tracking-tight text-slate-800 dark:text-white focus:ring-0 focus:outline-none" autocomplete="off">
+                <span id="amtSym" class="text-3xl font-semibold text-slate-400">${amtUsd ? "US$" : "$"}</span>
+                <input id="amt" inputmode="${amtUsd ? "decimal" : "numeric"}" enterkeyhint="done" placeholder="0" oninput="amtIn(this)" onkeydown="if(event.key==='Enter')this.blur()" style="width:1ch" class="amt-big min-w-0 max-w-full bg-transparent border-0 p-0 text-center font-bold tracking-tight text-slate-800 dark:text-white focus:ring-0 focus:outline-none" autocomplete="off">
+            </div>
+            <div class="flex flex-col items-center gap-1 -mt-2">
+                <div class="inline-flex p-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-[11px] font-semibold">
+                    ${[["cop", "COP", !amtUsd], ["usd", "USD", amtUsd]].map(([k, l, on]) => `<button type="button" data-cur="${k}" onclick="setCur(${k == "usd"})" class="px-3.5 py-1 rounded-full transition ${on ? "bg-white dark:bg-slate-600 shadow-sm text-slate-900 dark:text-white" : "text-slate-500"}">${l}</button>`).join("")}
+                </div>
+                <p id="usdPrev" class="text-[11px] text-indigo-500 font-semibold empty:hidden"></p>
             </div>
             <select id="cat" onchange="catChange(this)" class="hidden" aria-hidden="true" tabindex="-1">${cats}</select>
             <div id="catGrid" class="grid grid-cols-4 gap-x-1 gap-y-3">${names.map(tile).join("")}${newTile}</div>

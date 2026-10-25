@@ -6,6 +6,7 @@ S.invd = S.invd || [];   // dividendos: { id, inv, n, c, d, a }
 S.invs = S.invs || [];   // ventas:     { id, inv, n, c, d, rec, cost, gain, f }
 S.invh = S.invh || {};   // foto diaria del portafolio: { "2026-10-24": [valorCOP, invertidoCOP] }
 S.csvm = S.csvm || {};   // lo que aprendió de tus categorías al importar: { "rappi restaurante": "Comida" }
+S.subx = S.subx || [];   // suscripciones que marcaste como «no es suscripción»
 S.ai = S.ai || {};       // { ok: true } = ya aceptaste que el resumen de tus datos se envía a la IA
 
 const r2 = n => Math.round(n * 100) / 100;
@@ -296,7 +297,7 @@ const aiProv = () => { const p = ls(AIP); return AI_PROV[p] ? p : ls(AI_PROV.ant
 const aiKey = () => ls(AI_PROV[aiProv()].k);
 const aiModel = () => { const P = AI_PROV[aiProv()], m = ls(P.m); return P.models.some(x => x[1] == m) ? m : P.models[0][1]; };
 const AI = { msgs: [], busy: false };
-try { AI.msgs = JSON.parse(localStorage.getItem(AIC) || "[]").filter(m => m && (m.r == "user" || m.r == "assistant") && typeof m.t == "string").slice(-40); } catch (e) { AI.msgs = []; }
+try { AI.msgs = JSON.parse(localStorage.getItem(AIC) || "[]").filter(m => m && (m.r == "user" || m.r == "assistant") && typeof m.t == "string").slice(-40).map(m => m.act && !m.acts ? Object.assign({}, m, { acts: [Object.assign({ kind: "mov" }, m.act)] }) : m); } catch (e) { AI.msgs = []; }
 const aiSave = () => { try { localStorage.setItem(AIC, JSON.stringify(AI.msgs.slice(-40))); } catch (e) {} };
 const aiMd = s => esc(s).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/^[-*•] /gm, "• ").replace(/\n/g, "<br>");
 
@@ -304,8 +305,14 @@ const AI_SYS = `Eres el asistente de "Mi Plata", una app de finanzas personales 
 Reglas:
 - Responde corto: máximo unas 120 palabras, con frases cortas. Puedes usar listas simples con "- " y **negritas** para cifras clave.
 - Usa SOLO los datos de abajo. Si algo no está en los datos, dilo en vez de inventarlo. Los montos son pesos colombianos (COP); escríbelos con puntos de miles, ej. $1.250.000.
-- Si el usuario te cuenta un gasto o ingreso ("gasté 20 mil en almuerzo"), confirma en una frase y AL FINAL de tu respuesta agrega UNA línea exacta: [[ANOTAR {"t":"g","a":20000,"c":"Comida","n":"Almuerzo","w":"Efectivo"}]]
-  t = "g" gasto o "i" ingreso; a = monto entero en pesos; c = categoría EXACTA de las listadas; n = nota corta; w = cuenta o tarjeta EXACTA de las listadas. Si falta el monto, pregúntalo y no pongas la línea. Nunca anotes nada que el usuario no haya dicho.
+- Puedes proponer acciones. Cada acción va en su propia línea al FINAL de tu respuesta, con este formato exacto. El usuario siempre las confirma con un botón: nunca digas que ya se hicieron.
+  1) Anotar un gasto o ingreso que el usuario te cuente ("gasté 20 mil en almuerzo"): [[ANOTAR {"t":"g","a":20000,"c":"Comida","n":"Almuerzo","w":"Efectivo"}]]
+     t = "g" gasto o "i" ingreso; a = monto entero en pesos; c = categoría EXACTA de las listadas; n = nota corta; w = cuenta o tarjeta EXACTA de las listadas. Si falta el monto, pregúntalo y no pongas la línea.
+  2) Fijar el presupuesto mensual de una categoría de gasto: [[PRESUPUESTO {"c":"Comida","a":600000}]]
+     c = categoría de gasto EXACTA; a = pesos por mes. Puedes poner una línea por categoría cuando propongas varios.
+  3) Crear una meta de ahorro: [[META {"n":"Viaje","g":5000000,"dl":"2027-03-31"}]]
+     n = nombre corto; g = monto objetivo en pesos; dl = fecha límite AAAA-MM-DD futura (opcional, omítela si no la dijo).
+- Nunca anotes ni crees nada que el usuario no haya pedido o aceptado. Si propones presupuestos, apóyate en lo que gastó en los últimos meses (datos de abajo) y explica en una frase por qué.
 - No des asesoría legal ni de inversión personalizada; puedes dar ideas generales y señalar lo que ves en los números.`;
 
 function aiContext() {
@@ -316,6 +323,11 @@ function aiContext() {
     L.push(`Este mes: ingresos $${f(sm(cm, x => x.t == "i"))}, gastos $${f(sm(cm, x => x.t == "g"))}. Mes anterior: ingresos $${f(sm(pm, x => x.t == "i"))}, gastos $${f(sm(pm, x => x.t == "g"))}.`);
     const cats = G.filter(g => g[0] != "Ahorro").map(([c]) => { const a = sm(cm, x => x.t == "g" && x.c == c && !x.s), b = sm(pm, x => x.t == "g" && x.c == c && !x.s), bu = budOf(c, mk); return a || b || bu ? `${c}: este mes $${f(a)}${bu ? " de presupuesto $" + f(bu) : ""}, mes anterior $${f(b)}` : ""; }).filter(Boolean);
     L.push("Gastos por categoría:\n" + (cats.join("\n") || "(sin gastos)"));
+    const mAvg = [1, 2, 3].map(o => ym(new Date(now.getFullYear(), now.getMonth() - o, 1)));
+    const avg = G.filter(g => g[0] != "Ahorro").map(([c]) => [c, mAvg.reduce((t, k) => t + catSpent(c, k), 0) / 3]).filter(x => x[1] > 0);
+    if (avg.length) L.push("Promedio mensual de gasto en los 3 meses anteriores: " + avg.map(([c, v]) => `${c} $${f(v)}`).join("; "));
+    const bd = G.filter(g => g[0] != "Ahorro" && S.bud[g[0]] > 0).map(([c]) => `${c} $${f(S.bud[c])}`); L.push("Presupuestos mensuales fijos hoy: " + (bd.join("; ") || "ninguno"));
+    try { const sb = subsDetect().filter(x => x.active); if (sb.length) L.push("Suscripciones detectadas: " + sb.map(x => `${x.name} $${f(x.amt)}${x.kind == "m" ? "/mes" : "/año"}`).join("; ") + `. Total ≈ $${f(sb.reduce((t, x) => t + x.pm, 0))} al mes.`); } catch (e) {}
     L.push("Categorías disponibles para gastos: " + G.filter(g => g[0] != "Ahorro").map(g => g[0]).join(", ") + ". Para ingresos: " + I.join(", ") + ".");
     L.push("Cuentas (saldo): " + (S.wal.filter(a => !(S.hide || {})[a.n]).map(a => `${a.n} $${f(bal(a.n, mk))}`).join("; ") || "ninguna"));
     if (S.cards.length) L.push("Tarjetas: " + S.cards.map(c => { const u = cardUse(c, mk); return `${c.n} (cupo $${f(c.c || 0)}, usado ${Math.round(u.raw)}%, cuota del mes $${f(cardDue(c, mk))})`; }).join("; "));
@@ -344,18 +356,24 @@ function aiLocal() {
     L.push("", "Para preguntas y consejos más personalizados, activa la IA con tu clave (botón de arriba).");
     return L.join("\n");
 }
+function aiActHTML(a, i, j) {
+    const head = a.kind == "mov" ? `<b>${a.t == "i" ? "Ingreso" : "Gasto"} ${fmt(a.a)}</b> · ${esc(a.c)}${a.n ? " · " + esc(a.n) : ""} · ${esc(a.w)}`
+        : a.kind == "bud" ? `<b>Presupuesto mensual</b> · ${esc(a.c)} · ${fmt(a.a)}${S.bud[a.c] > 0 && !a.done ? ' <span class="text-slate-400">(hoy ' + fmt(S.bud[a.c]) + ")</span>" : ""}`
+        : `<b>Nueva meta</b> · ${esc(a.n)} · ${fmt(a.g)}${a.dl ? " · hasta " + dmy(a.dl) : ""}`;
+    const btn = a.done ? '<span class="block mt-1 text-emerald-500 font-semibold">✓ Listo</span>'
+        : `<button onclick="aiDo(${i},${j})" class="block mt-2 px-3 py-1.5 rounded-lg bg-indigo-600 text-white font-semibold">${a.kind == "mov" ? "Anotar" : a.kind == "bud" ? "Fijar presupuesto" : "Crear meta"}</button>`;
+    return `<div class="mt-2 p-2.5 rounded-xl bg-white/70 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 text-[11px]">${head}${btn}</div>`;
+}
 function aiBubble(m, i) {
-    const me = m.r == "user";
-    const act = m.act ? `<div class="mt-2 p-2.5 rounded-xl bg-white/70 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 text-[11px]"><b>${m.act.t == "i" ? "Ingreso" : "Gasto"} ${fmt(m.act.a)}</b> · ${esc(m.act.c)}${m.act.n ? " · " + esc(m.act.n) : ""} · ${esc(m.act.w)}
-        ${m.act.done ? '<span class="block mt-1 text-emerald-500 font-semibold">✓ Anotado</span>' : `<button onclick="aiDo(${i})" class="block mt-2 px-3 py-1.5 rounded-lg bg-indigo-600 text-white font-semibold">Anotar</button>`}</div>` : "";
-    return `<div class="flex ${me ? "justify-end" : "justify-start"}"><div class="max-w-[88%] px-3.5 py-2.5 rounded-2xl text-[14px] leading-relaxed ${me ? "bg-indigo-600 text-white rounded-br-md" : "bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-bl-md"}">${aiMd(m.t)}${act}</div></div>`;
+    const me = m.r == "user", acts = (m.acts || []).map((a, j) => aiActHTML(a, i, j)).join("");
+    return `<div class="flex ${me ? "justify-end" : "justify-start"}"><div class="max-w-[88%] px-3.5 py-2.5 rounded-2xl text-[14px] leading-relaxed ${me ? "bg-indigo-600 text-white rounded-br-md" : "bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-bl-md"}">${aiMd(m.t)}${acts}</div></div>`;
 }
 function vAsist() {
-    const has = !!aiKey(), chips = [["Resumen del mes", "Hazme un resumen de cómo voy este mes"], ["¿En qué gasto más?", "¿En qué categorías estoy gastando más y cómo va frente al mes pasado?"], ["¿Cómo van mis metas?", "¿Cómo van mis metas de ahorro y qué debería hacer para llegar a tiempo?"], ["Ideas para ahorrar", "Dame 3 ideas concretas para ahorrar según mis gastos"]];
+    const has = !!aiKey(), chips = [["Resumen del mes", "Hazme un resumen de cómo voy este mes"], ["¿En qué gasto más?", "¿En qué categorías estoy gastando más y cómo va frente al mes pasado?"], ["¿Cómo van mis metas?", "¿Cómo van mis metas de ahorro y qué debería hacer para llegar a tiempo?"], ["Ideas para ahorrar", "Dame 3 ideas concretas para ahorrar según mis gastos"], ["Crear presupuesto", "Propón un presupuesto mensual por categoría según lo que he gastado y déjame aplicarlo"]];
     setTimeout(aiScroll, 30);
     return `
         <section class="${CARD} p-4">
-            ${has ? `<p class="text-[11px] text-slate-400">Pregúntame por tus cuentas, gastos, metas o inversiones. También puedes decirme «gasté 20 mil en almuerzo» y te lo dejo listo para anotar.</p>`
+            ${has ? `<p class="text-[11px] text-slate-400">Pregúntame por tus cuentas, gastos, metas o inversiones. También puedes decirme «gasté 20 mil en almuerzo», o pedirme que cree un presupuesto o una meta: te lo dejo listo para confirmar.</p>`
                 : `<div class="flex items-start gap-3"><span class="w-9 h-9 shrink-0 rounded-xl flex items-center justify-center text-white" style="background:#32ADE6"><i class="fa-solid fa-comment-dots"></i></span><div class="min-w-0">
                     <p class="text-sm font-bold text-slate-800 dark:text-white">Activa el asistente con IA</p>
                     <p class="text-[11px] text-slate-400 mt-0.5 leading-relaxed">Necesita una clave gratis de Gemini (Google) o una de Anthropic; se guarda solo en este celular. Mientras tanto puedes pedir el resumen rápido, que funciona sin IA.</p>
@@ -406,20 +424,36 @@ function aiConsent(then) {
         <button id="aiOk" class="py-2.5 rounded-xl bg-indigo-600 text-white font-semibold text-xs">Entiendo, continuar</button></div>`);
     document.getElementById("aiOk").onclick = () => { S.ai[ck] = true; save(); closeModal(); then(); };
 }
+// Saca del texto de la IA las acciones propuestas ([[ANOTAR …]], [[PRESUPUESTO …]], [[META …]]) y descarta las que no sean válidas
 function aiAction(txt) {
-    const m = txt.match(/\[\[ANOTAR\s*(\{[\s\S]*?\})\s*\]\]/); if (!m) return { text: txt, act: null };
-    const text = txt.replace(m[0], "").trim(); let a;
-    try { a = JSON.parse(m[1]); } catch (e) { return { text, act: null }; }
-    const t = a.t == "i" ? "i" : "g", amt = Math.round(Number(a.a)), cats = t == "g" ? G.filter(g => g[0] != "Ahorro").map(g => g[0]) : I;
-    const w = WH.concat(S.cards.map(c => c.n)).includes(a.w) && (t == "g" || WH.includes(a.w)) ? a.w : null;
-    if (!(amt > 0) || !w) return { text, act: null };
-    return { text, act: { t, a: amt, c: cats.includes(a.c) ? a.c : t == "g" ? "Otros" : "Otro ingreso", n: String(a.n || "").slice(0, 60), w, d: /^\d{4}-\d{2}-\d{2}$/.test(a.d || "") && a.d <= today() ? a.d : today() } };
+    const acts = [], re = /\[\[(ANOTAR|PRESUPUESTO|META)\s*(\{[\s\S]*?\})\s*\]\]/g, catsG = G.filter(g => g[0] != "Ahorro").map(g => g[0]);
+    const text = txt.replace(re, (all, kind, js) => {
+        let a; try { a = JSON.parse(js); } catch (e) { return ""; }
+        if (acts.length >= 8) return "";
+        if (kind == "ANOTAR") {
+            const t = a.t == "i" ? "i" : "g", amt = Math.round(Number(a.a)), cats = t == "g" ? catsG : I;
+            const w = WH.concat(S.cards.map(c => c.n)).includes(a.w) && (t == "g" || WH.includes(a.w)) ? a.w : null;
+            if (amt > 0 && w) acts.push({ kind: "mov", t, a: amt, c: cats.includes(a.c) ? a.c : t == "g" ? "Otros" : "Otro ingreso", n: String(a.n || "").slice(0, 60), w, d: /^\d{4}-\d{2}-\d{2}$/.test(a.d || "") && a.d <= today() ? a.d : today() });
+        } else if (kind == "PRESUPUESTO") {
+            const amt = Math.round(Number(a.a));
+            if (catsG.includes(a.c) && amt > 0 && !acts.some(x => x.kind == "bud" && x.c == a.c)) acts.push({ kind: "bud", c: a.c, a: amt });
+        } else {
+            const n = String(a.n || "").trim().slice(0, 30), g = Math.round(Number(a.g));
+            if (n && g > 0) acts.push({ kind: "goal", n, g, dl: /^\d{4}-\d{2}-\d{2}$/.test(a.dl || "") && a.dl > today() ? a.dl : "" });
+        }
+        return "";
+    }).replace(/\n{3,}/g, "\n\n").trim();
+    return { text, acts };
 }
-function aiDo(i) {
-    const m = AI.msgs[i]; if (!m || !m.act || m.act.done) return;
-    const a = m.act, isCard = S.cards.some(c => c.n == a.w) && !WH.includes(a.w);
-    S.items.push({ id: Date.now(), d: a.d, t: a.t, c: a.c, n: a.n, a: a.a, k: isCard ? a.w : "", w: isCard ? "" : a.w, q: 1 });
-    a.done = true; aiSave(); save(); cur = new Date(a.d + "T00:00:00"); cur.setDate(1); buzz(); showToast("Movimiento anotado"); aiRender(false);
+function aiDo(i, j) {
+    const m = AI.msgs[i], a = m && m.acts && m.acts[j]; if (!a || a.done) return;
+    if (a.kind == "mov") {
+        const isCard = S.cards.some(c => c.n == a.w) && !WH.includes(a.w);
+        S.items.push({ id: Date.now(), d: a.d, t: a.t, c: a.c, n: a.n, a: a.a, k: isCard ? a.w : "", w: isCard ? "" : a.w, q: 1 });
+        cur = new Date(a.d + "T00:00:00"); cur.setDate(1); showToast("Movimiento anotado");
+    } else if (a.kind == "bud") { S.bud[a.c] = a.a; showToast("Presupuesto de " + a.c + ": " + fmt(a.a) + " al mes"); }
+    else { S.acc.push({ id: Date.now(), n: a.n, g: a.g, r: 0, u: 0, dl: a.dl || "", s0: today() }); showToast("Meta creada: " + a.n); }
+    a.done = true; aiSave(); save(); buzz(); aiRender(false);
 }
 async function aiSend(e) {
     if (e) e.preventDefault();
@@ -462,8 +496,8 @@ async function aiGo(text) {
             const j = await r.json(); raw = (j.content || []).filter(b => b.type == "text").map(b => b.text).join("\n").trim();
         }
         raw = raw || "No supe qué responder, ¿me lo preguntas de otra forma?";
-        const { text: t, act } = aiAction(raw);
-        AI.msgs.push({ r: "assistant", t: t || "Listo, revisa y confirma:", act });
+        const { text: t, acts } = aiAction(raw);
+        AI.msgs.push({ r: "assistant", t: t || "Listo, revisa y confirma:", acts });
     } catch (err) {
         const off = !navigator.onLine || /Failed to fetch|NetworkError|Load failed/i.test(String(err.message));
         AI.msgs.push({ r: "assistant", t: off ? "No tengo conexión para hablar con la IA. Revisa tu internet." : err.message });
@@ -491,16 +525,81 @@ function setNuevas(card) {
 
 
 /* =====================================================================
+   5) ALERTAS DE PRESUPUESTO (80 % y 100 %)
+   ===================================================================== */
+// Revisa los presupuestos del mes y avisa UNA vez por categoría y nivel. Se ejecuta al abrir la app, al volver a ella y después de cualquier guardado
+// (importar un extracto, gastos fijos que se registran solos, el asistente…). Con la app abierta sale un aviso en pantalla; si el navegador la tiene
+// en segundo plano y diste permiso de notificaciones, sale una notificación del sistema. Una app sin servidor no puede avisar con la app cerrada del todo.
+function budgetAlerts() {
+    const nm = ym(new Date()), out = [];
+    Object.keys(S.nt).forEach(k => { if (k.startsWith("bud:") && k.slice(4, 11) < nm) delete S.nt[k]; }); // se olvidan los avisos de meses pasados
+    G.filter(g => g[0] != "Ahorro").forEach(([c]) => {
+        const b = budOf(c, nm); if (!(b > 0)) return;
+        const sp = catSpent(c, nm), r = sp / b, k80 = "bud:" + nm + ":" + c + ":80", k100 = "bud:" + nm + ":" + c + ":100";
+        if (r >= 1) { if (!S.nt[k100]) out.push({ c, lv: 100, sp, b }); S.nt[k100] = S.nt[k80] = today(); }
+        else if (r >= 0.8) { if (!S.nt[k80]) out.push({ c, lv: 80, sp, b }); S.nt[k80] = today(); }
+    });
+    if (!out.length) return;
+    try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} // se guarda directo (no con save()) para no repetir el ciclo
+    const msg = o => o.lv == 100 ? "Te pasaste del presupuesto de " + o.c + " (" + fmt(o.sp) + " de " + fmt(o.b) + ")" : "Ya llevas el " + Math.floor(o.sp / o.b * 100) + "% del presupuesto de " + o.c + ". Te quedan " + fmt(o.b - o.sp);
+    if (document.hidden) { if (typeof Notification != "undefined" && Notification.permission == "granted") out.forEach(o => notify("Mi Plata · Presupuesto", msg(o), "bud-" + o.c + "-" + o.lv)); }
+    else showToast(out.length == 1 ? msg(out[0]) : out.length + " categorías cerca o por encima de su presupuesto: " + out.map(o => o.c).join(", "), true);
+}
+window.addEventListener("load", () => setTimeout(budgetAlerts, 3500));
+document.addEventListener("visibilitychange", () => { if (!document.hidden) setTimeout(budgetAlerts, 800); });
+
+/* =====================================================================
+   6) SUSCRIPCIONES (cobros repetidos detectados en tus movimientos)
+   ===================================================================== */
+const subKey = x => normTxt(x.n || "").replace(/[^a-z\s]/g, " ").split(/\s+/).filter(t => t.length > 2).slice(0, 2).join(" ");
+const dObj = d => new Date(d + "T00:00:00");
+// Un cobro se considera suscripción si el mismo nombre (en la nota) se repite con un valor parecido (±15 %): mensual = 3 o más meses seguidos, anual = 2 cobros con ~1 año de separación
+function subsDetect() {
+    const groups = {}, out = [];
+    S.items.forEach(x => { if (x.t != "g" || x.rid || x.dbt || x.s || !x.n) return; const k = subKey(x); if (k) (groups[k] = groups[k] || []).push(x); });
+    Object.keys(groups).forEach(k => {
+        if (S.subx.includes(k)) return;
+        const g = groups[k], amts = g.map(x => x.a).sort((a, b) => a - b), med = amts[Math.floor(amts.length / 2)];
+        const byM = {}; g.filter(x => Math.abs(x.a - med) <= med * 0.15).sort((a, b) => a.d.localeCompare(b.d)).forEach(x => { if (!byM[x.d.slice(0, 7)]) byM[x.d.slice(0, 7)] = x; });
+        const ch = Object.values(byM); if (ch.length < 2) return;
+        const gaps = []; for (let i = 1; i < ch.length; i++) gaps.push(daysBetween(dObj(ch[i - 1].d), dObj(ch[i].d)));
+        const mg = gaps.slice().sort((a, b) => a - b)[Math.floor(gaps.length / 2)];
+        const kind = ch.length >= 3 && mg >= 24 && mg <= 38 ? "m" : mg >= 340 && mg <= 390 ? "a" : null; if (!kind) return;
+        const last = ch[ch.length - 1], ago = daysBetween(dObj(last.d), midnight());
+        out.push({ k, name: last.n, c: last.c, amt: last.a, usd: last.u || 0, n: ch.length, last: last.d, next: ymd(new Date(dObj(last.d).getTime() + mg * 864e5)), kind, active: ago <= (kind == "m" ? 45 : 400), pm: kind == "m" ? last.a : last.a / 12, py: kind == "m" ? last.a * 12 : last.a });
+    });
+    return out.sort((a, b) => b.py - a.py);
+}
+function subHide(k) { if (!S.subx.includes(k)) S.subx.push(k); save(); showToast("Listo, ya no la muestro", false, { label: "Deshacer", fn: () => { S.subx = S.subx.filter(x => x != k); save(); draw(); } }); }
+function subRestore() { S.subx = []; save(); draw(); }
+function vSubs() {
+    const L = subsDetect(), act = L.filter(x => x.active), old = L.filter(x => !x.active), pm = act.reduce((t, x) => t + x.pm, 0), py = act.reduce((t, x) => t + x.py, 0);
+    const row = x => `<div class="flex items-center gap-3 py-3 border-t first:border-0 border-slate-100 dark:border-slate-800">${catChip(x.c)}
+        <div class="min-w-0 flex-1"><b class="text-sm font-semibold text-slate-800 dark:text-white block truncate">${esc(x.name)}</b><small class="text-[11px] text-slate-400">${x.kind == "m" ? "Cada mes" : "Cada año"} · ${x.n} cobros · último ${dmy(x.last).slice(0, 5)}${x.active ? " · próximo ≈ " + dmy(x.next).slice(0, 5) : ""}</small></div>
+        <div class="text-right shrink-0"><b class="text-sm block">${fmt(x.amt)}</b>${x.usd ? `<small class="text-[10px] text-slate-400 block">${fu(x.usd)}</small>` : ""}<button onclick="subHide('${x.k}')" class="text-[10px] text-slate-400">No es suscripción</button></div></div>`;
+    const hero = `<section class="bg-gradient-to-b from-rose-500 to-rose-600 text-white p-6 rounded-[20px] shadow-sm">
+        <small class="text-xs text-rose-100 font-medium uppercase tracking-wider">Suscripciones activas</small>
+        <div class="text-3xl font-extrabold mt-1">${fmt(pm)}<span class="text-sm font-semibold text-rose-100"> al mes</span></div>
+        <p class="text-xs text-rose-100 mt-1">${act.length} detectada${act.length == 1 ? "" : "s"} · ≈ ${fmt(py)} al año</p></section>`;
+    return `${act.length ? hero : ""}
+        <section class="${CARD} p-5">
+            ${act.length ? `<div class="divide-y-0">${act.map(row).join("")}</div>` : emptyUI("fa-repeat", "#FF2D55", "Aún no detecto cobros repetidos", "Cuando un mismo gasto (Netflix, Spotify, el gimnasio…) aparezca con el mismo nombre en la nota durante 3 meses, lo verás aquí. Importar tu extracto del banco lo llena rápido.", "Importar extracto", "goTab(N.indexOf('Ajustes'))", true)}
+        </section>
+        ${old.length ? `<section class="${CARD} p-5"><h3 class="text-sm font-bold mb-1">Posiblemente canceladas</h3><p class="text-[11px] text-slate-400 mb-2">Se cobraban seguido, pero hace tiempo que no aparecen.</p><div class="opacity-70">${old.map(row).join("")}</div></section>` : ""}
+        <p class="text-[11px] text-slate-400 px-1">La app las detecta sola leyendo la nota de tus gastos (valores parecidos, cada mes o cada año). Si alguna no lo es, toca «No es suscripción».${S.subx.length ? ` <button onclick="subRestore()" class="text-indigo-600 dark:text-indigo-400 font-semibold">Mostrar las ${S.subx.length} que oculté</button>` : ""}</p>`;
+}
+
+/* =====================================================================
    4) NOVEDADES: aviso de «lo nuevo», se muestra una sola vez por versión
    ===================================================================== */
-const NEWS_VER = "11";
+const NEWS_VER = "12";
 const NEWS = [
-    ["fa-wand-magic-sparkles", "#AF52DE", "Mi Plata tiene novedades", "Más rápida, con arreglos importantes y cuatro funciones nuevas. Te las cuento en un momento."],
-    ["fa-bolt", "#FF9500", "Más rápida y más fiable", "Abre al instante (antes esperaba a internet cada vez). Arreglamos los decimales de la TRM: ya puedes escribir 3221,56 o 3221.56. Y «Editar» en un movimiento deslizado ya no se pierde."],
-    ["fa-pen", "#007AFF", "Editar movimientos, completo", "Ahora puedes cambiar la cuenta o tarjeta de un gasto (por ejemplo, de Efectivo a Cuenta de ahorros), la cuenta de un ingreso y el origen o destino de una transferencia."],
-    ["fa-file-csv", "#34C759", "Importa el extracto del banco", "En Ajustes sube el .csv de tu banco o de Nequi. La app sugiere categorías, no duplica lo que ya tienes y te deja revisar antes de importar."],
-    ["fa-chart-line", "#5856D6", "Inversiones con más detalle", "Anota dividendos y ventas (con ganancia o pérdida realizada) y mira la evolución de tu portafolio en Gráficas. El valor se empieza a guardar desde hoy."],
-    ["fa-comment-dots", "#32ADE6", "Asistente con IA", "En la pestaña Asistente (abajo): pregúntale por tus finanzas o dile «gasté 20 mil en almuerzo». Es gratis con una clave de Gemini (aistudio.google.com). El resumen del mes funciona sin clave."]
+    ["fa-wand-magic-sparkles", "#AF52DE", "Más novedades en Mi Plata", "Cinco mejoras nuevas. Te las cuento rápido."],
+    ["fa-bell", "#FF9500", "Alertas de presupuesto", "La app te avisa cuando una categoría llega al 80 % de su presupuesto y cuando se pasa, también si el gasto entró por una importación o por un gasto fijo."],
+    ["fa-repeat", "#FF2D55", "Suscripciones", "En Más → Suscripciones ves tus cobros repetidos (Netflix, Spotify…), cuánto suman al mes y al año, y cuándo toca el próximo."],
+    ["fa-dollar-sign", "#34C759", "Gastos en dólares", "Al anotar un movimiento elige COP o USD. En dólares puedes escribir decimales (12,50) y se guarda con su equivalente en pesos a la TRM del día."],
+    ["fa-pen", "#007AFF", "Editar, ahora de verdad", "Cambia las cuotas y los intereses de un gasto con tarjeta, y la categoría o el medio de pago de un gasto fijo."],
+    ["fa-comment-dots", "#32ADE6", "El asistente crea cosas", "Pídele «propón un presupuesto» o «crea una meta para un viaje de 5 millones» y te deja el botón para confirmarlo."]
 ];
 let newsI = 0;
 function paintNews() {
@@ -531,3 +630,6 @@ window.addEventListener("load", () => setTimeout(tryNews, 1500));
 // ---------- Registro de la pantalla nueva ----------
 // El Asistente tiene su propia pestaña en la barra inferior, justo antes de «Más» (no vive dentro de «Más»)
 N.push("Asistente"); V.push(vAsist); TB.splice(TB.length - 1, 0, [N.length - 1, "Asistente", "fa-comment-dots"]);
+// Suscripciones vive dentro de «Más», antes de Ajustes
+N.push("Suscripciones"); V.push(vSubs); MORE.splice(MORE.indexOf(N.indexOf("Ajustes")), 0, N.length - 1);
+MORE_IC["Suscripciones"] = ["fa-repeat", "#FF2D55"];
