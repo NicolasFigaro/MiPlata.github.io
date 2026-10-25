@@ -475,10 +475,6 @@ function vHome() {
             </div>
         </section>
 
-        ${insightUI(ing, gas)}
-
-        ${donutUI(by, gasTot)}
-
         ${weekUI()}
 
         ${yearTeaser()}
@@ -1345,21 +1341,3 @@ function vSet() {
         </section>`;
 }
 
-
-// ---------- Inicio: consejo del mes y donut de gastos ----------
-function insightUI(ing, gas) {
-    if (!ing && !gas) return "";
-    const r = ing ? gas / ing : null;
-    const [ic, t, x] = r === null ? ["fa-lightbulb", "Anota tus ingresos", "Así puedo decirte qué parte de tu plata ya se fue."] : r < .6 ? ["fa-lightbulb", "Vas muy bien", "Has gastado " + Math.round(r * 100) + "% de tus ingresos de este mes."] : r < .9 ? ["fa-scale-balanced", "Vas con cuidado", "Llevas " + Math.round(r * 100) + "% de tus ingresos gastado. Mira en qué se va."] : ["fa-triangle-exclamation", "Ojo con el gasto", "Ya gastaste " + Math.round(r * 100) + "% de tus ingresos de este mes."];
-    return `<section class="insight ${r !== null && r >= .9 ? "bad" : ""}"><span><i class="fa-solid ${ic}"></i></span><div><b>${t}</b><small>${x}</small></div></section>`;
-}
-function donutUI(by, tot) {
-    if (!tot) return "";
-    const top = by.filter(x => x[1] > 0).slice(0, 4), rest = tot - top.reduce((s, x) => s + x[1], 0), L = top.map(x => [x[0], x[1], catIc(x[0])[1]]);
-    if (rest > 0.5) L.push(["Otros", rest, "#8E8E93"]);
-    const R = 40, C = 2 * Math.PI * R; let off = 0;
-    const arcs = L.map(([n, v, c]) => { const len = v / tot * C, a = `<circle cx="60" cy="60" r="${R}" fill="none" stroke="${c}" stroke-width="14" stroke-dasharray="${Math.max(0, len - 2)} ${C}" stroke-dashoffset="${-off}" transform="rotate(-90 60 60)"/>`; off += len; return a; }).join("");
-    return `<section class="${CARD} p-5"><h3 class="text-sm font-bold text-slate-800 dark:text-white mb-3">Resumen del mes</h3>
-        <div class="flex items-center gap-4"><div class="dn"><svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="${R}" fill="none" stroke="currentColor" stroke-opacity=".08" stroke-width="14"/>${arcs}</svg><div><small>Gastos</small><b>${fmt(tot)}</b></div></div>
-        <div class="min-w-0 flex-1 text-xs space-y-1.5">${L.map(([n, v, c]) => `<div class="flex items-center gap-2"><span class="tc-dot" style="background:${c}"></span><span class="flex-1 truncate">${esc(n)}</span><b>${Math.round(v / tot * 100)}%</b></div>`).join("")}</div></div></section>`;
-}
