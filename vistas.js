@@ -50,7 +50,9 @@ const catChip = (c, sm) => { const ic = catIc(c); return `<span class="${sm ? "w
 // Sección que se pliega al tocar su encabezado (se anima con CSS, sin volver a pintar la pantalla). El estado queda guardado en S.th.col ({ id: 1 } = plegada).
 // head = encabezado siempre visible, peek = resumen que se ve solo cuando está plegada, body = contenido.
 // Secciones de Inicio que arrancan plegadas (hasta que la persona las abra: queda guardado)
-const DEF_CLOSED = ["mov", "cats", "tips", "nw"];
+const DEF_CLOSED = ["mov", "cats", "tips", "nw", "yt"];
+let goalOpen = null;
+function togG(id) { goalOpen = goalOpen == id ? null : id; draw(); }
 const colOpen = id => { const c = (S.th.col || {})[id]; return c === undefined ? !DEF_CLOSED.includes(id) : !c; };
 function colSec(id, head, peek, body, cls) {
     const open = colOpen(id);
@@ -164,10 +166,13 @@ function movListHTML(lim) { // lim: solo los últimos N (ignora filtros y buscad
         const g = rows.filter(x => x.t == "g").reduce((s, x) => s + x.a, 0), i = rows.filter(x => x.t == "i").reduce((s, x) => s + x.a, 0);
         return `<p class="text-[11px] text-slate-400 pb-2">${rows.length} resultado${rows.length == 1 ? "" : "s"} · gastos ${fmt(g)} · ingresos ${fmt(i)}</p>`;
     })() : "";
+    let lastD = "";
+    const tdy = new Date(), iso = d => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"), yd = new Date(tdy.getTime() - 864e5);
+    const dayLbl = d => d == iso(tdy) ? "Hoy" : d == iso(yd) ? "Ayer" : dmy(d);
     return head + rows.map(x => {
-        const r = rate(x);
+        const r = rate(x), dh = x.d != lastD ? `<div class="day-h">${dayLbl(x.d)}</div>` : ""; lastD = x.d;
         const ic = x.t == "i" ? ["fa-arrow-down", "#34C759"] : x.t == "tr" ? ["fa-right-left", "#007AFF"] : x.t == "p" ? ["fa-credit-card", "#8E8E93"] : catIc(x.c);
-        return `
+        return `${dh}
         <div class="swipe">
             <div class="swipe-act">
                 <button onclick="editM(${x.id})" style="background:#007AFF" aria-label="Editar"><i class="fa-solid fa-pen"></i>Editar</button>
@@ -470,6 +475,10 @@ function vHome() {
             </div>
         </section>
 
+        ${insightUI(ing, gas)}
+
+        ${donutUI(by, gasTot)}
+
         ${weekUI()}
 
         ${yearTeaser()}
@@ -643,9 +652,10 @@ function vAho() {
                     <p class="text-[10px] text-slate-400 mt-1">Esta plata sigue en tu cuenta (no sube tu patrimonio dos veces), pero cuenta para esta meta.</p>
                 </div>` : "";
         return `
-            <div class="${CARD} p-5 mb-4">
-                <div class="flex justify-between items-center mb-2">
-                    <b class="text-sm font-bold text-slate-800 dark:text-white">${esc(a.n)}</b>
+            <div class="${CARD} g-card p-5 mb-4 ${goalOpen == a.id ? "g-open" : ""}">
+                <button class="g-row" onclick="togG(${a.id})"><span class="goal-tint" style="background:${goalCol(a)}26">${goalEmo(a)}</span><span class="min-w-0 flex-1 text-left"><b class="block truncate">${esc(a.n)}</b><small>${fm(a, t)}${a.g ? " / " + fm(a, a.g) : ""}</small>${a.g ? `<span class="g-bar"><i style="width:${p}%;background:${goalCol(a)}"></i></span>` : ""}</span>${a.g ? `<span class="g-pct">${p.toFixed(0)}%</span>` : ""}<i class="fa-solid fa-chevron-right g-ch"></i></button>
+                <div class="flex justify-between items-center mb-2 cursor-pointer" onclick="togG(${a.id})">
+                    <b class="text-sm font-bold text-slate-800 dark:text-white">${esc(a.n)} <i class="fa-solid fa-chevron-up text-[10px] text-slate-400 ml-1"></i></b>
                     <span class="text-xs text-slate-400">${a.u ? "USD · " : ""}${a.r ? a.r + "% E.A." : "sin rendimiento"}</span>
                 </div>
                 <div class="flex items-center gap-4 mb-3">
@@ -1333,4 +1343,23 @@ function vSet() {
                 </div>
             </details>
         </section>`;
+}
+
+
+// ---------- Inicio: consejo del mes y donut de gastos ----------
+function insightUI(ing, gas) {
+    if (!ing && !gas) return "";
+    const r = ing ? gas / ing : null;
+    const [ic, t, x] = r === null ? ["fa-lightbulb", "Anota tus ingresos", "Así puedo decirte qué parte de tu plata ya se fue."] : r < .6 ? ["fa-lightbulb", "Vas muy bien", "Has gastado " + Math.round(r * 100) + "% de tus ingresos de este mes."] : r < .9 ? ["fa-scale-balanced", "Vas con cuidado", "Llevas " + Math.round(r * 100) + "% de tus ingresos gastado. Mira en qué se va."] : ["fa-triangle-exclamation", "Ojo con el gasto", "Ya gastaste " + Math.round(r * 100) + "% de tus ingresos de este mes."];
+    return `<section class="insight ${r !== null && r >= .9 ? "bad" : ""}"><span><i class="fa-solid ${ic}"></i></span><div><b>${t}</b><small>${x}</small></div></section>`;
+}
+function donutUI(by, tot) {
+    if (!tot) return "";
+    const top = by.filter(x => x[1] > 0).slice(0, 4), rest = tot - top.reduce((s, x) => s + x[1], 0), L = top.map(x => [x[0], x[1], catIc(x[0])[1]]);
+    if (rest > 0.5) L.push(["Otros", rest, "#8E8E93"]);
+    const R = 40, C = 2 * Math.PI * R; let off = 0;
+    const arcs = L.map(([n, v, c]) => { const len = v / tot * C, a = `<circle cx="60" cy="60" r="${R}" fill="none" stroke="${c}" stroke-width="14" stroke-dasharray="${Math.max(0, len - 2)} ${C}" stroke-dashoffset="${-off}" transform="rotate(-90 60 60)"/>`; off += len; return a; }).join("");
+    return `<section class="${CARD} p-5"><h3 class="text-sm font-bold text-slate-800 dark:text-white mb-3">Resumen del mes</h3>
+        <div class="flex items-center gap-4"><div class="dn"><svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="${R}" fill="none" stroke="currentColor" stroke-opacity=".08" stroke-width="14"/>${arcs}</svg><div><small>Gastos</small><b>${fmt(tot)}</b></div></div>
+        <div class="min-w-0 flex-1 text-xs space-y-1.5">${L.map(([n, v, c]) => `<div class="flex items-center gap-2"><span class="tc-dot" style="background:${c}"></span><span class="flex-1 truncate">${esc(n)}</span><b>${Math.round(v / tot * 100)}%</b></div>`).join("")}</div></div></section>`;
 }

@@ -41,12 +41,13 @@
                 <button id="maskBtn" onclick="togMask()" title="Modo incógnito: ocultar cifras" aria-label="Modo incógnito" aria-pressed="false" class="nav-btn">
                     <i id="maskIcon" class="fa-solid fa-eye"></i>
                 </button>
-                <button onclick="openReport()" title="Reporte del mes (imprimir o guardar PDF)" aria-label="Reporte del mes" class="nav-btn">
-                    <i class="fa-solid fa-file-lines"></i>
-                </button>
-                <button onclick="openModalExport()" title="Copia de Seguridad" aria-label="Copia de seguridad" class="nav-btn">
-                    <i class="fa-solid fa-cloud-arrow-down"></i>
-                </button>
+                <div class="relative">
+                    <button id="menuBtn" onclick="togMenu()" title="Más opciones" aria-label="Más opciones" class="nav-btn"><i class="fa-solid fa-ellipsis"></i></button>
+                    <div id="topMenu" class="top-menu hidden">
+                        <button onclick="togMenu(false);openReport()"><i class="fa-solid fa-file-lines"></i>Reporte del mes</button>
+                        <button onclick="togMenu(false);openModalExport()"><i class="fa-solid fa-cloud-arrow-down"></i>Copia de seguridad</button>
+                    </div>
+                </div>
                 <button onclick="toggleDarkMode()" title="Cambiar Tema" aria-label="Cambiar entre claro y oscuro" class="nav-btn">
                     <i class="fa-solid fa-moon dark:hidden"></i>
                     <i class="fa-solid fa-sun hidden dark:inline text-amber-400"></i>

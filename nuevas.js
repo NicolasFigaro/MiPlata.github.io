@@ -366,7 +366,7 @@ function aiActHTML(a, i, j) {
 }
 function aiBubble(m, i) {
     const me = m.r == "user", acts = (m.acts || []).map((a, j) => aiActHTML(a, i, j)).join("");
-    return `<div class="flex ${me ? "justify-end" : "justify-start"}"><div class="max-w-[88%] px-3.5 py-2.5 rounded-2xl text-[14px] leading-relaxed ${me ? "bg-indigo-600 text-white rounded-br-md" : "bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-bl-md"}">${aiMd(m.t)}${acts}</div></div>`;
+    return `<div class="flex ${me ? "justify-end" : "justify-start"}"><div class="max-w-[88%] px-3.5 py-2.5 rounded-2xl text-[14px] leading-relaxed ${me ? "ai-me text-white rounded-br-md" : "ai-bot text-slate-800 dark:text-slate-100 rounded-bl-md"}">${aiMd(m.t)}${acts}</div></div>`;
 }
 function vAsist() {
     const has = !!aiKey(), chips = [["Resumen del mes", "Hazme un resumen de cómo voy este mes"], ["¿En qué gasto más?", "¿En qué categorías estoy gastando más y cómo va frente al mes pasado?"], ["¿Cómo van mis metas?", "¿Cómo van mis metas de ahorro y qué debería hacer para llegar a tiempo?"], ["Ideas para ahorrar", "Dame 3 ideas concretas para ahorrar según mis gastos"], ["Crear presupuesto", "Propón un presupuesto mensual por categoría según lo que he gastado y déjame aplicarlo"]];
@@ -633,3 +633,8 @@ N.push("Asistente"); V.push(vAsist); TB.splice(TB.length - 1, 0, [N.length - 1, 
 // Suscripciones vive dentro de «Más», antes de Ajustes
 N.push("Suscripciones"); V.push(vSubs); MORE.splice(MORE.indexOf(N.indexOf("Ajustes")), 0, N.length - 1);
 MORE_IC["Suscripciones"] = ["fa-repeat", "#FF2D55"];
+
+
+// Menú «···» de la barra de arriba (reporte y respaldo)
+function togMenu(f) { const m = document.getElementById("topMenu"); if (m) m.classList.toggle("hidden", f === false ? true : undefined); }
+document.addEventListener("click", e => { if (!e.target.closest("#topMenu,#menuBtn")) togMenu(false); });
