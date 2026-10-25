@@ -283,10 +283,18 @@ function drawInvChart(hy, GREEN) {
 /* =====================================================================
    3) ASISTENTE (mini chat con IA)
    ===================================================================== */
-const AIK = "miplata_ai_key", AIM = "miplata_ai_model", AIC = "miplata_ai_chat";
-const AI_MODELS = [["Rápido y económico (Haiku 5.5)", "claude-haiku-5-5"], ["Más listo (Sonnet 5.5)", "claude-sonnet-5-5"]];
-const aiKey = () => { try { return localStorage.getItem(AIK) || ""; } catch (e) { return ""; } };
-const aiModel = () => { try { return localStorage.getItem(AIM) || AI_MODELS[0][1]; } catch (e) { return AI_MODELS[0][1]; } };
+// Dos proveedores: Gemini de Google (tiene capa gratis, por defecto) y Claude de Anthropic (de pago). Cada uno guarda su propia clave y modelo en este celular.
+const AIC = "miplata_ai_chat", AIP = "miplata_ai_prov";
+const AI_PROV = {
+    gemini: { n: "Gemini de Google (gratis)", k: "miplata_gem_key", m: "miplata_gem_model", pre: /^AIza/, hint: "AIza…", who: "Google",
+        models: [["Rápido, más cupo gratis (gemini-3.5-flash-lite)", "gemini-3.5-flash-lite"], ["Más listo, pocas preguntas al día (gemini-3.5-flash)", "gemini-3.5-flash"]] },
+    anthropic: { n: "Claude de Anthropic (de pago)", k: "miplata_ai_key", m: "miplata_ai_model", pre: /^sk-/, hint: "sk-ant-…", who: "Anthropic",
+        models: [["Rápido y económico (Haiku 5.5)", "claude-haiku-5-5"], ["Más listo (Sonnet 5.5)", "claude-sonnet-5-5"]] }
+};
+const ls = k => { try { return localStorage.getItem(k) || ""; } catch (e) { return ""; } };
+const aiProv = () => { const p = ls(AIP); return AI_PROV[p] ? p : ls(AI_PROV.anthropic.k) && !ls(AI_PROV.gemini.k) ? "anthropic" : "gemini"; };
+const aiKey = () => ls(AI_PROV[aiProv()].k);
+const aiModel = () => { const P = AI_PROV[aiProv()], m = ls(P.m); return P.models.some(x => x[1] == m) ? m : P.models[0][1]; };
 const AI = { msgs: [], busy: false };
 try { AI.msgs = JSON.parse(localStorage.getItem(AIC) || "[]").filter(m => m && (m.r == "user" || m.r == "assistant") && typeof m.t == "string").slice(-40); } catch (e) { AI.msgs = []; }
 const aiSave = () => { try { localStorage.setItem(AIC, JSON.stringify(AI.msgs.slice(-40))); } catch (e) {} };
@@ -350,7 +358,7 @@ function vAsist() {
             ${has ? `<p class="text-[11px] text-slate-400">Pregúntame por tus cuentas, gastos, metas o inversiones. También puedes decirme «gasté 20 mil en almuerzo» y te lo dejo listo para anotar.</p>`
                 : `<div class="flex items-start gap-3"><span class="w-9 h-9 shrink-0 rounded-xl flex items-center justify-center text-white" style="background:#32ADE6"><i class="fa-solid fa-comment-dots"></i></span><div class="min-w-0">
                     <p class="text-sm font-bold text-slate-800 dark:text-white">Activa el asistente con IA</p>
-                    <p class="text-[11px] text-slate-400 mt-0.5 leading-relaxed">Necesita tu propia clave de Anthropic (se guarda solo en este celular). Mientras tanto puedes pedir el resumen rápido, que funciona sin IA.</p>
+                    <p class="text-[11px] text-slate-400 mt-0.5 leading-relaxed">Necesita una clave gratis de Gemini (Google) o una de Anthropic; se guarda solo en este celular. Mientras tanto puedes pedir el resumen rápido, que funciona sin IA.</p>
                     <button onclick="aiSetup()" class="mt-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold">Poner mi clave</button></div></div>`}
         </section>
         <section class="${CARD} p-4">
@@ -371,25 +379,32 @@ function aiChip(q) {
     const i = document.getElementById("aiIn"); if (i) i.value = q; aiSend();
 }
 function aiSetup() {
-    const mod = AI_MODELS.find(m => m[1] == aiModel()) || AI_MODELS[0];
+    const pv = aiProv(), P = AI_PROV[pv], mod = P.models.find(m => m[1] == aiModel()) || P.models[0];
     openCustomModal("Asistente con IA", [
-        { l: "Clave de API de Anthropic (sk-ant-…) · vacío = quitarla", v: esc(aiKey()), p: "sk-ant-..." },
-        { l: "Modelo", o: AI_MODELS.map(m => m[0]), v: mod[0] }
+        { l: "Proveedor", o: [AI_PROV.gemini.n, AI_PROV.anthropic.n], v: P.n },
+        { l: "Clave de API del proveedor elegido (vacío = quitarla)", v: esc(aiKey()), p: P.hint },
+        { l: "Modelo (si cambiaste de proveedor, déjalo y se ajusta)", o: AI_PROV.gemini.models.concat(AI_PROV.anthropic.models).map(m => m[0]), v: mod[0] }
     ], v => {
+        const nv = v[0] == AI_PROV.anthropic.n ? "anthropic" : "gemini", Q = AI_PROV[nv];
         try {
-            if (v[0]) { if (!/^sk-/.test(v[0])) return "La clave debe empezar por sk-"; localStorage.setItem(AIK, v[0]); localStorage.setItem(AIM, (AI_MODELS.find(m => m[0] == v[1]) || AI_MODELS[0])[1]); }
-            else { localStorage.removeItem(AIK); }
+            if (v[1]) {
+                if (!Q.pre.test(v[1])) return nv == "gemini" ? "La clave de Gemini empieza por AIza. Créala en aistudio.google.com → Get API key." : "La clave de Anthropic empieza por sk-. Créala en console.anthropic.com.";
+                localStorage.setItem(Q.k, v[1]);
+                const m = Q.models.find(x => x[0] == v[2]); localStorage.setItem(Q.m, (m || Q.models[0])[1]);
+                localStorage.setItem(AIP, nv);
+            } else { localStorage.removeItem(Q.k); if (aiProv() == nv) localStorage.removeItem(AIP); }
         } catch (e) { return "No se pudo guardar en este navegador."; }
-        showToast(v[0] ? "Asistente activado" : "Clave quitada");
+        showToast(v[1] ? "Asistente activado con " + Q.who : "Clave quitada");
     });
 }
 function aiConsent(then) {
-    if (S.ai.ok) return then();
+    const pv = aiProv(), P = AI_PROV[pv], ck = "ok_" + pv;
+    if (S.ai[ck] || (pv == "anthropic" && S.ai.ok)) return then();
     showModal(`<h3 class="text-base font-bold text-slate-800 dark:text-white mb-2">Antes de usar la IA</h3>
-        <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">Cada vez que preguntas, la app envía a Anthropic un resumen de tus finanzas (saldos, categorías, metas, deudas, inversiones y tus últimos 25 movimientos con sus notas) para poder responderte. No se envía tu clave de otro servicio ni tu PIN. Se cobra a tu cuenta de Anthropic según el uso.</p>
+        <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">Cada vez que preguntas, la app envía a ${P.who} un resumen de tus finanzas (saldos, categorías, metas, deudas, inversiones y tus últimos 25 movimientos con sus notas) para poder responderte. No se envía tu clave de otro servicio ni tu PIN. ${pv == "gemini" ? "Con el plan gratis de Gemini, Google puede usar lo que envías para mejorar sus productos (revisa sus términos en ai.google.dev). Si te incomoda, no uses el asistente o usa un proveedor de pago." : "Se cobra a tu cuenta de Anthropic según el uso."}</p>
         <div class="grid grid-cols-2 gap-3 mt-5"><button onclick="closeModal()" class="py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-semibold text-xs">Cancelar</button>
         <button id="aiOk" class="py-2.5 rounded-xl bg-indigo-600 text-white font-semibold text-xs">Entiendo, continuar</button></div>`);
-    document.getElementById("aiOk").onclick = () => { S.ai.ok = true; save(); closeModal(); then(); };
+    document.getElementById("aiOk").onclick = () => { S.ai[ck] = true; save(); closeModal(); then(); };
 }
 function aiAction(txt) {
     const m = txt.match(/\[\[ANOTAR\s*(\{[\s\S]*?\})\s*\]\]/); if (!m) return { text: txt, act: null };
@@ -420,16 +435,33 @@ async function aiGo(text) {
         // La API pide turnos alternados que empiecen con el usuario: se juntan los consecutivos del mismo rol
         const hist = []; AI.msgs.slice(-12).forEach(m => { const l = hist[hist.length - 1]; if (l && l.role == m.r) l.content += "\n" + m.t; else hist.push({ role: m.r, content: m.t }); });
         while (hist.length && hist[0].role != "user") hist.shift();
-        const r = await fetch("https://api.anthropic.com/v1/messages", {
-            method: "POST",
-            headers: { "content-type": "application/json", "x-api-key": aiKey(), "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
-            body: JSON.stringify({ model: aiModel(), max_tokens: 700, system: AI_SYS + "\n\nDATOS ACTUALES DEL USUARIO:\n" + aiContext(), messages: hist })
-        });
-        if (!r.ok) {
-            let em = ""; try { em = (await r.json()).error.message || ""; } catch (x) {}
-            throw new Error(r.status == 401 ? "La clave no es válida. Revísala en Ajustes → Asistente." : r.status == 429 ? "Estás haciendo muchas preguntas seguidas o tu cuenta alcanzó su límite. Intenta en un momento." : r.status == 404 ? "Ese modelo no está disponible para tu clave. Cambia el modelo en Ajustes → Asistente." : "No pude responder (" + r.status + "). " + em.slice(0, 120));
+        const pv = aiProv(), sys = AI_SYS + "\n\nDATOS ACTUALES DEL USUARIO:\n" + aiContext();
+        let raw = "";
+        if (pv == "gemini") {
+            const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent(aiModel()) + ":generateContent", {
+                method: "POST", headers: { "content-type": "application/json", "x-goog-api-key": aiKey() },
+                body: JSON.stringify({ systemInstruction: { parts: [{ text: sys }] }, contents: hist.map(h => ({ role: h.role == "assistant" ? "model" : "user", parts: [{ text: h.content }] })), generationConfig: { maxOutputTokens: 1500, temperature: 0.4 } })
+            });
+            if (!r.ok) {
+                let em = ""; try { em = (await r.json()).error.message || ""; } catch (x) {}
+                throw new Error(r.status == 429 ? "Llegaste al límite gratis de Gemini (por minuto o por día). Espera un momento; el cupo diario se reinicia de madrugada, hora de Colombia." : r.status == 400 || r.status == 403 ? (/API key|API_KEY|permission/i.test(em) ? "La clave de Gemini no es válida. Revísala en Ajustes → Asistente." : "Gemini no aceptó la solicitud. " + em.slice(0, 120)) : r.status == 404 ? "Ese modelo ya no está disponible. Cambia el modelo en Ajustes → Asistente." : "No pude responder (" + r.status + "). " + em.slice(0, 120));
+            }
+            const j = await r.json(), c = (j.candidates || [])[0];
+            raw = ((c && c.content && c.content.parts) || []).map(b => b.text || "").join("\n").trim();
+            if (!raw && j.promptFeedback && j.promptFeedback.blockReason) raw = "Gemini no quiso responder eso. Intenta preguntarlo de otra forma.";
+        } else {
+            const r = await fetch("https://api.anthropic.com/v1/messages", {
+                method: "POST",
+                headers: { "content-type": "application/json", "x-api-key": aiKey(), "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+                body: JSON.stringify({ model: aiModel(), max_tokens: 700, system: sys, messages: hist })
+            });
+            if (!r.ok) {
+                let em = ""; try { em = (await r.json()).error.message || ""; } catch (x) {}
+                throw new Error(r.status == 401 ? "La clave no es válida. Revísala en Ajustes → Asistente." : r.status == 429 ? "Estás haciendo muchas preguntas seguidas o tu cuenta alcanzó su límite. Intenta en un momento." : r.status == 404 ? "Ese modelo no está disponible para tu clave. Cambia el modelo en Ajustes → Asistente." : "No pude responder (" + r.status + "). " + em.slice(0, 120));
+            }
+            const j = await r.json(); raw = (j.content || []).filter(b => b.type == "text").map(b => b.text).join("\n").trim();
         }
-        const j = await r.json(), raw = (j.content || []).filter(b => b.type == "text").map(b => b.text).join("\n").trim() || "No supe qué responder, ¿me lo preguntas de otra forma?";
+        raw = raw || "No supe qué responder, ¿me lo preguntas de otra forma?";
         const { text: t, act } = aiAction(raw);
         AI.msgs.push({ r: "assistant", t: t || "Listo, revisa y confirma:", act });
     } catch (err) {
@@ -451,8 +483,8 @@ function setNuevas(card) {
             <input type="file" accept=".csv,.txt,.tsv,text/csv,text/plain" onchange="csvPick(this)" class="block w-full text-xs text-slate-500 file:mr-3 file:px-4 file:py-2 file:rounded-xl file:border-0 file:bg-slate-800 file:text-white file:font-semibold file:text-xs">
         </section>
         <section class="${card}"><h3 class="text-base font-bold">Asistente con IA</h3>
-            <p class="text-xs text-slate-400">${has ? "Clave guardada en este celular. No entra en las copias de seguridad." : "Un chat que responde sobre tus finanzas y te resume el mes. Usa tu propia clave de Anthropic (console.anthropic.com → API keys). Te recomiendo ponerle un límite de gasto allá."}</p>
-            <div class="flex flex-wrap gap-2"><button onclick="aiSetup()" class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-xl text-xs">${has ? "Cambiar clave o modelo" : "Poner mi clave"}</button>
+            <p class="text-xs text-slate-400">${has ? "Activo con " + AI_PROV[aiProv()].who + ". La clave está solo en este celular y no entra en las copias de seguridad." : "Un chat que responde sobre tus finanzas y te resume el mes. Gratis con una clave de Gemini (aistudio.google.com → Get API key) o de pago con una de Anthropic (console.anthropic.com)."}</p>
+            <div class="flex flex-wrap gap-2"><button onclick="aiSetup()" class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-xl text-xs">${has ? "Cambiar clave o proveedor" : "Poner mi clave"}</button>
             <button onclick="goTab(N.indexOf('Asistente'))" class="px-4 py-2 bg-slate-800 dark:bg-slate-700 text-white font-semibold rounded-xl text-xs">Abrir el chat</button></div>
         </section>`;
 }
