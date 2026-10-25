@@ -442,6 +442,11 @@ function vHome() {
         `<p class="text-xs text-slate-400 mt-0.5">${nMov} ${nMov == 1 ? "movimiento" : "movimientos"}</p>`,
         movBody);
     return `
+        <div class="hi">
+            <button class="hi-b" onclick="openAllMov()" aria-label="Buscar movimientos"><i class="fa-solid fa-magnifying-glass"></i></button>
+            <div class="hi-t"><b>Hola${(S.th.nm || "") ? ", " + esc(S.th.nm) : ""}</b><small>Hoy es un buen día para avanzar</small></div>
+            <button class="hi-b av" onclick="const n=prompt('¿Cómo te llamas?',S.th.nm||'');if(n!==null){S.th.nm=n.trim();save();draw()}" aria-label="Tu nombre">${esc(((S.th.nm || "").trim()[0] || "").toUpperCase()) || '<i class="fa-solid fa-user"></i>'}</button>
+        </div>
         ${bkUI()}
         ${recUI()}
         <section data-hero class="relative overflow-hidden bg-gradient-to-b from-indigo-600 to-indigo-700 text-white p-6 rounded-[20px] shadow-sm flex flex-col justify-between">
@@ -464,6 +469,13 @@ function vHome() {
                 <div><small class="text-[10px] text-indigo-200 block uppercase">Apartado</small><b data-cu="svt" class="text-xs sm:text-sm font-bold">${fmt(svt)}</b></div>
             </div>
         </section>
+
+        <div class="qa">
+            <button onclick="openMov()"><i class="fa-solid fa-plus"></i>Agregar movimiento</button>
+            <button onclick="newTransfer(S.wal[0] && S.wal[0].n)"><i class="fa-solid fa-right-left"></i>Transferir</button>
+            <button onclick="goTab(N.indexOf('Ahorro'))"><i class="fa-solid fa-bullseye"></i>Metas</button>
+            <button onclick="goTab(-1)"><i class="fa-solid fa-ellipsis"></i>Más</button>
+        </div>
 
         ${weekUI()}
 
