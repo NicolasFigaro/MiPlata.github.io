@@ -92,8 +92,8 @@ function buzz() {
 })();
 
 // Pestañas de la barra inferior: [índice en N (-1 = menú "Más"), nombre, icono]. Inversión, Gráficas, Deudas y Ajustes viven dentro de "Más".
-const TB = [[0, "Inicio", "fa-house"], [1, "Cuentas", "fa-wallet"], [2, "Ahorro", "fa-piggy-bank"], [5, "Tarjetas", "fa-credit-card"], [-1, "Más", "fa-ellipsis"]];
-const tbOn = i => i == -1 ? (tab == -1 || MORE.includes(tab)) : tab == i;
+const TB = [[0, "Inicio", "fa-house"], [N.indexOf("Movimientos"), "Movimientos", "fa-arrow-right-arrow-left"], ["+", "Anotar", "fa-plus"], [1, "Cuentas", "fa-wallet"], [-1, "Más", "fa-ellipsis"]];
+const tbOn = i => i == "+" ? false : i == -1 ? (tab == -1 || MORE.includes(tab)) : tab == i;
 function updNav() {
     const y = window.scrollY, t = document.getElementById("topBar"), s = document.getElementById("navTitle");
     if (t) t.classList.toggle("scrolled", y > 8);
@@ -104,7 +104,7 @@ function draw() {
     const keepY = anim ? null : window.scrollY;
     if (!anim) document.getElementById("appMain").classList.remove("enter");
     const title = tab < 0 ? "Más" : N[tab], inMore = MORE.includes(tab);
-    document.getElementById("tabItems").innerHTML = TB.map(([i, n, ic]) => `
+    document.getElementById("tabItems").innerHTML = TB.map(([i, n, ic]) => i == "+" ? `<div class="flex-1 flex justify-center"><button onclick="openMov()" aria-label="Anotar movimiento" class="tab-plus"><i class="fa-solid fa-plus"></i></button></div>` : `
         <button onclick="goTab(${i})" aria-label="${n}" ${tbOn(i) ? 'aria-current="page"' : ""} class="flex-1 flex flex-col items-center justify-center gap-0.5 pt-1.5 pb-1 min-h-[49px] transition-colors ${tbOn(i) ? "text-indigo-600 dark:text-indigo-400" : "text-slate-400 dark:text-slate-500"}">
             <i class="fa-solid ${ic} text-[21px] leading-6"></i><span class="text-[10px] font-medium leading-3">${n}</span>
         </button>`).join("");
@@ -136,7 +136,7 @@ window.addEventListener("scroll", updNav, { passive: true });
 function openModalExport() { goTab(N.indexOf("Ajustes")); }
 
 function applyTh() {
-    const isDark = (S.th.t || "noche") == "noche" || S.th.m == "dark" || (S.th.m == "auto" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    const isDark = S.th.m == "dark" || (S.th.m == "auto" && window.matchMedia("(prefers-color-scheme: dark)").matches);
     document.documentElement.classList.toggle("dark", isDark);
     applyTheme(S.th); // actualiza también el color de la barra de estado según claro/oscuro
 }

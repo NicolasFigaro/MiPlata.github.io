@@ -2,11 +2,12 @@
 // Solo genera HTML. Las acciones (guardar, borrar, modales) están en acciones.js.
 
 const N = ["Inicio", "Cuentas", "Ahorro", "Inversión", "Gráficas", "Tarjetas", "Deudas", "Calendario", "Resumen", "Ajustes"];
-const V = [vHome, vCue, vAho, vInv, vGra, vTar, vDeu, vCal, vYear, vSet]; // vCal y vYear viven en pantallas.js
+const V = [vHome, vCue, vAho, vInv, vGra, vTar, vDeu, vCal, vYear, vSet];
+N.push("Movimientos"); V.push(vMov); // pestaña propia en la barra inferior // vCal y vYear viven en pantallas.js
 // Pestañas que viven dentro del menú "Más" de la barra inferior (índices de N)
-const MORE = [3, 4, 6, 7, 8, 9];
-const APP_VER = "12";
-const MORE_IC = { "Inversión": ["fa-chart-line", "#34C759"], "Gráficas": ["fa-chart-pie", "#FF9500"], "Deudas": ["fa-hand-holding-dollar", "#FF3B30"], "Calendario": ["fa-calendar-days", "#007AFF"], "Resumen": ["fa-wand-magic-sparkles", "#AF52DE"], "Ajustes": ["fa-gear", "#8E8E93"] };
+const MORE = [2, 5, 3, 4, 6, 7, 8, 9]; // Ahorro y Tarjetas pasan a "Más" para dar lugar a Movimientos y al +
+const APP_VER = "13";
+const MORE_IC = { "Ahorro": ["fa-piggy-bank", "#10B981"], "Tarjetas": ["fa-credit-card", "#3662F6"], "Inversión": ["fa-chart-line", "#34C759"], "Gráficas": ["fa-chart-pie", "#FF9500"], "Deudas": ["fa-hand-holding-dollar", "#FF3B30"], "Calendario": ["fa-calendar-days", "#007AFF"], "Resumen": ["fa-wand-magic-sparkles", "#AF52DE"], "Ajustes": ["fa-gear", "#8E8E93"] };
 function vMore() {
     return `
         <section class="${CARD} overflow-hidden">
@@ -155,7 +156,7 @@ function fltUI(m) {
 
 // Lista de movimientos (se redibuja sola mientras escribes en el buscador)
 function movListHTML(lim) { // lim: solo los últimos N (ignora filtros y buscador); sin lim: la lista completa filtrada
-    const rows = (lim ? baseItems() : baseItems().filter(fltMatch).filter(matchQ)).sort((a, b) => b.d.localeCompare(a.d) || b.id - a.id).slice(0, lim || 1e9);
+    const rows = (lim ? baseItems() : baseItems().filter(fltMatch).filter(matchQ).filter(x => mtype == "all" || (mtype == "i" ? x.t == "i" : x.t == "g" || x.t == "p"))).sort((a, b) => b.d.localeCompare(a.d) || b.id - a.id).slice(0, lim || 1e9);
     if (!rows.length) {
         if (lim) return emptyUI("fa-receipt", "#007AFF", S.items.length ? "Sin movimientos este mes" : "Aún no hay movimientos", S.items.length ? "Este mes todavía no has anotado nada." : "Anota tu primer gasto o ingreso y aquí verás cómo va tu plata.", "Anotar movimiento", "openMov()", true);
         return '<p class="text-xs text-slate-400 text-center py-4">' + (flt.k != "all" || sqry ? "No hay movimientos con este filtro." : "Toca el botón + para anotar tu primer movimiento.") + '</p>';
@@ -464,13 +465,6 @@ function vHome() {
                 <div><small class="text-[10px] text-indigo-200 block uppercase">Apartado</small><b data-cu="svt" class="text-xs sm:text-sm font-bold">${fmt(svt)}</b></div>
             </div>
         </section>
-
-        <div class="qa-row">
-            <button onclick="openMov()" class="qa main"><i class="fa-solid fa-plus"></i>Agregar movimiento</button>
-            <button onclick="newTransfer()" class="qa"><i class="fa-solid fa-right-left"></i>Transferir</button>
-            <button onclick="goTab(2)" class="qa"><i class="fa-solid fa-bullseye"></i>Metas</button>
-            <button onclick="goTab(-1)" class="qa"><i class="fa-solid fa-ellipsis"></i>Más</button>
-        </div>
 
         ${weekUI()}
 
@@ -1230,7 +1224,7 @@ function hidUI() { return hideNames().map((n, i) => `<label class="flex items-ce
 
 // Apariencia: modo (claro/oscuro/automático) + tema de color + color propio
 function themeUI() {
-    const cur = S.th.t || "noche", md = S.th.m || "auto", on = "border-indigo-500 bg-indigo-50/60 dark:bg-indigo-500/10", off = "border-transparent bg-slate-50 dark:bg-slate-800/60 hover:border-slate-300 dark:hover:border-slate-600";
+    const cur = S.th.t || "miplata", md = S.th.m || "auto", on = "border-indigo-500 bg-indigo-50/60 dark:bg-indigo-500/10", off = "border-transparent bg-slate-50 dark:bg-slate-800/60 hover:border-slate-300 dark:hover:border-slate-600";
     const mb = (v, l, ic) => `<button onclick="setMode('${v}')" class="flex-1 py-1.5 rounded-lg text-xs font-semibold transition ${md == v ? "bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm" : "text-slate-500 dark:text-slate-400"}"><i class="fa-solid ${ic} mr-1.5"></i>${l}</button>`;
     const sw = t => `<button onclick="setTheme('${t.id}')" class="p-2.5 rounded-2xl border-2 transition text-center ${cur == t.id ? on : off}"><span class="block h-9 rounded-xl" style="background:linear-gradient(135deg,${t.p},${t.s})"></span><span class="block text-[11px] font-semibold mt-1.5 text-slate-700 dark:text-slate-200">${t.n}</span></button>`;
     const ct = customTheme(S.th.c);
@@ -1320,4 +1314,20 @@ function vSet() {
                 </div>
             </details>
         </section>`;
+}
+
+
+// ---------- Movimientos (pestaña propia): buscador, Todos / Ingresos / Gastos y la lista por día ----------
+let mtype = "all";
+function setMt(k) { mtype = k; draw(); }
+function vMov() {
+    const m = mon();
+    const seg = [["all", "Todos"], ["i", "Ingresos"], ["g", "Gastos"]].map(([k, l]) => `<button onclick="setMt('${k}')" class="seg-pill ${mtype == k ? "on" : ""}">${l}</button>`).join("");
+    return `
+        <div class="relative">
+            <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+            <input id="q" placeholder="Buscar movimientos…" value="${esc(sqry)}" oninput="setQ(this.value)" class="w-full pl-9 pr-9 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm text-slate-800 dark:text-white" autocomplete="off">
+        </div>
+        <div class="seg">${seg}</div>
+        <section class="${CARD} p-4">${fltUI(m)}<div id="movList">${movListHTML()}</div></section>`;
 }

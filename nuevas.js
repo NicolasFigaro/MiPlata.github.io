@@ -629,7 +629,7 @@ window.addEventListener("load", () => setTimeout(tryNews, 1500));
 
 // ---------- Registro de la pantalla nueva ----------
 // El Asistente tiene su propia pestaña en la barra inferior, justo antes de «Más» (no vive dentro de «Más»)
-N.push("Asistente"); V.push(vAsist); TB.splice(TB.length - 1, 0, [N.length - 1, "Asistente", "fa-comment-dots"]);
+N.push("Asistente"); V.push(vAsist); MORE.splice(MORE.indexOf(N.indexOf("Ajustes")), 0, N.length - 1); MORE_IC["Asistente"] = ["fa-comment-dots", "#AF52DE"]; // el Asistente vive en "Más"
 // Suscripciones vive dentro de «Más», antes de Ajustes
 N.push("Suscripciones"); V.push(vSubs); MORE.splice(MORE.indexOf(N.indexOf("Ajustes")), 0, N.length - 1);
 MORE_IC["Suscripciones"] = ["fa-repeat", "#FF2D55"];
