@@ -286,7 +286,7 @@ function drawInvChart(hy, GREEN) {
 // Dos proveedores: Gemini de Google (tiene capa gratis, por defecto) y Claude de Anthropic (de pago). Cada uno guarda su propia clave y modelo en este celular.
 const AIC = "miplata_ai_chat", AIP = "miplata_ai_prov";
 const AI_PROV = {
-    gemini: { n: "Gemini de Google (gratis)", k: "miplata_gem_key", m: "miplata_gem_model", pre: /^AIza/, hint: "AIza…", who: "Google",
+    gemini: { n: "Gemini de Google (gratis)", k: "miplata_gem_key", m: "miplata_gem_model", pre: /^[A-Za-z0-9._-]{20,}$/, hint: "AQ.… o AIza…", who: "Google",
         models: [["Rápido, más cupo gratis (gemini-3.5-flash-lite)", "gemini-3.5-flash-lite"], ["Más listo, pocas preguntas al día (gemini-3.5-flash)", "gemini-3.5-flash"]] },
     anthropic: { n: "Claude de Anthropic (de pago)", k: "miplata_ai_key", m: "miplata_ai_model", pre: /^sk-/, hint: "sk-ant-…", who: "Anthropic",
         models: [["Rápido y económico (Haiku 5.5)", "claude-haiku-5-5"], ["Más listo (Sonnet 5.5)", "claude-sonnet-5-5"]] }
@@ -388,7 +388,7 @@ function aiSetup() {
         const nv = v[0] == AI_PROV.anthropic.n ? "anthropic" : "gemini", Q = AI_PROV[nv];
         try {
             if (v[1]) {
-                if (!Q.pre.test(v[1])) return nv == "gemini" ? "La clave de Gemini empieza por AIza. Créala en aistudio.google.com → Get API key." : "La clave de Anthropic empieza por sk-. Créala en console.anthropic.com.";
+                if (!Q.pre.test(v[1])) return nv == "gemini" ? "Esa clave no parece de Gemini (sin espacios, empieza por AQ. o AIza). Créala en aistudio.google.com → Get API key." : "La clave de Anthropic empieza por sk-. Créala en console.anthropic.com.";
                 localStorage.setItem(Q.k, v[1]);
                 const m = Q.models.find(x => x[0] == v[2]); localStorage.setItem(Q.m, (m || Q.models[0])[1]);
                 localStorage.setItem(AIP, nv);
