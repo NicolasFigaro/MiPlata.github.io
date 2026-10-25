@@ -9,8 +9,6 @@ const SH = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950];
 // p = tono 600 del color principal (el de los botones, con texto blanco: debe ser oscuro), s = tono 600 del secundario,
 // h = matiz de los neutros (grados), f = cuánto color llevan los neutros (1 = igual que el gris azulado original).
 const THEMES = [
-    // Mi Plata: azul #3662F6, neutros azulados (claro y oscuro). Es el diseño por defecto
-    { id: "miplata", n: "Mi Plata", p: "#3662F6", s: "#1E3A8A", ns: ["243 246 252", "233 238 248", "219 227 241", "196 207 228", "134 148 178", "102 116 148", "76 90 122", "47 62 98", "28 40 72", "18 27 53", "10 15 33"] },
     // iOS: colores de sistema de Apple. "ns" = escala de neutros propia (los grises de iOS: gray6 de fondo, #1C1C1E tarjetas oscuras, negro puro de fondo oscuro)
     { id: "ios", n: "iOS", p: "#007AFF", s: "#0062CC", ns: ["242 242 247", "229 229 234", "209 209 214", "199 199 204", "174 174 178", "142 142 147", "99 99 102", "72 72 74", "44 44 46", "28 28 30", "0 0 0"] },
     { id: "indigo", n: "Índigo", p: "#4f46e5", s: "#7c3aed", raw: true },
@@ -72,7 +70,7 @@ function applyTheme(th) {
     document.documentElement.dataset.theme = t.id;
     // Barra de estado del celular: en iOS toma el color del fondo; en los demás temas, el color principal
     const dark = document.documentElement.classList.contains("dark"), m = document.querySelector('meta[name="theme-color"]');
-    if (m) m.content = t.id == "miplata" ? (dark ? "#0A0F21" : "#F3F6FC") : t.id == "ios" ? (dark ? "#000000" : "#F2F2F7") : t.p;
+    if (m) m.content = t.id == "ios" ? (dark ? "#000000" : "#F2F2F7") : t.p;
 }
 // Color del tema activo para las gráficas (n = tono, a = transparencia, v = "p" principal o "s" secundario)
 const accent = (n, a, v) => {
