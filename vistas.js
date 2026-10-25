@@ -470,13 +470,6 @@ function vHome() {
             </div>
         </section>
 
-        <div class="qa">
-            <button onclick="openMov()"><i class="fa-solid fa-plus"></i>Agregar movimiento</button>
-            <button onclick="newTransfer(S.wal[0] && S.wal[0].n)"><i class="fa-solid fa-right-left"></i>Transferir</button>
-            <button onclick="goTab(N.indexOf('Ahorro'))"><i class="fa-solid fa-bullseye"></i>Metas</button>
-            <button onclick="goTab(-1)"><i class="fa-solid fa-ellipsis"></i>Más</button>
-        </div>
-
         ${weekUI()}
 
         ${yearTeaser()}
@@ -981,11 +974,23 @@ function vTar() {
         if (c.c) { tc += c.c; tu += cu.used; }
         const cn = cardNext(c), owe = cu.cq + cu.atr + cu.ext - cu.ab, late = !cu.ok && owe > 0 && (d < 0 || cu.atrLeft > 0), nd = cn.due > 0 ? daysTo(payDateIn(c.p, cn.m)) : nextPay(c.p), over = cu.ab - (cu.cq + cu.atr + cu.ext), nextOnly = !cu.ok && owe <= 0.5 && cn.m != n && cn.due > 0, sx = nextOnly ? stmt(c, mIdx(cn.m)) : null; // nextOnly: este mes no hay cuota, pero sí una en el extracto que viene
         return `
-            <div class="lift ${CARD} p-5 mb-4">
-                <div class="flex justify-between items-center mb-2">
-                    <div><b class="text-sm font-bold text-slate-800 dark:text-white">💳 ${esc(c.n)}</b>${c.ir > 0 ? `<span class="text-[11px] text-slate-400 ml-2">${tf(c.ir)}% mensual</span>` : ""}</div>
+            <div class="tc-wrap mb-6">
+                <div class="tc-card" onclick="editCard(${c.id})" role="button" aria-label="Ver detalles de ${esc(c.n)}">
+                    <div class="tc-top"><span class="tc-chip"><i class="fa-solid fa-credit-card"></i></span><div class="min-w-0 flex-1"><b class="block truncate">${esc(c.n)}</b><small>Tarjeta de crédito${c.ir > 0 ? " · " + tf(c.ir) + "% mensual" : ""}</small></div><span class="tc-det">Ver detalles <i class="fa-solid fa-chevron-right"></i></span></div>
+                    <div class="tc-amt" data-cu="tc${c.id}">${c.c ? fmt(cu.avail) : fmt(u)}</div>
+                    <div class="tc-bot"><span>${c.c ? "Disponible" : "Compras este mes"}</span><span class="tc-logo"><i></i><i></i></span></div>
+                </div>
+                <div class="${CARD} p-5 mt-3">
+                <div class="flex justify-between items-center mb-3">
+                    <h4 class="text-sm font-bold text-slate-800 dark:text-white">Próximos pagos</h4>
                     <span class="text-xs font-semibold ${cu.ok ? "text-emerald-500" : late || (cn.due > 0 && nd <= 5) ? "text-rose-500" : "text-slate-400"}">${cu.ok ? `<span class="${pop ? "pop" : ""}">Pagada ✓</span>` : late ? (d < 0 ? "Venció hace " + (-d) + " d" : "Con saldo vencido") : cn.due > 0 ? "Vence en " + nd + " d" : "Sin cuota pendiente"}</span>
                 </div>
+                <div class="tc-pay">
+                    <span class="tc-pi"><i class="fa-regular fa-calendar"></i></span>
+                    <div class="min-w-0 flex-1"><small>${nextOnly ? "Próxima cuota" : "Pago mínimo"}</small><b>${nextOnly ? fmt(cn.due) : fmt(cu.ok ? 0 : Math.max(0, owe))}</b><small>${cn.due > 0 || owe > 0.5 ? "Vence " + dmy(payDateIn(c.p, cn.m)) : "Al día"}</small></div>
+                    ${cu.ok ? "" : `<button onclick="payCard(${c.id})" class="tc-btn">Pagar</button>`}
+                </div>
+                <div class="h-px bg-slate-100 dark:bg-white/5 my-4"></div>
                 <div class="grid grid-cols-2 gap-2 text-xs mb-4">
                     <div><span class="text-slate-400 block">Compras este mes</span><b>${fmt(u)}</b></div>
                     <div><span class="text-slate-400 block">${nextOnly ? "Próxima cuota · " + dmy(payDateIn(c.p, cn.m)).slice(0, 5) : "Cuota a pagar"}</span><b class="text-indigo-600">${nextOnly ? fmt(cn.due) : fmt(cu.ok ? 0 : Math.max(0, owe))}</b></div>
@@ -1000,6 +1005,7 @@ function vTar() {
                 ${over > 0.5 && !c.paid[n] ? `<p class="text-[11px] text-emerald-600 dark:text-emerald-400 -mt-2 mb-3"><i class="fa-solid fa-circle-check mr-1"></i>Pagaste ${fmt(over)} por encima de la cuota de este mes: se aplica a la cuota siguiente (y lo que sobre, a capital).</p>` : ""}
                 ${nextOnly ? `<p class="text-[11px] text-slate-500 dark:text-slate-400 -mt-2 mb-3"><i class="fa-regular fa-calendar mr-1"></i>Este mes no tienes cuota por pagar: tus compras entran en el extracto que cierra el <b class="text-slate-600 dark:text-slate-300">${dmy(sx.close).slice(0, 5)}</b> y se paga el <b class="text-slate-600 dark:text-slate-300">${dmy(sx.pay)}</b>.</p>` : cn.m != n && cn.due > 0 ? `<p class="text-[11px] text-slate-400 -mt-2 mb-3"><i class="fa-regular fa-calendar mr-1"></i>Próximo pago: <b class="text-slate-600 dark:text-slate-300">${dmy(payDateIn(c.p, cn.m))}</b> · ${fmt(cn.due)}</p>` : ""}
                 ${c.c ? `
+                <h4 class="text-sm font-bold text-slate-800 dark:text-white mb-2">Límites y cupos</h4>
                 <div class="flex items-end justify-between mb-1.5">
                     <div><span class="cupo-pct text-2xl font-extrabold ${tn.txt}" data-from="${fn}" data-to="${cu.raw}">${Math.round(fn)}%</span><span class="text-xs text-slate-400 ml-1.5">del cupo utilizado</span></div>
                     <span class="text-[11px] font-semibold ${tn.txt}">${tn.lbl}</span>
@@ -1014,6 +1020,8 @@ function vTar() {
                     <button onclick="openExtract(${c.id})" class="px-3 py-1.5 bg-violet-50 text-violet-600 rounded-xl text-xs font-semibold"><i class="fa-solid fa-receipt mr-1"></i>Extracto</button>
                     <button onclick="editCard(${c.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold">Editar</button>
                     <button onclick="delCard(${c.id})" class="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-xl text-xs font-semibold">Borrar</button>
+                </div>
+                ${(() => { const gm = {}; m.filter(x => x.k == c.n && x.t == "g").forEach(x => gm[x.c] = (gm[x.c] || 0) + x.a); const L = Object.entries(gm).sort((p, q) => q[1] - p[1]).slice(0, 5), T = L.reduce((t, z) => t + z[1], 0); if (!T) return ""; return `<h4 class="text-sm font-bold text-slate-800 dark:text-white mt-5 mb-2">Gastos por categoría</h4><div class="tc-seg">${L.map(([k, v]) => `<i style="width:${v / T * 100}%;background:${catIc(k)[1]}"></i>`).join("")}</div>${L.map(([k, v]) => `<div class="tc-cat"><span class="tc-dot" style="background:${catIc(k)[1]}"></span><span class="flex-1 truncate">${esc(k)}</span><span class="text-slate-400">${Math.round(v / T * 100)}%</span><b>${fmt(v)}</b></div>`).join("")}`; })()}
                 </div>
             </div>`;
     }).join("");

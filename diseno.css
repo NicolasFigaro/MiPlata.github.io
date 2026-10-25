@@ -84,3 +84,31 @@ html.dark .qa button { background: rgb(var(--n-900)); border-color: rgb(255 255 
 .qa button i { width: 38px; height: 38px; border-radius: 9999px; display: flex; align-items: center; justify-content: center; font-size: 15px; background: rgb(var(--p-500) / .14); color: rgb(var(--p-500)); }
 .qa button:first-child i { background: linear-gradient(180deg, rgb(var(--p-400)), rgb(var(--p-600))); color: #fff; box-shadow: 0 6px 14px -4px rgb(var(--p-500) / .8); }
 .qa button:active { transform: scale(.96); }
+
+/* ---- Tarjetas de crédito ---- */
+.tc-card { position: relative; overflow: hidden; border-radius: 24px; padding: 18px 20px 16px; color: #fff; cursor: pointer; min-height: 170px; display: flex; flex-direction: column; border: 1px solid rgb(255 255 255 / .16); background: radial-gradient(80% 110% at 105% -10%, rgb(var(--p-300) / .55), transparent 60%), linear-gradient(135deg, rgb(var(--p-700)), rgb(var(--p-900)) 85%); box-shadow: 0 18px 38px -18px rgb(var(--p-600) / .85); }
+.tc-card::after { content: ""; position: absolute; right: -50px; bottom: -70px; width: 190px; height: 190px; border-radius: 9999px; background: rgb(255 255 255 / .07); }
+.tc-top { display: flex; align-items: center; gap: 10px; position: relative; z-index: 1; }
+.tc-top b { font-size: 14px; font-weight: 600; }
+.tc-top small { display: block; font-size: 11px; opacity: .7; }
+.tc-chip { width: 34px; height: 34px; border-radius: 11px; background: rgb(255 255 255 / .16); display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+.tc-det { font-size: 11px; font-weight: 600; opacity: .85; white-space: nowrap; align-self: flex-start; }
+.tc-det i { font-size: 8px; margin-left: 2px; }
+.tc-amt { position: relative; z-index: 1; margin-top: auto; padding-top: 22px; font-size: calc(30px * var(--fs, 1)); font-weight: 800; letter-spacing: -.03em; line-height: 1.1; }
+.tc-bot { position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; font-size: 12px; opacity: .85; margin-top: 2px; }
+.tc-logo { display: inline-flex; opacity: 1; }
+.tc-logo i { width: 26px; height: 26px; border-radius: 9999px; background: rgb(255 255 255 / .55); }
+.tc-logo i + i { margin-left: -10px; background: rgb(251 191 36 / .75); }
+.tc-pay { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 18px; background: rgb(var(--n-900) / .04); border: 1px solid rgb(var(--line) / .06); }
+html.dark .tc-pay { background: rgb(255 255 255 / .04); }
+.tc-pi { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; background: rgb(var(--p-500) / .15); color: rgb(var(--p-500)); flex-shrink: 0; }
+.tc-pay small { display: block; font-size: 11px; color: rgb(var(--n-400)); }
+.tc-pay b { display: block; font-size: 17px; font-weight: 800; letter-spacing: -.02em; }
+.tc-btn { padding: 9px 20px; border-radius: 12px; font-size: 13px; font-weight: 700; color: #fff; background: linear-gradient(180deg, rgb(var(--p-500)), rgb(var(--p-600))); box-shadow: 0 6px 14px -6px rgb(var(--p-600) / .9); }
+.tc-btn:active { transform: scale(.96); }
+.tc-seg { display: flex; height: 8px; border-radius: 9999px; overflow: hidden; gap: 2px; margin-bottom: 8px; }
+.tc-seg i { display: block; height: 100%; }
+.tc-cat { display: flex; align-items: center; gap: 10px; padding: 6px 0; font-size: 12px; }
+.tc-cat b { min-width: 74px; text-align: right; font-weight: 700; }
+.tc-dot { width: 9px; height: 9px; border-radius: 9999px; flex-shrink: 0; }
+section.from-indigo-600 { border-radius: 26px !important; background-image: radial-gradient(90% 120% at 100% 0%, rgb(var(--p-400) / .5), transparent 60%), linear-gradient(145deg, rgb(var(--p-500)), rgb(var(--p-800))) !important; border: 1px solid rgb(255 255 255 / .14); }
