@@ -638,3 +638,20 @@ MORE_IC["Suscripciones"] = ["fa-repeat", "#FF2D55"];
 // Menú «···» de la barra de arriba (reporte y respaldo)
 function togMenu(f) { const m = document.getElementById("topMenu"); if (m) m.classList.toggle("hidden", f === false ? true : undefined); }
 document.addEventListener("click", e => { if (!e.target.closest("#topMenu,#menuBtn")) togMenu(false); });
+
+
+// Barra de pestañas «liquid glass»: una cápsula de vidrio se desliza hasta la pestaña activa
+let pillOn = false;
+function movePill() {
+    const bar = document.getElementById("tabBar"), p = document.getElementById("tabPill"), b = bar && bar.querySelector('[aria-current="page"]');
+    if (!p || !b) return;
+    const r = bar.getBoundingClientRect(), q = b.getBoundingClientRect();
+    p.style.transition = pillOn ? "" : "none";
+    p.style.width = q.width + "px"; p.style.height = q.height + "px";
+    p.style.transform = "translate(" + (q.left - r.left) + "px," + (q.top - r.top) + "px)";
+    if (!pillOn) { void p.offsetWidth; pillOn = true; p.style.transition = ""; }
+}
+const _drawBase = draw;
+draw = function () { _drawBase.apply(this, arguments); movePill(); };
+window.addEventListener("resize", () => { pillOn = false; movePill(); });
+window.addEventListener("load", () => { pillOn = false; movePill(); });
