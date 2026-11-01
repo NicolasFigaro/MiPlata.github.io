@@ -26,7 +26,7 @@ const DLOC = LANGS[LI].loc;                              // idioma de las fechas
 document.documentElement.lang = LANG;
 
 // ---------- Motor ----------
-const NUMRE = /-?(?:US\$|\$)\s?\d+(?:[.,]\d+)*|\d+(?:[.,]\d+)*%?/g;
+const NUMRE = /-?(?:US\$|\$|€)\s?\d+(?:[.,]\d+)*|\d+(?:[.,]\d+)*%?/g;
 const D = Object.create(null), PAT = [], CACHE = new Map();
 (function build() {
     if (!LI || !window.I18N_ROWS) return;

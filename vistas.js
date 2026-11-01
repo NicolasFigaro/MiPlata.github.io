@@ -182,7 +182,7 @@ function movListHTML(lim) { // lim: solo los últimos N (ignora filtros y buscad
             <span class="w-9 h-9 shrink-0 rounded-[10px] flex items-center justify-center text-sm text-white" style="background:${ic[1]}"><i class="fa-solid ${ic[0]}"></i></span>
             <div class="min-w-0 flex-1 pr-2">
                 <strong class="text-sm font-semibold text-slate-800 dark:text-white block truncate">${esc(x.n || x.c)}</strong>
-                <small class="text-xs text-slate-400">${x.n ? esc(x.c) + " · " : ""}${x.d.slice(8)}/${x.d.slice(5, 7)}${sall ? "/" + x.d.slice(2, 4) : ""}${x.u ? " · " + fu(x.u) : ""}${x.k ? " · 💳 " + esc(x.k) : ""}${x.sav ? " · 🎯 " + esc((S.acc.find(a => a.id == x.sav) || {}).n || "meta borrada") : ""}${x.w ? " · " + esc(x.w) : ""}${x.q > 1 ? " · " + x.q + " cuotas de " + fmt(pmt(x.a, x.q, r)) + (r > 0 ? " (con interés)" : "") : ""}${x.s ? " · fuera del resumen" : ""}</small>
+                <small class="text-xs text-slate-400">${x.n ? esc(x.c) + " · " : ""}${x.d.slice(8)}/${x.d.slice(5, 7)}${sall ? "/" + x.d.slice(2, 4) : ""}${x.u ? " · " + fu(x.u) : ""}${x.k ? " · 💳 " + esc(x.k) : ""}${x.sav ? " · 🎯 " + esc((S.acc.find(a => a.id == x.sav) || {}).n || "meta borrada") : ""}${x.fxa ? " · 💵 " + esc((S.fx.find(a => a.id == x.fxa) || {}).n || "") : ""}${x.w ? " · " + esc(x.w) : ""}${x.q > 1 ? " · " + x.q + " cuotas de " + fmt(pmt(x.a, x.q, r)) + (r > 0 ? " (con interés)" : "") : ""}${x.s ? " · fuera del resumen" : ""}</small>
             </div>
             <div class="flex items-center space-x-2">
                 <span class="text-sm font-bold ${x.t == "i" ? "text-emerald-500" : "text-slate-800 dark:text-white"}">${x.t == "i" ? "+" : x.t == "tr" ? "↔ " : "-"}${fmt(x.a)}</span>
@@ -374,6 +374,7 @@ function movFormHTML() {
                     <select id="cardSel" onchange="togCardOpts()" class="${sel}">
                         <optgroup label="Cuenta">${WH.map(x => `<option>${esc(x)}</option>`).join("")}</optgroup>
                         ${S.cards.length ? `<optgroup label="Tarjeta">${S.cards.map(c => `<option>${esc(c.n)}</option>`).join("")}</optgroup>` : ""}
+                        ${S.fx.length ? `<optgroup label="Dólares y euros">${S.fx.map(a => `<option value="fx:${a.id}">💵 ${esc(a.n)} (${fxFmt(a.c, fxBal(a))})</option>`).join("")}</optgroup>` : ""}
                         ${S.acc.filter(a => !a.f).length ? `<optgroup label="Meta de ahorro">${S.acc.filter(a => !a.f).map(a => `<option value="meta:${a.id}">🎯 ${esc(a.n)}</option>`).join("")}</optgroup>` : ""}
                     </select>
                 </div>
@@ -402,7 +403,7 @@ function vHome() {
     const by = G.map(([c]) => [c, sum(m, x => x.t == "g" && x.c == c && !x.s)]).filter(x => x[1] > 0 || budOf(x[0], ym(cur))).sort((a, b) => b[1] - a[1]), mx = (by[0] ? by[0][1] : 1) || 1;
 
     const hasW = S.items.some(x => x.w) || Object.keys(S.ini).length > 0, nm = ym(cur);
-    const have = hasW ? WH.filter(w => !(S.hide || {})[w]).reduce((s, w) => s + bal(w, nm), 0) : sob;
+    const have = hasW ? WH.filter(w => !(S.hide || {})[w]).reduce((s, w) => s + bal(w, nm), 0) + fxTotalAt(nm) : sob; // + cuentas en dólares/euros, en pesos
     const due = S.cards.filter(c => !(S.hide || {})[c.n]).reduce((s, c) => s + (nm == ym(new Date()) ? cardSoon(c) : cardDue(c, nm)), 0);
     // Apartado = lo ahorrado + el rendimiento ganado hasta hoy (el rendimiento solo se suma en el mes actual: de meses pasados no hay foto)
     const svt = S.acc.reduce((s, a) => s + (svb(a.id, nm) + (nm == ym(new Date()) ? Math.max(0, yieldOf(a.id, a.r)) : 0)) * (a.u ? S.trm : 1), 0), pk = hasW ? pkHeld() : 0, disp = have - pk - due;
@@ -596,7 +597,7 @@ function vCue() {
         <section class="bg-gradient-to-b from-sky-500 to-sky-600 text-white p-6 rounded-[20px] shadow-sm mb-6">
             <small class="text-xs text-sky-100 font-medium uppercase tracking-wider">Total en cuentas</small>
             <div class="text-3xl font-extrabold mt-1">${fmt(T)}</div>
-            ${FX ? `<p class="text-xs text-sky-100 mt-1">Incluye ≈ ${fmt(FX)} en dólares y euros</p>` : ""}
+            ${FX ? `<p class="text-xs text-sky-100 mt-1">Incluye ≈ ${fmt(FX)} en dólares y euros${Math.abs(fxGain()) >= 0.5 ? ` · ${fxGain() > 0 ? "ganancia por la tasa" : "pérdida por la tasa"} ${fmt(Math.abs(fxGain()))}` : ""}</p>` : ""}
             <div class="grid grid-cols-2 gap-2 mt-4 pt-4 border-t border-white/10">
                 <div><small class="text-[10px] text-sky-100 block uppercase">En bolsillos</small><b class="text-sm font-bold">${fmt(P + AG)}</b>${AG > 0.5 ? `<small class="text-[10px] text-sky-100 block font-normal">incluye ${fmt(AG)} de metas</small>` : ""}</div>
                 <div><small class="text-[10px] text-sky-100 block uppercase">Libre</small><b class="text-sm font-bold">${fmt(T - P)}</b></div>
@@ -765,6 +766,9 @@ function vInv() {
                 <button onclick="setEurVal()" class="py-2.5 bg-indigo-600 text-white font-semibold rounded-xl text-xs shadow-md">Actualizar tasa del euro</button>
             </div>
             <p class="text-[11px] text-slate-400">${S.eur ? "Tasa del euro: <b>" + fmtD(S.eur) + "</b> por euro." : "Se usa para tus cuentas en euros."}</p>
+            <button onclick="fxFetchRates()" class="w-full mt-3 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold rounded-xl text-xs"><i class="fa-solid fa-rotate mr-1.5"></i>Actualizar tasas por internet</button>
+            ${S.rAt ? `<p class="text-[11px] text-slate-400 mt-1.5">Última consulta: <b>${rAtTxt()}</b></p>` : ""}
+            <p class="text-[11px] text-slate-400 mt-1.5">Trae la TRM oficial y el euro de mercado. Cada cuenta en dólares o euros puede tener su propia diferencia en pesos.</p>
         </div>
         <div class="${CARD} p-5 mb-6">
             <h3 class="text-sm font-bold mb-1">Precios en vivo</h3>

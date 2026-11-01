@@ -114,10 +114,31 @@ S.fx.forEach(a => { if (!Array.isArray(a.h)) a.h = []; if (a.c != "EUR") a.c = "
 const FXC = { USD: ["Dólares", "US$", "fa-dollar-sign"], EUR: ["Euros", "€", "fa-euro-sign"] };
 const fe = n => masked() ? "€ ••••" : (n < 0 ? "-" : "") + "€" + Math.abs(n || 0).toLocaleString("es-CO", { maximumFractionDigits: 2 });
 const fxFmt = (c, n) => c == "EUR" ? fe(n) : fu(n);
-const fxRate = c => c == "EUR" ? (S.eur || 0) : S.trm;
+const fxRate = c => c == "EUR" ? (S.eur || 0) : S.trm; // tasa de referencia (TRM o euro)
+// Cada cuenta puede cambiar por unos pesos frente a la referencia (a.sp, puede ser negativo): casas de cambio, billeteras, bancos…
+const fxRateOf = a => { const r = fxRate(a.c); return r > 0 ? Math.max(0, r + (+a.sp || 0)) : 0; };
 const fxBal = a => Math.round(a.h.reduce((s, x) => s + x.v, 0) * 100) / 100;
-const fxCop = a => fxBal(a) * fxRate(a.c);
+const fxCop = a => fxBal(a) * fxRateOf(a);
 const fxTotal = () => S.fx.reduce((s, a) => s + fxCop(a), 0);
+// Lo que había en dólares/euros hasta el mes nm (con la tasa de hoy): para "Disponible para gastar" de cualquier mes
+const fxTotalAt = nm => S.fx.reduce((s, a) => s + a.h.filter(x => x.d.slice(0, 7) <= nm).reduce((t, x) => t + x.v, 0) * fxRateOf(a), 0);
+// Costo en pesos de lo que hay en la cuenta (costo promedio): cada entrada guarda la tasa de ese día (x.r); al sacar o cambiar sale al costo promedio.
+// gain = lo que vale hoy menos lo que costó · real = ganancia ya cobrada en los cambios a pesos (x.cv = pesos recibidos) · rl[id] = ganancia de cada cambio
+function fxCost(a) {
+    const L = a.h.slice().sort((p, q) => p.d.localeCompare(q.d) || p.id - q.id), now = fxRateOf(a), rl = {};
+    let q = 0, cost = 0, real = 0;
+    L.forEach(x => {
+        if (x.v > 0) { q += x.v; cost += x.v * (x.r > 0 ? x.r : now); }
+        else if (x.v < 0) {
+            const out = Math.min(-x.v, q), avg = q > 1e-9 ? cost / q : 0;
+            cost -= out * avg; q -= out;
+            if (x.cv) { rl[x.id] = x.cv - out * avg; real += rl[x.id]; }
+        }
+    });
+    q = Math.round(q * 100) / 100; if (q <= 0.004) { q = 0; cost = 0; }
+    return { q, cost, gain: q * now - cost, real, rl };
+}
+const fxGain = () => S.fx.reduce((s, a) => s + (fxRateOf(a) > 0 ? fxCost(a).gain : 0), 0);
 const walOf = n => S.wal.find(a => a.n == n);
 const wlabel = n => String(n).replace(/\s*\(.*\)\s*$/, ""); // "Billetera digital (Nequi, Daviplata)" → "Billetera digital"
 // Bolsillos: plata que sigue en la cuenta pero ya tiene dueño (no cuenta como "Disponible para gastar")
@@ -128,7 +149,7 @@ const pkFree = a => walBal(a) - pkSum(a);
 // ¿La cuenta ya se usó en algo? (entonces no se puede borrar, solo ocultar)
 const walBusy = n => S.items.some(x => x.w == n || x.to == n) || S.sv.some(x => x.w == n) || S.rec.some(r => r.w == n);
 
-S.items.forEach(x => { if (x.t == "g") { if (WH.includes(x.k)) { x.w = x.k; x.k = ""; } else if (!x.k && !x.w) x.w = WH[0]; } });
+S.items.forEach(x => { if (x.t == "g") { if (WH.includes(x.k)) { x.w = x.k; x.k = ""; } else if (!x.k && !x.w && !x.sav && !x.fxa) x.w = WH[0]; } }); // los gastos pagados desde una meta o una cuenta en dólares/euros no salen de ninguna billetera en pesos
 // Inversiones antiguas no tenían fecha: se usa el momento en que se crearon
 S.inv.forEach(x => { if (!x.d) { const d = new Date(x.id); x.d = isNaN(d) ? today() : ymd(d); } });
 // Cada inversión guarda sus compras en x.h (historial: { id, d fecha, i monto, q acciones }).
@@ -554,7 +575,7 @@ function monthProjection(disp) {
 function dispAt(nm, hw) {
     const hid = n => (S.hide || {})[n];
     let have;
-    if (hw) have = WH.filter(w => !hid(w)).reduce((s, w) => s + bal(w, nm), 0) - pkHeld(); // lo que está en bolsillos ya tiene dueño
+    if (hw) have = WH.filter(w => !hid(w)).reduce((s, w) => s + bal(w, nm), 0) + fxTotalAt(nm) - pkHeld(); // lo que está en bolsillos ya tiene dueño
     else {
         const m = S.items.filter(x => x.d.startsWith(nm) && vis(x));
         have = sum(m, x => x.t == "i") - sum(m, x => x.t == "g") - S.sv.filter(x => x.d.startsWith(nm) && !x.i).reduce((s, x) => s + (x.cp ?? x.v), 0);

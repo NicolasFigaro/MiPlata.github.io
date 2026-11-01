@@ -336,10 +336,14 @@ function setCatDates() {
 // El formulario vive en un modal que abre el botón flotante "+" (movFormHTML está en vistas.js)
 let amtUsd = false; // el monto del formulario está en dólares (se guarda en USD con decimales y su equivalente en pesos a la TRM de ese día)
 // Monto del formulario en pesos (si está en USD: dólares × TRM)
-const amtVal = () => { const e = document.getElementById("amt"); return !e ? 0 : amtUsd ? Math.round(pr(e.value) * S.trm) : num(e.value); };
+// Cuenta en dólares/euros elegida como origen del gasto (value "fx:ID" en el selector)
+const fxSel = () => { const s = document.getElementById("cardSel"); return s && s.value.startsWith("fx:") ? S.fx.find(x => x.id == Number(s.value.slice(3))) || null : null; };
+// Pesos por dólar del formulario: la tasa de la cuenta en USD si sale de ahí; si no, la TRM
+const curRate = () => { const a = fxSel(); return a && a.c == "USD" && fxRateOf(a) > 0 ? fxRateOf(a) : S.trm; };
+const amtVal = () => { const e = document.getElementById("amt"); return !e ? 0 : amtUsd ? Math.round(pr(e.value) * curRate()) : num(e.value); };
 function fa2(e) { let v = e.value.replace(/[^\d.,]/g, ""); const i = v.search(/[.,]/); if (i >= 0) v = v.slice(0, i + 1) + v.slice(i + 1).replace(/[.,]/g, "").slice(0, 2); e.value = v; } // dólares: hasta 2 decimales, sin puntos de miles
 function amtIn(e) { if (amtUsd) fa2(e); else fa(e); fitAmt(e); cuotaPreview(); metaPreview(); usdPrev(); }
-function usdPrev() { const p = document.getElementById("usdPrev"); if (p) { const v = amtUsd ? amtVal() : 0; p.textContent = v ? "≈ " + fmt(v) + " a TRM " + fmtD(S.trm) : ""; } }
+function usdPrev() { const p = document.getElementById("usdPrev"); if (p) { const v = amtUsd ? amtVal() : 0; p.textContent = v ? "≈ " + fmt(v) + (curRate() == S.trm ? " a TRM " : " a tasa ") + fmtD(curRate()) : ""; } }
 function setCur(on, quiet) {
     const a = document.getElementById("amt"); if (!a || amtUsd == on) return;
     amtUsd = on; a.value = ""; fitAmt(a); a.inputMode = on ? "decimal" : "numeric";
@@ -373,10 +377,11 @@ function setDest(v) {
 function togCardOpts() {
     const s = document.getElementById("cardSel"), o = document.getElementById("cardOpts");
     if (!s || !o) return;
-    const isMeta = s.value.startsWith("meta:");
-    o.classList.toggle("hidden", WH.includes(s.value) || isMeta);
+    const isMeta = s.value.startsWith("meta:"), isFx = s.value.startsWith("fx:");
+    o.classList.toggle("hidden", WH.includes(s.value) || isMeta || isFx);
     cuotaPreview();
     metaPreview();
+    usdPrev(); // la tasa cambia si el origen es una cuenta en dólares
 }
 function cuotaPreview() {
     const g = id => document.getElementById(id), p = g("cqPrev");
@@ -390,6 +395,12 @@ function cuotaPreview() {
 function metaPreview() {
     const g = id => document.getElementById(id), p = g("metaPrev"), s = g("cardSel");
     if (!p || !s) return;
+    const fa = fxSel();
+    if (fa) { // cuenta en dólares/euros: cuánto saldría de ahí y cuánto hay
+        const rt = fxRateOf(fa), pesos = amtVal(), un = rt > 0 ? Math.round(pesos / rt * 100) / 100 : 0;
+        p.textContent = !pesos ? "Tienes " + fxFmt(fa.c, fxBal(fa)) + " en esta cuenta" : rt > 0 ? "Saldrán ≈ " + fxFmt(fa.c, un) + " de esta cuenta · tienes " + fxFmt(fa.c, fxBal(fa)) + (un > fxBal(fa) + 0.004 ? " · quedaría en negativo, revisa el monto" : "") : "Esta cuenta no tiene tasa. Escríbela en Cuentas → Editar.";
+        return;
+    }
     if (!s.value.startsWith("meta:")) { p.textContent = ""; return; }
     const acc = S.acc.find(x => x.id == Number(s.value.slice(5)));
     if (!acc) { p.textContent = ""; return; }
@@ -399,13 +410,14 @@ function metaPreview() {
 
 function addMov() {
     const g = id => document.getElementById(id), er = t => { g("msg").textContent = t; };
-    const u = amtUsd ? Math.round(pr(g("amt").value) * 100) / 100 : 0, a = amtUsd ? Math.round(u * S.trm) : num(g("amt").value);
+    const rate = curRate(), u = amtUsd ? Math.round(pr(g("amt").value) * 100) / 100 : 0, a = amtUsd ? Math.round(u * rate) : num(g("amt").value);
     if (!a) return er("Escribe un monto mayor a cero.");
     const d = g("date").value || today(), note = g("note").value.trim(), cat = g("cat").value;
     const rawSel = type == "g" ? g("cardSel").value : "";
-    const isMeta = rawSel.startsWith("meta:"), isW = !isMeta && WH.includes(rawSel);
+    const isMeta = rawSel.startsWith("meta:"), isFx = rawSel.startsWith("fx:"), isW = !isMeta && !isFx && WH.includes(rawSel);
+    const fxAcc = isFx ? fxSel() : null;
     const savAcc = isMeta ? S.acc.find(x => x.id == Number(rawSel.slice(5))) : null;
-    const card = (!isMeta && !isW) ? rawSel : "";
+    const card = (!isMeta && !isFx && !isW) ? rawSel : "";
     const wh = type == "i" ? g("whSel").value : (isW ? rawSel : "");
     const cq = card && g("cq") && g("cq").value ? Math.max(1, num(g("cq").value)) : 1;
     const cObj = card ? S.cards.find(c => c.n == card) : null;
@@ -424,8 +436,20 @@ function addMov() {
         db = S.dbt.find(x => x.id == g("debtSel").value); pa = Math.min(a, da || dbtLeft(db));
         if (!(pa > 0)) return er("Esa deuda ya está pagada.");
     }
+    // Gasto desde una cuenta en dólares/euros: cuántas unidades salen de ahí (a la tasa de la cuenta)
+    let fxUnits = 0;
+    if (isFx) {
+        if (!fxAcc) return er("Esa cuenta ya no existe.");
+        const rt = fxRateOf(fxAcc);
+        if (!(rt > 0)) return er("Esta cuenta no tiene tasa. Escríbela en Cuentas → Editar.");
+        fxUnits = fxAcc.c == "USD" && amtUsd ? u : Math.round(a / rt * 100) / 100;
+        if (!(fxUnits > 0)) return er("Escribe un monto mayor a cero.");
+        if (fxUnits > fxBal(fxAcc) + 0.004) return er("Solo tienes " + fxFmt(fxAcc.c, fxBal(fxAcc)) + " en esta cuenta.");
+    }
     const bk = d.slice(0, 7), bud = type == "g" ? budOf(cat, bk) : 0, before = bud ? catSpent(cat, bk) : 0;
-    S.items.push(Object.assign({ id: Date.now(), d, t: type, c: cat, n: note, a, k: card, w: wh, q: cq, ni, ir, sav: savAcc ? savAcc.id : undefined }, u ? { u, r: S.trm } : {}));
+    const iid = Date.now();
+    S.items.push(Object.assign({ id: iid, d, t: type, c: cat, n: note, a, k: card, w: wh, q: cq, ni, ir, sav: savAcc ? savAcc.id : undefined }, u ? { u, r: rate } : {}, fxAcc ? { fxa: fxAcc.id, fxe: iid + 1 } : {}));
+    if (fxAcc) fxAcc.h.push({ id: iid + 1, d, v: -fxUnits, n: note || cat, it: iid }); // sale de la cuenta en su moneda; queda ligado al movimiento
     if (ds == "card") S.items.push({ id: Date.now() + 1, d, t: "p", c: "Pago tarjeta", n: "Pago " + pcSel, a: pa, k: "", pc: pcSel, w: wh, q: 1 });
     if (ds == "save") S.sv.push({ id: Date.now() + 1, a: ac.id, d, v: ac.u ? pa / S.trm : pa, cp: pa, w: wh });
     if (ds == "debt") S.items.push({ id: Date.now() + 1, d, t: "g", c: "Deudas/Tarjeta", n: "Pago deuda: " + db.n, a: pa, k: "", w: wh, q: 1, dbt: db.id });
@@ -461,8 +485,11 @@ function showUndo(msg) {
 function delMovItem(id) {
     const i = S.items.findIndex(y => y.id == id); if (i < 0) return;
     const x = S.items[i];
-    buzz(); S.items.splice(i, 1); save(); draw();
-    undoQ.push(() => { S.items.push(x); save(); draw(); });
+    if (x.fx) return showToast("Este cambio viene de tu cuenta en dólares o euros: bórralo desde ahí.", true);
+    // gasto pagado desde una cuenta en dólares/euros: también se quita su salida (y vuelve con "Deshacer")
+    const fa = x.fxa ? S.fx.find(a => a.id == x.fxa) : null, fe = fa ? fa.h.find(e => e.id == x.fxe) : null;
+    buzz(); S.items.splice(i, 1); if (fe) fa.h = fa.h.filter(e => e !== fe); save(); draw();
+    undoQ.push(() => { S.items.push(x); if (fe) fa.h.push(fe); save(); draw(); });
     showUndo("Movimiento borrado");
 }
 // Duplicar un movimiento para hoy (mantener presionado en el celular, o el botón de copiar en computador).
@@ -470,22 +497,32 @@ function delMovItem(id) {
 function dupMov(id) {
     const x = S.items.find(y => y.id == id); if (!x) return;
     if (x.t == "p" || x.dbt) return showToast("Los pagos de tarjetas y deudas se hacen desde su pestaña, no se duplican.", true);
+    if (x.fx) return showToast("Los cambios de dólares o euros a pesos se hacen desde su cuenta, no se duplican.", true);
     const acc = x.sav ? S.acc.find(a => a.id == x.sav) : null;
     if (x.sav && !acc) return showToast("La meta de este gasto ya no existe, no se puede duplicar.", true);
     let nid = Date.now(); while (S.items.some(y => y.id == nid || y.id == nid + 1) || S.sv.some(y => y.id == nid + 1)) nid += 2;
     const n = Object.assign({}, x, { id: nid, d: today() }); delete n.rid;
-    if (n.u) { n.r = S.trm; n.a = Math.round(n.u * S.trm); } // gasto en dólares: se vuelve a convertir con la TRM de hoy
+    const fa = x.fxa ? S.fx.find(a => a.id == x.fxa) : null, fe = fa ? fa.h.find(e => e.id == x.fxe) : null;
+    if (x.fxa && !fe) return showToast("La cuenta de este gasto ya no existe, no se puede duplicar.", true);
+    if (fe) { // sale otra vez de la misma cuenta en dólares/euros, a la tasa de hoy
+        if (-fe.v > fxBal(fa) + 0.004) return showToast("Solo tienes " + fxFmt(fa.c, fxBal(fa)) + " en esta cuenta.", true);
+        n.fxe = nid + 1; n.a = Math.round(-fe.v * fxRateOf(fa)); if (n.u) { n.u = -fe.v; n.r = fxRateOf(fa); }
+    } else if (n.u) { n.r = S.trm; n.a = Math.round(n.u * S.trm); } // gasto en dólares: se vuelve a convertir con la TRM de hoy
     // no es el gasto fijo del mes, es uno nuevo
     S.items.push(n);
     let sv = null;
     if (acc) { sv = { id: nid + 1, a: acc.id, d: n.d, v: acc.u ? -(n.a / S.trm) : -n.a, cp: -n.a, w: "" }; S.sv.push(sv); } // sale de la misma meta, igual que el original
+    let fh = null;
+    if (fe) { fh = { id: nid + 1, d: n.d, v: fe.v, n: fe.n, it: nid }; fa.h.push(fh); }
     save();
     cur = new Date(n.d + "T00:00:00"); cur.setDate(1); // se muestra el mes de hoy para que veas el nuevo
     draw();
-    showToast("Duplicado para hoy · " + fmt(n.a), false, { label: "Deshacer", fn: () => { S.items = S.items.filter(y => y !== n); if (sv) S.sv = S.sv.filter(y => y !== sv); save(); draw(); } });
+    showToast("Duplicado para hoy · " + fmt(n.a), false, { label: "Deshacer", fn: () => { S.items = S.items.filter(y => y !== n); if (sv) S.sv = S.sv.filter(y => y !== sv); if (fh) fa.h = fa.h.filter(y => y !== fh); save(); draw(); } });
 }
 function editM(id) {
     const x = S.items.find(y => y.id == id); if (!x) return;
+    if (x.fx) return showToast("Este cambio viene de tu cuenta en dólares o euros: bórralo desde ahí y vuelve a hacerlo.", true);
+    if (x.fxa) return showToast("Este gasto salió de tu cuenta en dólares o euros: bórralo y vuelve a anotarlo.", true);
     const cards = S.cards.map(c => c.n);
     const withCur = (list, cur) => cur && !list.includes(cur) ? [cur].concat(list) : list; // si la opción actual ya no existe (cuenta oculta o borrada) se conserva, así editar no la cambia sin querer
     const cats = withCur(x.t == "g" ? G.filter(g => g[0] != "Ahorro").map(g => g[0]) : x.t == "p" ? ["Pago tarjeta"] : x.t == "tr" ? ["Transferencia"] : I.slice(), x.c);

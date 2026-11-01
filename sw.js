@@ -6,7 +6,7 @@ self.addEventListener("activate", e => { e.waitUntil(caches.keys().then(k => Pro
 // Los archivos de otros sitios (Font Awesome, Chart.js) llevan la versión en la URL: no cambian, se sirven de caché sin revalidar.
 self.addEventListener("fetch", e => {
   const r = e.request;
-  if (r.method != "GET" || r.url.includes("finnhub.io")) return; // cotizaciones: siempre en vivo, nunca de caché
+  if (r.method != "GET" || r.url.includes("finnhub.io") || r.url.includes("datos.gov.co") || r.url.includes("er-api.com")) return; // cotizaciones y tasas de cambio: siempre en vivo, nunca de caché
   const same = r.url.startsWith(self.location.origin);
   e.respondWith(caches.open(C).then(async cache => {
     const hit = await cache.match(r, { ignoreSearch: same });
