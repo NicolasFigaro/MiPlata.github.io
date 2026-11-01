@@ -68,6 +68,8 @@ S.acc = S.acc || [];
 S.inv = S.inv || [];
 S.cards = S.cards || [];
 S.trm = S.trm || 4000;
+S.eur = S.eur || 0;   // pesos por 1 euro (la escribes tú, igual que la TRM)
+S.fx = S.fx || [];   // cuentas en moneda extranjera: { id, n, c: "USD"|"EUR", h: [{ id, d, v (con signo), n }] }; el saldo es la suma de h
 S.sv = S.sv || [];
 S.rec = S.rec || [];
 S.dbt = S.dbt || [];
@@ -105,6 +107,17 @@ S.wal.forEach(a => { if (!Array.isArray(a.pk)) a.pk = []; if (!WTYPES[a.t]) a.t 
 S.wal.forEach(a => a.pk.forEach(p => { if (p.m && !S.acc.some(g => g.id == p.m)) delete p.m; })); // bolsillo vinculado a una meta que ya no existe: se suelta
 const syncWH = () => { WH.length = 0; S.wal.forEach(a => WH.push(a.n)); };
 syncWH();
+// ---------- Cuentas en dólares / euros ----------
+// Viven aparte de las cuentas en pesos: no pasan por los movimientos (no se gasta de ahí), solo guardan su saldo en su moneda.
+// El saldo es la suma de su historial (el saldo inicial es la primera entrada), así cada entrada se puede corregir.
+S.fx.forEach(a => { if (!Array.isArray(a.h)) a.h = []; if (a.c != "EUR") a.c = "USD"; });
+const FXC = { USD: ["Dólares", "US$", "fa-dollar-sign"], EUR: ["Euros", "€", "fa-euro-sign"] };
+const fe = n => masked() ? "€ ••••" : (n < 0 ? "-" : "") + "€" + Math.abs(n || 0).toLocaleString("es-CO", { maximumFractionDigits: 2 });
+const fxFmt = (c, n) => c == "EUR" ? fe(n) : fu(n);
+const fxRate = c => c == "EUR" ? (S.eur || 0) : S.trm;
+const fxBal = a => Math.round(a.h.reduce((s, x) => s + x.v, 0) * 100) / 100;
+const fxCop = a => fxBal(a) * fxRate(a.c);
+const fxTotal = () => S.fx.reduce((s, a) => s + fxCop(a), 0);
 const walOf = n => S.wal.find(a => a.n == n);
 const wlabel = n => String(n).replace(/\s*\(.*\)\s*$/, ""); // "Billetera digital (Nequi, Daviplata)" → "Billetera digital"
 // Bolsillos: plata que sigue en la cuenta pero ya tiene dueño (no cuenta como "Disponible para gastar")
@@ -466,7 +479,7 @@ function rebalance(ap) {
 // ---------- Patrimonio neto ----------
 function netWorth() {
     const nm = ym(new Date());
-    const w = WH.reduce((s, x) => s + bal(x, nm), 0);
+    const w = WH.reduce((s, x) => s + bal(x, nm), 0) + fxTotal(); // incluye las cuentas en dólares/euros convertidas a pesos
     const sv = S.acc.reduce((s, a) => s + goalTotal(a) * (a.u ? S.trm : 1), 0);
     const iv = S.inv.reduce((s, x) => s + cop(x.v, x.c), 0);
     const cd = S.cards.reduce((s, c) => s + cardUse(c, nm).used, 0);

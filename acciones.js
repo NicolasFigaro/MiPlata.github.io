@@ -633,7 +633,7 @@ function showModal(html) {
     modal.classList.remove("hidden");
     setTimeout(() => { modal.classList.remove("opacity-0"); container.classList.remove("scale-95"); container.classList.add("scale-100"); }, 10);
 }
-function togW(id) { walOpen = walOpen == id ? null : id; draw(); }
+function togW(id) { walOpen = walOpen == id ? null : id; fxOpen = null; draw(); }
 // El nombre identifica la cuenta en los movimientos: debe ser único entre cuentas y tarjetas
 function walErr(n, own) {
     if (!/^[\p{L}\p{N}][\p{L}\p{N} .\/-]{0,19}$/u.test(n)) return "Usa hasta 20 letras o números (sin comillas ni símbolos raros).";
@@ -833,11 +833,13 @@ function mov(id, s, all) {
     const full = all ? (U ? Math.floor(goalTotal(a) * 100) / 100 : Math.floor(goalTotal(a))) : 0;
     openCustomModal(s > 0 ? "Meter a " + esc(a.n) : (all ? "Sacar todo de " : "Sacar de ") + esc(a.n), [
         { l: s > 0 ? "¿De dónde sale?" : "¿A dónde regresa?", o: WH.map(w => w) },
-        { l: U ? "Monto en USD" : "Monto", v: full > 0 ? tf(full) : "", m: "decimal" }
+        { l: U ? "Monto en USD" : "Monto", v: full > 0 ? tf(full) : "", m: "decimal" },
+        { l: "Fecha", t: "date", v: today() }
     ], v => {
-        const w = WH.find(p => v[0].startsWith(p)), n = U ? pr(v[1]) : num(v[1]);
+        const w = WH.find(p => v[0].startsWith(p)), n = U ? pr(v[1]) : num(v[1]), d = v[2] || today();
         if (!(n > 0)) return "Escribe un monto válido.";
-        S.sv.push({ id: Date.now(), a: id, d: today(), v: s * n, cp: s * n * K, w });
+        if (d > today()) return "La fecha no puede ser futura.";
+        S.sv.push({ id: Date.now(), a: id, d, v: s * n, cp: s * n * K, w });
         save();
     });
 }

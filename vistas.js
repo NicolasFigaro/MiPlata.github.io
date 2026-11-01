@@ -589,13 +589,14 @@ function walPanel(a) {
 
 function vCue() {
     if (walOpen && !S.wal.some(a => a.id == walOpen)) walOpen = null;
-    const shown = S.wal.filter(a => !(S.hide || {})[a.n]), T = shown.reduce((s, a) => s + walBal(a), 0), P = pkHeld(), open = S.wal.find(a => a.id == walOpen);
+    const shown = S.wal.filter(a => !(S.hide || {})[a.n]), FX = fxTotal(), T = shown.reduce((s, a) => s + walBal(a), 0) + FX, P = pkHeld(), open = S.wal.find(a => a.id == walOpen);
     // Lo que ya tienen ahorrado las metas que están vinculadas a algún bolsillo (esa plata está en la meta, no en la cuenta: no entra en "Libre")
     const AG = S.acc.filter(g => !g.f && goalPks(g).length).reduce((s, g) => s + goalTotal(g) * (g.u ? S.trm : 1), 0);
     return `
         <section class="bg-gradient-to-b from-sky-500 to-sky-600 text-white p-6 rounded-[20px] shadow-sm mb-6">
             <small class="text-xs text-sky-100 font-medium uppercase tracking-wider">Total en cuentas</small>
             <div class="text-3xl font-extrabold mt-1">${fmt(T)}</div>
+            ${FX ? `<p class="text-xs text-sky-100 mt-1">Incluye ≈ ${fmt(FX)} en dólares y euros</p>` : ""}
             <div class="grid grid-cols-2 gap-2 mt-4 pt-4 border-t border-white/10">
                 <div><small class="text-[10px] text-sky-100 block uppercase">En bolsillos</small><b class="text-sm font-bold">${fmt(P + AG)}</b>${AG > 0.5 ? `<small class="text-[10px] text-sky-100 block font-normal">incluye ${fmt(AG)} de metas</small>` : ""}</div>
                 <div><small class="text-[10px] text-sky-100 block uppercase">Libre</small><b class="text-sm font-bold">${fmt(T - P)}</b></div>
@@ -610,6 +611,7 @@ function vCue() {
             </button>
         </div>
         ${open ? walPanel(open) : '<p class="text-[11px] text-slate-400 text-center mb-4">Toca una cuenta para ver sus bolsillos y movimientos.</p>'}
+        ${fxSection()}
         <p class="text-[11px] text-slate-400">El total no incluye las cuentas que ocultes en Ajustes. Los gastos con tarjeta no salen de ninguna cuenta hasta que abonas a la tarjeta.</p>
     `;
 }
@@ -664,6 +666,7 @@ function vAho() {
                 </div>
                 ${a.r > 0 ? `<div class="grid grid-cols-3 gap-2 mb-1">${[["Hoy", gy.daily], ["Este mes", gy.month], ["Total ganado", gy.total]].map(([l, v]) => `<div class="p-2.5 rounded-2xl bg-emerald-50 dark:bg-emerald-500/10"><span class="text-[10px] uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block leading-tight">${l}</span><b class="text-xs text-emerald-600 dark:text-emerald-400">+${fm(a, v)}</b></div>`).join("")}</div><p class="text-[10px] text-slate-400 mb-3"><i class="fa-solid fa-seedling mr-1"></i>Rendimiento estimado, ya incluido en el saldo. Crece cada día con interés compuesto (${tf(a.r)}% E.A.).</p>` : ""}
                 ${pkBox}${a.g ? `${gb.bar.replace('bg-emerald-500 h-full', 'h-full').replace('style="width:' + p + '%"', 'style="width:' + p + '%;background:' + goalCol(a) + '"')}<div class="flex justify-between text-[11px] text-slate-400 mb-3"><span>${p.toFixed(0)}% de ${fm(a, a.g)}</span><span>${t >= a.g ? "¡Meta lograda!" : "Faltan " + fm(a, a.g - t)}</span></div>${gb.info}` : ""}
+                ${goalHist(a)}
                 <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
                     <button onclick="mov(${a.id}, 1)" class="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-xl text-xs font-semibold">＋ Meter</button>
                     <button onclick="mov(${a.id}, -1)" class="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-xl text-xs font-semibold">－ Sacar</button>
@@ -757,6 +760,11 @@ function vInv() {
                 <button onclick="setTrmVal()" class="py-2.5 bg-indigo-600 text-white font-semibold rounded-xl text-xs shadow-md">Actualizar TRM</button>
             </div>
             <p class="text-[11px] text-slate-400">TRM actual: <b>${fmtD(S.trm)}</b> por dólar. Puedes escribir los decimales con coma o con punto.</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2 mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+                <input id="eurInput" inputmode="decimal" value="${S.eur ? tf(S.eur) : ""}" placeholder="Pesos por 1 euro. Ej. 4600" onkeydown="if(event.key==='Enter')setEurVal()" class="px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs" autocomplete="off">
+                <button onclick="setEurVal()" class="py-2.5 bg-indigo-600 text-white font-semibold rounded-xl text-xs shadow-md">Actualizar tasa del euro</button>
+            </div>
+            <p class="text-[11px] text-slate-400">${S.eur ? "Tasa del euro: <b>" + fmtD(S.eur) + "</b> por euro." : "Se usa para tus cuentas en euros."}</p>
         </div>
         <div class="${CARD} p-5 mb-6">
             <h3 class="text-sm font-bold mb-1">Precios en vivo</h3>
