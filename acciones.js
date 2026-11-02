@@ -355,7 +355,7 @@ function setCur(on, quiet) {
     cuotaPreview(); metaPreview(); usdPrev(); if (!quiet) a.focus();
 }
 function openMov() {
-    amtUsd = false;
+    amtUsd = false; rcPend = null;
     const modal = document.getElementById("generalModal"), container = document.getElementById("modalContainer");
     modalCancel = null;
     clearTimeout(modalTimer);
@@ -451,7 +451,8 @@ function addMov() {
     }
     const bk = d.slice(0, 7), bud = type == "g" ? budOf(cat, bk) : 0, before = bud ? catSpent(cat, bk) : 0;
     const iid = Date.now();
-    S.items.push(Object.assign({ id: iid, d, t: type, c: cat, n: note, a, k: card, w: wh, q: cq, ni, ir, sav: savAcc ? savAcc.id : undefined }, u ? { u, r: rate } : {}, fxAcc ? { fxa: fxAcc.id, fxe: iid + 1 } : {}));
+    S.items.push(Object.assign({ id: iid, d, t: type, c: cat, n: note, a, k: card, w: wh, q: cq, ni, ir, sav: savAcc ? savAcc.id : undefined }, u ? { u, r: rate } : {}, fxAcc ? { fxa: fxAcc.id, fxe: iid + 1 } : {}, rcPend ? { rc: 1 } : {}));
+    rcSavePend(iid);
     if (fxAcc) fxAcc.h.push({ id: iid + 1, d, v: -fxUnits, n: note || cat, it: iid }); // sale de la cuenta en su moneda; queda ligado al movimiento
     if (ds == "card") S.items.push({ id: Date.now() + 1, d, t: "p", c: "Pago tarjeta", n: "Pago " + pcSel, a: pa, k: "", pc: pcSel, w: wh, q: 1 });
     if (ds == "save") S.sv.push({ id: Date.now() + 1, a: ac.id, d, v: ac.u ? pa / S.trm : pa, cp: pa, w: wh });
@@ -504,7 +505,7 @@ function dupMov(id) {
     const acc = x.sav ? S.acc.find(a => a.id == x.sav) : null;
     if (x.sav && !acc) return showToast("La meta de este gasto ya no existe, no se puede duplicar.", true);
     let nid = Date.now(); while (S.items.some(y => y.id == nid || y.id == nid + 1) || S.sv.some(y => y.id == nid + 1)) nid += 2;
-    const n = Object.assign({}, x, { id: nid, d: today() }); delete n.rid;
+    const n = Object.assign({}, x, { id: nid, d: today() }); delete n.rid; delete n.rc;
     const fa = x.fxa ? S.fx.find(a => a.id == x.fxa) : null, fe = fa ? fa.h.find(e => e.id == x.fxe) : null;
     if (x.fxa && !fe) return showToast("La cuenta de este gasto ya no existe, no se puede duplicar.", true);
     if (fe) { // sale otra vez de la misma cuenta en dólares/euros, a la tasa de hoy
@@ -570,6 +571,7 @@ function editM(id) {
         else if (kind == "tr") { x.w = v[5]; x.to = v[6]; x.n = wlabel(v[5]) + " → " + wlabel(v[6]); }
         save(); showToast("Movimiento actualizado");
     });
+    rcEditBlock(x.id);
 }
 function newTransfer(from) {
     if (WH.length < 2) return showToast("Necesitas al menos dos cuentas para transferir. Crea otra en la pestaña Cuentas.", true);

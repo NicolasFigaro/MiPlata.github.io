@@ -186,6 +186,7 @@ function movListHTML(lim) { // lim: solo los últimos N (ignora filtros y buscad
             </div>
             <div class="flex items-center space-x-2">
                 <span class="text-sm font-bold ${x.t == "i" ? "text-emerald-500" : "text-slate-800 dark:text-white"}">${x.t == "i" ? "+" : x.t == "tr" ? "↔ " : "-"}${fmt(x.a)}</span>
+                ${x.rc ? `<button onclick="rcView(${x.id})" aria-label="Ver foto del recibo" class="text-slate-400 p-1 text-xs"><i class="fa-solid fa-paperclip"></i></button>` : ""}
                 <button onclick="dupMov(${x.id})" title="Duplicar para hoy" aria-label="Duplicar" class="mv-btns text-slate-400 hover:text-indigo-600 p-1 text-xs"><i class="fa-regular fa-copy"></i></button>
                 <button onclick="editM(${x.id})" class="mv-btns text-slate-400 hover:text-indigo-600 p-1 text-xs"><i class="fa-solid fa-pen"></i></button>
                 <button onclick="delMovItem(${x.id})" class="mv-btns text-slate-400 hover:text-rose-600 p-1 text-xs"><i class="fa-solid fa-trash"></i></button>
@@ -388,6 +389,7 @@ function movFormHTML() {
                     <input id="date" type="date" value="${today()}" class="${sel}">
                     <select id="whSel" class="${sel}">${WH.map(w => `<option>${w}</option>`).join("")}</select>
                 </div>${destUI()}`}
+            ${rcFormUI()}
             <input id="note" placeholder="Nota o descripción (opcional)" class="${sel}" autocomplete="off">
             <p class="text-rose-500 text-xs empty:hidden" id="msg"></p>
             <button onclick="addMov()" class="w-full py-3.5 rounded-[14px] bg-indigo-600 active:bg-indigo-700 text-white font-semibold text-base transition">Guardar ${type == "g" ? "gasto" : "ingreso"}</button>
@@ -479,6 +481,7 @@ function vHome() {
         ${weekUI()}
 
         ${yearTeaser()}
+        ${typeof closeTeaser == "function" ? closeTeaser() : ""}
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div onclick="goTab(${N.indexOf("Ahorro")})" class="${CARD} p-4 cursor-pointer hover:border-indigo-500 transition lift">
