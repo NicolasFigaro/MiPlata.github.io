@@ -99,6 +99,7 @@ function updNav() {
     if (t) t.classList.toggle("scrolled", y > 8);
     if (s) s.style.opacity = y > 36 ? 1 : 0;
 }
+let drawnTab = null;
 function draw() {
     // Un redibujo normal (no un cambio de pestaña) conserva el scroll y no repite la animación de entrada
     const keepY = anim ? null : window.scrollY;
@@ -112,7 +113,9 @@ function draw() {
     document.getElementById("navTitle").textContent = title;
     document.getElementById("navBack").classList.toggle("hidden", !inMore);
 
-    document.getElementById("appMain").innerHTML = tab < 0 ? vMore() : V[tab]();
+    const soft = !anim && drawnTab === tab; drawnTab = tab; // misma pantalla: se actualiza en su lugar, sin parpadeo
+    const html = tab < 0 ? vMore() : V[tab]();
+    if (typeof paintMain == "function") paintMain(document.getElementById("appMain"), html, soft); else document.getElementById("appMain").innerHTML = html;
     const fb = document.getElementById("fab"); if (fb) fb.classList.toggle("hidden", N[tab] == "Asistente"); // en el chat, el + estorba al escribir
     if (keep) { openMov(); restoreForm(); } // volvió de crear una categoría: reabre el formulario con lo que había escrito
     if (N[tab] == "Gráficas") drawCharts();

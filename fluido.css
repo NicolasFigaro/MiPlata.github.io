@@ -1,0 +1,71 @@
+/* ---------- Movimiento fluido ---------- */
+:root { --spring: cubic-bezier(.32, .72, 0, 1); --bounce: cubic-bezier(.34, 1.4, .5, 1); }
+
+/* Lo que aparece (al desplegar, agregar o borrar) entra suave; lo que sale lo hace en fluido.js */
+@keyframes moIn { from { opacity: 0; transform: translateY(8px) scale(.985); } to { opacity: 1; transform: none; } }
+.mo-in { animation: moIn .38s var(--spring) both; }
+.mo-out { overflow: hidden; pointer-events: none; }
+
+/* Barras de progreso: crecen o se encogen en vez de saltar */
+#appMain [style*="width:"]:not(input):not(select):not(textarea) { transition: width .7s var(--spring), background-color .3s ease; }
+#appMain .goal-marker { transition: left .7s var(--spring); }
+
+/* Metas: al abrir una, el contenido baja en cascada y la tarjeta cambia de tamaño con suavidad */
+.g-card { transition: padding .35s var(--spring), margin .35s var(--spring); }
+@keyframes gIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.g-card.g-open > :not(.g-row) { animation: gIn .42s var(--spring) both; }
+.g-card.g-open > :nth-child(3) { animation-delay: .03s; }
+.g-card.g-open > :nth-child(4) { animation-delay: .06s; }
+.g-card.g-open > :nth-child(5) { animation-delay: .09s; }
+.g-card.g-open > :nth-child(6) { animation-delay: .12s; }
+.g-card.g-open > :nth-child(n+7) { animation-delay: .15s; }
+
+/* Bloques plegables (<details>): se abren y cierran con altura animada donde el navegador lo permite */
+@keyframes sdetIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+details[open] > .sdet-b, details.mx[open] > .mx-b, details.hq[open] > p { animation: sdetIn .32s var(--spring) both; }
+details.sdet > summary::after { transition: transform .3s var(--spring); }
+@supports (interpolate-size: allow-keywords) {
+    html { interpolate-size: allow-keywords; }
+    details.sdet::details-content, details.mx::details-content, details.hq::details-content {
+        block-size: 0; overflow: clip; opacity: 0;
+        transition: block-size .34s var(--spring), opacity .28s ease, content-visibility .34s allow-discrete;
+    }
+    details.sdet[open]::details-content, details.mx[open]::details-content, details.hq[open]::details-content { block-size: auto; opacity: 1; }
+    details[open] > .sdet-b, details.mx[open] > .mx-b, details.hq[open] > p { animation: none; }
+}
+
+/* Tocar un botón se siente: se hunde un poco y rebota al soltar */
+button, summary, [onclick] { -webkit-tap-highlight-color: transparent; }
+#appMain button, #appMain summary, #modalContainer button, #fab {
+    transition: transform .22s var(--bounce), background-color .2s ease, color .2s ease, box-shadow .25s ease, opacity .2s ease;
+}
+#appMain button:active, #appMain summary:active, #modalContainer button:active { transform: scale(.95); transition-duration: .08s; }
+#fab:active { transform: scale(.9); }
+
+/* Entrada de pantalla más larga y con un toque de escala */
+@keyframes enter { from { opacity: 0; transform: translateY(14px) scale(.985); } to { opacity: 1; transform: none; } }
+#appMain.enter > * { animation-duration: .5s; animation-timing-function: var(--spring); }
+#appMain.enter > *:nth-child(5) { animation-delay: .2s; }
+#appMain.enter > *:nth-child(6) { animation-delay: .25s; }
+#appMain.enter > *:nth-child(7) { animation-delay: .3s; }
+#appMain.enter > *:nth-child(n+8) { animation-delay: .35s; }
+#appMain.nav-fwd { animation-duration: .45s; }
+#appMain.nav-back { animation-duration: .45s; }
+
+/* Ventanas: el fondo se desenfoca y aparece; el formulario sube con rebote suave */
+#generalModal { transition: opacity .3s ease, backdrop-filter .35s ease; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+#generalModal.opacity-0 { backdrop-filter: blur(0); -webkit-backdrop-filter: blur(0); }
+#modalContainer { transition-timing-function: var(--spring) !important; transition-duration: .42s !important; }
+@media (min-width: 640px) { #modalContainer.scale-95 { transform: scale(.94) translateY(10px); opacity: 0; } #modalContainer { transition-property: transform, opacity; } }
+
+/* Aviso: sube con rebote */
+#toast { transition: transform .5s var(--bounce), opacity .3s ease !important; }
+
+/* Interruptores y listas */
+.ios-switch, .ios-switch::after { transition: background-color .3s ease, transform .35s var(--bounce) !important; }
+.swipe-in { transition-timing-function: var(--spring); }
+
+@media (prefers-reduced-motion: reduce) {
+    .mo-in, .g-card.g-open > :not(.g-row), details[open] > .sdet-b { animation: none !important; }
+    #appMain [style*="width:"] { transition: none !important; }
+}
