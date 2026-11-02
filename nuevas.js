@@ -269,9 +269,7 @@ function invSeries() {
 }
 function invChartUI() {
     if (!S.inv.length) return "";
-    return `<section class="${CARD} p-5"><h3 class="text-sm font-bold mb-1">Evolución del portafolio</h3>
-        <p class="text-[11px] text-slate-400 mb-4">«Invertido» sale de tus compras. «Valor» se empieza a guardar con una foto diaria desde que abres la app, así que se irá llenando con el tiempo.</p>
-        <canvas id="chInv"></canvas></section>`;
+    return sdk("inv", "Evolución del portafolio", `<canvas id="chInv"></canvas>`);
 }
 function drawInvChart(hy, GREEN) {
     const ci = document.getElementById("chInv"), sr = ci && invSeries(); if (!ci || !sr) return;

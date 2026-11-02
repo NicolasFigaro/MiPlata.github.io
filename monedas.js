@@ -30,6 +30,7 @@ function fxCard(a) {
         </button>`;
 }
 
+let fxHO = {};
 function fxPanel(a) {
     const b = fxBal(a), ref = fxRate(a.c), r = fxRateOf(a), C = FXC[a.c], all = !!fxAll[a.id], k = fxCost(a), unit = a.c == "EUR" ? "€" : "US$";
     const act = (cl, fn, t) => `<button onclick="${fn}" class="px-3 py-1.5 ${cl} rounded-xl text-xs font-semibold">${t}</button>`;
@@ -60,23 +61,21 @@ function fxPanel(a) {
                 ${box("En pesos", r > 0 ? fmt(b * r) : "—")}
                 ${box("Tasa de la cuenta", r > 0 ? fmtD(r) : "Sin tasa", "", a.sp ? (ref > 0 ? (a.c == "EUR" ? "Euro " : "TRM ") + fmtD(ref) + " " + (a.sp > 0 ? "+" : "-") + " " + fmtD(Math.abs(a.sp)) : "") : "")}
             </div>
-            ${r > 0 ? `<div class="grid grid-cols-3 gap-2 mb-2">
+            ${r > 0 ? sdet("Ver detalle de ganancia", `<div class="grid grid-cols-3 gap-2 mb-2">
                 ${box("Lo que pagaste", k.q > 0 ? fmt(k.cost) : "—")}
                 ${box("Ganancia o pérdida", k.q > 0 ? fxPlus(k.gain) : "—", k.q > 0 ? fxGcl(k.gain) : "", k.q > 0 ? fxPct(k.gain, k.cost) : "")}
                 ${box("Ya cobrado", Math.abs(k.real) >= 0.5 ? fxPlus(k.real) : "—", Math.abs(k.real) >= 0.5 ? fxGcl(k.real) : "")}
-            </div>` : `<p class="text-[11px] text-amber-500 mb-2"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Escribe cuántos pesos vale 1 euro (botón «Editar») o actualiza las tasas para ver esta cuenta en pesos y sumarla a tu patrimonio.</p>`}
-            <p class="text-[11px] text-slate-400 mb-3">${k.q > 0 && r > 0 ? "La ganancia compara lo que vale hoy con la tasa de cada vez que metiste plata. " : ""}Esta plata suma a tu patrimonio y cuenta como «Disponible para gastar», ya convertida a pesos. Cuando gastes, anótalo con «Sacar».</p>
+            </div>`) : `<p class="text-[11px] text-amber-500 mb-2"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Escribe cuántos pesos vale 1 euro (botón «Editar») o actualiza las tasas para ver esta cuenta en pesos y sumarla a tu patrimonio.</p>`}
+            <div class="mb-3 text-[11px] text-slate-400">Cuenta en tu patrimonio y en «Disponible para gastar».${hq(`${k.q > 0 && r > 0 ? "La ganancia compara lo que vale hoy con la tasa de cada vez que metiste plata. " : ""}Esta plata suma a tu patrimonio y cuenta como «Disponible para gastar», ya convertida a pesos. Cuando gastes, anótalo con «Sacar».`)}</div>
             <div class="flex flex-wrap gap-2 mb-4">
                 ${act("bg-emerald-50 text-emerald-600", `fxMove(${a.id},1)`, "＋ Meter")}
                 ${act("bg-rose-50 text-rose-600", `fxMove(${a.id},-1)`, "－ Sacar")}
                 ${act("bg-sky-50 text-sky-600", `fxCash(${a.id})`, "Cambiar a pesos")}
-                ${act("bg-indigo-50 text-indigo-600", `fxAdj(${a.id})`, "Ajustar saldo")}
-                ${act("bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300", `fxEdit(${a.id})`, "Editar")}
-                ${act("bg-slate-100 dark:bg-slate-800 text-rose-500", `fxDel(${a.id})`, "Borrar")}
+                ${mxMenu(act("bg-indigo-50 text-indigo-600", `fxAdj(${a.id})`, "Ajustar saldo") + act("bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300", `fxEdit(${a.id})`, "Editar") + act("bg-slate-100 dark:bg-slate-800 text-rose-500", `fxDel(${a.id})`, "Borrar"))}
             </div>
-            <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider pt-3 border-t border-slate-100 dark:border-slate-800">Historial · toca el lápiz para corregir</h4>
+            <details class="sdet" ${fxHO[a.id] ? "open" : ""} ontoggle="fxHO[${a.id}]=this.open?1:0"><summary>Historial (${L.length})</summary><div class="sdet-b">
             ${rows || '<p class="text-xs text-slate-400 text-center py-4">Todavía no hay movimientos en esta cuenta.</p>'}
-            ${L.length > 8 ? `<button onclick="fxAll[${a.id}]=${all ? 0 : 1};draw()" class="w-full mt-2 py-2 text-xs font-semibold text-indigo-600 dark:text-indigo-400">${all ? "Ver menos" : "Ver los " + L.length + " movimientos"}</button>` : ""}
+            ${L.length > 8 ? `<button onclick="fxAll[${a.id}]=${all ? 0 : 1};draw()" class="w-full mt-2 py-2 text-xs font-semibold text-indigo-600 dark:text-indigo-400">${all ? "Ver menos" : "Ver los " + L.length + " movimientos"}</button>` : ""}</div></details>
         </section>`;
 }
 
@@ -93,7 +92,7 @@ function fxSection() {
                 <span class="text-xs font-semibold">Cuenta en USD / EUR</span>
             </button>
         </div>
-        ${open ? fxPanel(open) : S.fx.length ? '<p class="text-[11px] text-slate-400 text-center mb-4">Toca una cuenta para ver y corregir su historial.</p>' : '<p class="text-[11px] text-slate-400 mb-4">Guarda aquí plata que tengas en dólares o euros. Se convierte a pesos con la TRM (o la tasa del euro) más la diferencia que tenga tu cuenta, y te muestra cuánto ganaste o perdiste por la tasa.</p>'}`;
+        ${open ? fxPanel(open) : S.fx.length ? '' : '<p class="text-[11px] text-slate-400 mb-4">Guarda aquí plata en dólares o euros y mira cuánto ganas o pierdes por la tasa.</p>'}`;
 }
 
 function togFx(id) { fxOpen = fxOpen == id ? null : id; walOpen = null; draw(); }
@@ -320,4 +319,46 @@ function svDel(aid, sid) {
     if (svLocked(x)) return showToast("Es un gasto pagado desde la meta: bórralo desde el movimiento en Inicio.", true);
     if (svb(a.id) - x.v < -0.005) return showToast("Si borras eso la meta quedaría en negativo. Corrige o borra primero el retiro.", true);
     confirmAction("¿Borrar este " + (x.i ? "saldo" : x.v > 0 ? "aporte" : "retiro") + " de " + fm(a, Math.abs(x.v)) + "?" + (!x.i && x.w ? " La plata " + (x.v > 0 ? "vuelve a" : "deja de salir de") + " la cuenta " + esc(wlabel(x.w)) + "." : ""), () => { S.sv = S.sv.filter(y => y.id != sid); save(); });
+}
+
+// ---------- Interfaz más limpia: menú ⋯, ayuda "?" y bloques plegables ----------
+// Usan <details>, así que no necesitan estado. mxMenu(botones): lo secundario va dentro de un ⋯.
+function mxMenu(inner) {
+    return `<details class="mx"><summary aria-label="Más opciones">⋯</summary><div class="mx-b">${inner}</div></details>`;
+}
+// hq(texto): icono ? que despliega la explicación solo si lo tocas.
+function hq(txt) {
+    return `<details class="hq"><summary aria-label="Ayuda">?</summary><p>${txt}</p></details>`;
+}
+// sdet(titulo, contenido): bloque plegado por defecto.
+function sdet(title, inner, cls) {
+    return `<details class="sdet ${cls || ""}"><summary>${title}</summary><div class="sdet-b">${inner}</div></details>`;
+}
+
+// Tasas y precios: antes estaban en Inversión, ahora viven en Ajustes
+function ratesUI(card) {
+    const inpc = "w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs";
+    return `
+        <section class="${card}"><h3 class="text-base font-bold">Tasas y precios${hq("Cada cuenta en dólares o euros puede tener su propia diferencia en pesos. Puedes escribir los decimales con coma o con punto.")}</h3>
+            <div>
+                <label class="block text-[11px] font-semibold text-slate-500 mb-1">Pesos por 1 dólar (TRM)</label>
+                <div class="flex gap-2"><input id="trmInput" inputmode="decimal" value="${tf(S.trm)}" placeholder="Ej. 3221,56" onkeydown="if(event.key==='Enter')setTrmVal()" class="${inpc}" autocomplete="off"><button onclick="setTrmVal()" class="px-4 bg-indigo-600 text-white font-semibold rounded-xl text-xs shrink-0">Guardar</button></div>
+            </div>
+            <div>
+                <label class="block text-[11px] font-semibold text-slate-500 mb-1">Pesos por 1 euro</label>
+                <div class="flex gap-2"><input id="eurInput" inputmode="decimal" value="${S.eur ? tf(S.eur) : ""}" placeholder="Ej. 4600" onkeydown="if(event.key==='Enter')setEurVal()" class="${inpc}" autocomplete="off"><button onclick="setEurVal()" class="px-4 bg-indigo-600 text-white font-semibold rounded-xl text-xs shrink-0">Guardar</button></div>
+            </div>
+            <button onclick="fxFetchRates()" class="w-full py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold rounded-xl text-xs"><i class="fa-solid fa-rotate mr-1.5"></i>Actualizar tasas por internet</button>
+            ${S.rAt ? `<p class="text-[11px] text-slate-400">Última consulta: <b>${rAtTxt()}</b></p>` : ""}
+            <div class="pt-3 border-t border-slate-100 dark:border-slate-800">
+                <button onclick="fkModal()" class="w-full py-2.5 bg-slate-100 dark:bg-slate-800 font-semibold rounded-xl text-xs"><i class="fa-solid fa-key mr-1.5"></i>Clave API de precios en vivo</button>
+                <p class="text-[11px] text-slate-400 mt-1.5">Pon ticker y cantidad en cada inversión (lápiz) y pega tu clave gratis de finnhub.io.</p>
+            </div>
+        </section>`;
+}
+
+// Tarjeta plegable que recuerda si la dejaste abierta (se usa en Gráficas)
+let sdOpen = {};
+function sdk(key, title, inner) {
+    return `<section class="${CARD} p-5"><details class="sdet sdh" style="margin:0" ${sdOpen[key] ? "open" : ""} ontoggle="sdOpen['${key}']=this.open?1:0;if(this.open&&typeof charts!='undefined')setTimeout(()=>charts.forEach(c=>c.resize()),30)"><summary>${title}</summary><div class="sdet-b pt-3">${inner}</div></details></section>`;
 }

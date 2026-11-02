@@ -218,7 +218,7 @@ function bkUI() {
                 <div class="w-9 h-9 shrink-0 rounded-xl flex items-center justify-center text-sm bg-amber-100 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400"><i class="fa-solid fa-cloud-arrow-down"></i></div>
                 <div class="min-w-0 flex-1">
                     <p class="text-xs font-bold text-slate-800 dark:text-white">${d === null ? "Aún no has hecho una copia de seguridad" : "Tu última copia fue hace " + d + " días"}</p>
-                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">Tus datos viven solo en este celular. Si lo pierdes, lo formateas o borras el navegador, se van con él. Descarga la copia y guárdala en Drive o envíatela por WhatsApp.</p>
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Tus datos viven solo en este celular.${hq("Si lo pierdes, lo formateas o borras el navegador, se van con él. Descarga la copia y guárdala en Drive o envíatela por WhatsApp.")}</p>
                     <div class="flex gap-2 mt-3">
                         <button onclick="downloadBackup()" class="px-3 py-1.5 bg-indigo-600 text-white rounded-xl text-xs font-semibold shadow-md shadow-indigo-500/20">Descargar copia</button>
                         <button onclick="snoozeBackup()" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold">Recordarme luego</button>
@@ -420,7 +420,7 @@ function vHome() {
     // Secciones que se pliegan (ver colSec): lo gastado por categoría y la lista de movimientos
     const gasTot = by.reduce((s, x) => s + x[1], 0), nMov = baseItems().filter(fltMatch).filter(matchQ).length;
     const catsBody = `
-            <p class="text-[11px] text-slate-400 mb-3">Toca una categoría para ver sus compras y filtrar por fechas</p>
+            
                 ${by.map(([c, v]) => {
                     const bi = budInfo(c, ym(cur)), b = bi.tot, r = b ? v / b : v / mx;
                     return `<div class="text-xs cursor-pointer rounded-xl -mx-2 px-2 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition" role="button" tabindex="0" onclick="openCat('${esc(c)}')" onkeydown="if(event.key==='Enter')openCat('${esc(c)}')" title="Ver las compras de ${esc(c)}">
@@ -495,10 +495,9 @@ function vHome() {
 
         <section class="${CARD} p-5">
             <div class="flex items-center justify-between mb-1">
-                <h3 class="text-sm font-bold text-slate-800 dark:text-white">Últimos movimientos</h3>
+                <h3 class="text-sm font-bold text-slate-800 dark:text-white">Últimos movimientos${S.items.length ? hq("Desliza para editar o borrar · mantén presionado para duplicar") : ""}</h3>
                 <button onclick="openAllMov()" class="text-xs font-semibold text-indigo-600 dark:text-indigo-400">Ver todos</button>
             </div>
-            ${S.items.length ? '<p class="mv-hint text-[11px] text-slate-400 mb-1">Desliza para editar o borrar · mantén presionado para duplicar</p>' : ""}
             ${movListHTML(4)}
         </section>
 
@@ -611,9 +610,9 @@ function vCue() {
                 <span class="text-xs font-semibold">Agregar cuenta</span>
             </button>
         </div>
-        ${open ? walPanel(open) : '<p class="text-[11px] text-slate-400 text-center mb-4">Toca una cuenta para ver sus bolsillos y movimientos.</p>'}
+        ${open ? walPanel(open) : ""}
         ${fxSection()}
-        <p class="text-[11px] text-slate-400">El total no incluye las cuentas que ocultes en Ajustes. Los gastos con tarjeta no salen de ninguna cuenta hasta que abonas a la tarjeta.</p>
+        <p class="text-[11px] text-slate-400">${hq("El total no incluye las cuentas que ocultes en Ajustes. Los gastos con tarjeta no salen de ninguna cuenta hasta que abonas a la tarjeta.")}</p>
     `;
 }
 
@@ -631,8 +630,7 @@ function goalBlock(a, p) {
     if (gi && !gi.done) {
         info = `<div class="mb-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 text-[11px] space-y-1">
             <div class="flex justify-between"><span class="text-slate-400"><i class="fa-regular fa-calendar mr-1"></i>Fecha límite</span><b>${dmy(a.dl)} · ${gi.late ? `<span class="text-rose-500">venció hace ${-gi.days} d</span>` : gi.days == 0 ? "hoy" : "en " + gi.days + " d"}</b></div>
-            <div class="flex justify-between"><span class="text-slate-400">Para llegar a tiempo</span><b>${fm(a, gi.perMonth)} al mes</b></div>
-            <div class="flex justify-between"><span class="text-slate-400">Ritmo</span>${gi.late ? `<b class="text-rose-500">Faltan ${fm(a, gi.falta)}</b>` : gi.ok ? `<b class="text-emerald-500">Vas al día ✓</b>` : `<b class="text-amber-500">Atrasado por ${fm(a, gi.gap)}</b>`}</div>
+            <div class="flex justify-between"><span class="text-slate-400">Para llegar a tiempo</span>${gi.late ? `<b class="text-rose-500">Faltan ${fm(a, gi.falta)}</b>` : `<b class="${gi.ok ? "text-emerald-500" : "text-amber-500"}">${fm(a, gi.perMonth)} al mes${gi.ok ? " ✓" : ""}</b>`}</div>
         </div>`;
     }
     return { bar, info };
@@ -648,7 +646,7 @@ function vAho() {
         const pkBox = gp.length ? `<div class="mb-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
                     <div class="flex justify-between items-center mb-1"><span class="text-[10px] uppercase tracking-wider text-slate-400"><i class="fa-solid fa-box-archive mr-1"></i>En bolsillos de tus cuentas</span><b class="text-xs">${fm(a, pkv)}</b></div>
                     ${gp.map(x => `<div class="flex items-center justify-between gap-2 py-1.5 text-[11px] border-t border-slate-100 dark:border-slate-800 first:border-0"><span class="min-w-0 truncate text-slate-500 dark:text-slate-400">${esc(x.w.n)} › <b class="text-slate-700 dark:text-slate-200">${esc(x.p.n)}</b> · ${fmt(x.p.v)}</span><span class="flex gap-1.5 shrink-0"><button onclick="pkMove(${x.w.id},${x.p.id},1)" class="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 text-[11px]" aria-label="Meter"><i class="fa-solid fa-plus"></i></button><button onclick="pkMove(${x.w.id},${x.p.id},-1)" class="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 text-[11px]" aria-label="Sacar"><i class="fa-solid fa-minus"></i></button></span></div>`).join("")}
-                    <p class="text-[10px] text-slate-400 mt-1">Esta plata sigue en tu cuenta (no sube tu patrimonio dos veces), pero cuenta para esta meta.</p>
+                    ${hq("Esta plata sigue en tu cuenta (no sube tu patrimonio dos veces), pero cuenta para esta meta.")}
                 </div>` : "";
         return `
             <div class="${CARD} g-card p-5 mb-4 ${goalOpen == a.id ? "g-open" : ""}">
@@ -665,17 +663,13 @@ function vAho() {
                         ${a.u ? `<small class="text-xs text-slate-400 block mt-0.5">≈ ${fmt(t * S.trm)} (TRM ${fmtD(S.trm)})</small>` : ""}
                     </div>
                 </div>
-                ${a.r > 0 ? `<div class="grid grid-cols-3 gap-2 mb-1">${[["Hoy", gy.daily], ["Este mes", gy.month], ["Total ganado", gy.total]].map(([l, v]) => `<div class="p-2.5 rounded-2xl bg-emerald-50 dark:bg-emerald-500/10"><span class="text-[10px] uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block leading-tight">${l}</span><b class="text-xs text-emerald-600 dark:text-emerald-400">+${fm(a, v)}</b></div>`).join("")}</div><p class="text-[10px] text-slate-400 mb-3"><i class="fa-solid fa-seedling mr-1"></i>Rendimiento estimado, ya incluido en el saldo. Crece cada día con interés compuesto (${tf(a.r)}% E.A.).</p>` : ""}
+                ${a.r > 0 ? sdet("Ver rendimiento", `<div class="grid grid-cols-3 gap-2 mb-1">${[["Hoy", gy.daily], ["Este mes", gy.month], ["Total ganado", gy.total]].map(([l, v]) => `<div class="p-2.5 rounded-2xl bg-emerald-50 dark:bg-emerald-500/10"><span class="text-[10px] uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block leading-tight">${l}</span><b class="text-xs text-emerald-600 dark:text-emerald-400">+${fm(a, v)}</b></div>`).join("")}</div><p class="text-[10px] text-slate-400 mb-1">Ya incluido en el saldo (${tf(a.r)}% E.A.).</p>`) : ""}
                 ${pkBox}${a.g ? `${gb.bar.replace('bg-emerald-500 h-full', 'h-full').replace('style="width:' + p + '%"', 'style="width:' + p + '%;background:' + goalCol(a) + '"')}<div class="flex justify-between text-[11px] text-slate-400 mb-3"><span>${p.toFixed(0)}% de ${fm(a, a.g)}</span><span>${t >= a.g ? "¡Meta lograda!" : "Faltan " + fm(a, a.g - t)}</span></div>${gb.info}` : ""}
                 ${goalHist(a)}
                 <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
                     <button onclick="mov(${a.id}, 1)" class="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-xl text-xs font-semibold">＋ Meter</button>
                     <button onclick="mov(${a.id}, -1)" class="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-xl text-xs font-semibold">－ Sacar</button>
-                    <button onclick="pkGoal(${a.id})" class="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-xl text-xs font-semibold"><i class="fa-solid fa-box-archive mr-1"></i>Bolsillo</button>
-                    ${s + y > 0.5 ? `<button onclick="mov(${a.id}, -1, 1)" class="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-xl text-xs font-semibold">Sacar todo</button>` : ""}
-                    <button onclick="editAcc(${a.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold">Editar</button>
-                    <button onclick="archAcc(${a.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold">Archivar</button>
-                    <button onclick="delAcc(${a.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-rose-500 rounded-xl text-xs font-semibold">Borrar</button>
+                    ${mxMenu(`<button onclick="pkGoal(${a.id})" class="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-xl text-xs font-semibold"><i class="fa-solid fa-box-archive mr-1"></i>Bolsillo</button>${s + y > 0.5 ? `<button onclick="mov(${a.id}, -1, 1)" class="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-xl text-xs font-semibold">Sacar todo</button>` : ""}<button onclick="editAcc(${a.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold">Editar</button><button onclick="archAcc(${a.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold">Archivar</button><button onclick="delAcc(${a.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-rose-500 rounded-xl text-xs font-semibold">Borrar</button>`)}
                 </div>
             </div>`;
     }).join("");
@@ -754,35 +748,11 @@ function vInv() {
             <p class="text-xs text-purple-100 mt-1">${P.T >= P.C ? "+" : ""}${fmt(P.T - P.C)} sobre lo invertido${P.ann !== null ? ` · ≈ ${pct1(P.ann)} anual (estimado)` : ""}</p>
             <button onclick="togUsd()" class="mt-3 px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-xl text-xs font-semibold">Ver en ${usd ? "COP" : "USD"}</button>
         </section>
-        <div class="${CARD} p-5 mb-6">
-            <h3 class="text-sm font-bold mb-3">Tasa de Cambio (TRM) y Moneda</h3>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2">
-                <input id="trmInput" inputmode="decimal" value="${tf(S.trm)}" placeholder="Ej. 3221,56" onkeydown="if(event.key==='Enter')setTrmVal()" class="px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs" autocomplete="off">
-                <button onclick="setTrmVal()" class="py-2.5 bg-indigo-600 text-white font-semibold rounded-xl text-xs shadow-md">Actualizar TRM</button>
-            </div>
-            <p class="text-[11px] text-slate-400">TRM actual: <b>${fmtD(S.trm)}</b> por dólar. Puedes escribir los decimales con coma o con punto.</p>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2 mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
-                <input id="eurInput" inputmode="decimal" value="${S.eur ? tf(S.eur) : ""}" placeholder="Pesos por 1 euro. Ej. 4600" onkeydown="if(event.key==='Enter')setEurVal()" class="px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs" autocomplete="off">
-                <button onclick="setEurVal()" class="py-2.5 bg-indigo-600 text-white font-semibold rounded-xl text-xs shadow-md">Actualizar tasa del euro</button>
-            </div>
-            <p class="text-[11px] text-slate-400">${S.eur ? "Tasa del euro: <b>" + fmtD(S.eur) + "</b> por euro." : "Se usa para tus cuentas en euros."}</p>
-            <button onclick="fxFetchRates()" class="w-full mt-3 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold rounded-xl text-xs"><i class="fa-solid fa-rotate mr-1.5"></i>Actualizar tasas por internet</button>
-            ${S.rAt ? `<p class="text-[11px] text-slate-400 mt-1.5">Última consulta: <b>${rAtTxt()}</b></p>` : ""}
-            <p class="text-[11px] text-slate-400 mt-1.5">Trae la TRM oficial y el euro de mercado. Cada cuenta en dólares o euros puede tener su propia diferencia en pesos.</p>
-        </div>
-        <div class="${CARD} p-5 mb-6">
-            <h3 class="text-sm font-bold mb-1">Precios en vivo</h3>
-            <p class="text-[11px] text-slate-400 mb-3">${S.pxAt ? "Última actualización: " + (Math.round((Date.now() - S.pxAt) / 60000) < 1 ? "hace un momento" : "hace " + Math.round((Date.now() - S.pxAt) / 60000) + " min") + " (precio de cierre si el mercado está cerrado)." : "Pon ticker y cantidad de acciones en cada inversión (lápiz), pega tu clave gratis de finnhub.io y actualiza."}</p>
-            <div class="grid grid-cols-2 gap-3">
-                <button onclick="refreshPrices(true)" class="py-2.5 bg-indigo-600 text-white font-semibold rounded-xl text-xs shadow-md"><i class="fa-solid fa-rotate mr-1.5"></i>Actualizar precios</button>
-                <button onclick="fkModal()" class="py-2.5 bg-slate-100 dark:bg-slate-800 font-semibold rounded-xl text-xs"><i class="fa-solid fa-key mr-1.5"></i>Clave API</button>
-            </div>
-        </div>
+        <div class="flex justify-between items-center mb-3"><span class="text-[11px] text-slate-400 min-w-0 pr-2 truncate">${S.pxAt ? "Precios: hace " + Math.max(1, Math.round((Date.now() - S.pxAt) / 60000)) + " min" : "Precios sin actualizar"}</span><button onclick="refreshPrices(true)" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold shrink-0"><i class="fa-solid fa-rotate mr-1.5"></i>Actualizar precios</button></div>
         <div class="flex justify-between items-center mb-4"><h3 class="text-base font-bold">Mis Inversiones</h3><button onclick="newInv()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold shadow-md">+ Nueva Inversión</button></div>
         ${R || emptyUI("fa-chart-line", "#34C759", "Aún no tienes inversiones", "Registra tus ETFs, acciones o CDT para ver cuánto rinden y cómo está repartido tu portafolio.", "Agregar la primera inversión", "newInv()")}
         ${invExtraUI()}
-        ${rbUI()}
-        <p class="text-[11px] text-slate-400 mt-2">El rendimiento anual se calcula con la fecha de inicio y el valor actual, y solo aparece después de 30 días (antes exagera). Es una estimación: no descuenta comisiones ni impuestos.</p>
+        <p class="text-[11px] text-slate-400 mt-2">Rendimiento anual estimado.${hq("Se calcula con la fecha de inicio y el valor actual, y solo aparece después de 30 días (antes exagera). No descuenta comisiones ni impuestos.")}</p>
     `;
 }
 
@@ -824,14 +794,9 @@ function planUI() {
     const ds = debtList();
     if (!ds.length) return "";
     const mins = ds.reduce((s, d) => s + d.min, 0), B = S.dp.b || 0;
-    return `
-        <section class="${CARD} p-5 mt-6">
-            <h3 class="text-sm font-bold text-slate-800 dark:text-white"><i class="fa-solid fa-route text-rose-500 mr-1.5"></i>Plan para salir de deudas</h3>
-            <p class="text-[11px] text-slate-400 mt-0.5 mb-3"><b>Avalancha</b> paga primero la de mayor tasa (menos intereses). <b>Bola de nieve</b> paga primero la de menor saldo (logros rápidos). Cuenta solo las deudas de esta pestaña, no las tarjetas. Para que Avalancha tenga sentido, añade la tasa mensual en cada deuda (Editar).</p>
-            <label class="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">¿Cuánto puedes pagar al mes en total?</label>
+    return `<div class="mt-6">${sdk("plan", '<span><i class="fa-solid fa-route text-rose-500 mr-1.5"></i>Plan para salir de deudas</span>', `<div class="mb-3 text-[11px] text-slate-400">Compara dos formas de pagar.${hq(`<b>Avalancha</b> paga primero la de mayor tasa (menos intereses). <b>Bola de nieve</b> paga primero la de menor saldo (logros rápidos). Cuenta solo las deudas de esta pestaña, no las tarjetas. Para que Avalancha tenga sentido, añade la tasa mensual en cada deuda (Editar).`)}</div><label class="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">¿Cuánto puedes pagar al mes en total?</label>
             <input id="dpB" inputmode="numeric" value="${B ? B.toLocaleString("es-CO") : ""}" placeholder="${mins ? "Mínimo: " + fmt(mins) : "Ej. 500.000"}" oninput="fa(this);dpCalc()" onchange="setDp(this.value)" class="${INP} mb-3" autocomplete="off">
-            <div id="dpRes">${planResUI(B)}</div>
-        </section>`;
+            <div id="dpRes">${planResUI(B)}</div>`)}</div>`;
 }
 function planResUI(B) {
     const p = debtPlan(B);
@@ -858,7 +823,7 @@ function planResUI(B) {
         ${row("Ahorro vs. solo cuotas", save(p.av), save(p.bn), "—")}
         ${verdict ? `<p class="text-[11px] text-emerald-600 dark:text-emerald-400 mt-3"><i class="fa-solid fa-circle-check mr-1"></i>${verdict}</p>` : ""}
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">${names(p.av) == names(p.bn) ? ord("Orden de pago (igual en ambas)", p.av) : ord("Orden · Avalancha", p.av) + ord("Orden · Bola de nieve", p.bn)}</div>
-        <p class="text-[11px] text-slate-400 mt-3">Estimado: asume que pagas el total cada mes y que el dinero de una deuda ya pagada pasa a la siguiente. «Solo cuotas» no reasigna nada. Las fechas cuentan desde el próximo mes.</p>`;
+        <p class="text-[11px] text-slate-400 mt-3">Estimado.${hq("Asume que pagas el total cada mes y que el dinero de una deuda ya pagada pasa a la siguiente. «Solo cuotas» no reasigna nada. Las fechas cuentan desde el próximo mes.")}</p>`;
 }
 
 // ---------- Gráficas ----------
@@ -879,29 +844,20 @@ function vGra() {
             <div class="flex justify-between items-center mb-4"><h3 class="text-sm font-bold">Gastos por categoría</h3>
             <div class="flex items-center space-x-2"><button onclick="go(-1)" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800">‹</button><span class="text-xs font-semibold capitalize">${cur.toLocaleDateString(DLOC, { month: "long", year: "numeric" })}</span><button onclick="go(1)" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800">›</button></div></div>
             <div class="max-w-xs mx-auto"><canvas id="chCat"></canvas></div>
-            <p class="text-[11px] text-slate-400 text-center mt-3">Toca una porción para ver esas compras</p>
+            <p class="text-[11px] text-slate-400 text-center mt-2">Toca una porción para ver esas compras</p>
         </section>
 
-        <section class="${CARD} p-5">
-            <div class="flex flex-wrap justify-between items-center gap-2 mb-4">
-                <h3 class="text-sm font-bold">Comparar gastos entre meses</h3>
-                <select onchange="setCmp(this.value)" class="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs">${opts.map(([v, l]) => `<option value="${v}" ${v == cmp ? "selected" : ""}>${l}</option>`).join("")}</select>
-            </div>
-            ${rows.length ? `
+        ${sdk("cmp", "Comparar gastos entre meses", `<div class="mb-3"><select onchange="setCmp(this.value)" class="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs">${opts.map(([v, l]) => `<option value="${v}" ${v == cmp ? "selected" : ""}>${l}</option>`).join("")}</select></div>${rows.length ? `
             <canvas id="chCmp"></canvas>
             <div class="mt-4 text-xs">
                 <div class="grid grid-cols-4 gap-2 pb-2 border-b border-slate-100 dark:border-slate-800 text-[10px] uppercase tracking-wider text-slate-400 font-bold"><span>Categoría</span><span class="text-right capitalize">${monLabel(ok)}</span><span class="text-right capitalize">${monLabel(mk)}</span><span class="text-right">Cambio</span></div>
                 ${rows.map(r => `<div onclick="openCat('${esc(r.c)}')" class="grid grid-cols-4 gap-2 py-2 border-b border-slate-100 dark:border-slate-800 items-center cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 transition"><span class="font-medium truncate">${esc(r.c)}</span><span class="text-right">${fmt(r.b)}</span><span class="text-right">${fmt(r.a)}</span><span class="text-right text-[11px]">${delta(r.a, r.b)}</span></div>`).join("")}
                 <div class="grid grid-cols-4 gap-2 pt-2 font-bold items-center"><span>Total</span><span class="text-right">${fmt(tb)}</span><span class="text-right">${fmt(ta)}</span><span class="text-right text-[11px]">${delta(ta, tb)}</span></div>
-            </div>` : '<p class="text-xs text-slate-400 text-center py-6">No hay gastos en esos dos meses para comparar.</p>'}
-        </section>
+            </div>` : '<p class="text-xs text-slate-400 text-center py-6">No hay gastos en esos dos meses para comparar.</p>'}`)}
 
         <section class="${CARD} p-5"><h3 class="text-sm font-bold mb-4">Ingresos vs gastos (6 meses)</h3><canvas id="chMon"></canvas></section>
 
-        <section class="${CARD} p-5"><h3 class="text-sm font-bold mb-1">Patrimonio neto mes a mes</h3>
-            <p class="text-[11px] text-slate-400 mb-4">Se guarda una foto cada vez que usas la app.</p>
-            ${hasNW ? '<canvas id="chNW"></canvas>' : '<p class="text-xs text-slate-400 text-center py-6">Aparecerá cuando tengas al menos dos meses de datos.</p>'}
-        </section>
+        ${sdk("nw", "Patrimonio neto mes a mes", `${hasNW ? '<canvas id="chNW"></canvas>' : '<p class="text-xs text-slate-400 text-center py-4">Aparecerá cuando tengas al menos dos meses de datos.</p>'}`)}
         ${invChartUI()}`;
 }
 
@@ -1009,7 +965,7 @@ function vTar() {
                     ${cu.ok ? "" : `<button onclick="payCard(${c.id})" class="tc-btn">Pagar</button>`}
                 </div>
                 <div class="h-px bg-slate-100 dark:bg-white/5 my-4"></div>
-                <div class="grid grid-cols-2 gap-2 text-xs mb-4">
+                ${sdet("Ver detalle del mes", `<div class="grid grid-cols-2 gap-2 text-xs mb-4">
                     <div><span class="text-slate-400 block">Compras este mes</span><b>${fmt(u)}</b></div>
                     <div><span class="text-slate-400 block">${nextOnly ? "Próxima cuota · " + dmy(payDateIn(c.p, cn.m)).slice(0, 5) : "Cuota a pagar"}</span><b class="text-indigo-600">${nextOnly ? fmt(cn.due) : fmt(cu.ok ? 0 : Math.max(0, owe))}</b></div>
                     <div><span class="text-slate-400 block">Abonado este mes</span><b class="text-emerald-600">${fmt(cu.ab)}</b></div>
@@ -1018,7 +974,7 @@ function vTar() {
                 ${c.mf > 0 || c.mr > 0 ? `<div class="grid grid-cols-2 gap-2 text-xs mb-4 -mt-1">
                     ${c.mf > 0 ? `<div><span class="text-slate-400 block">Cuota de manejo (${c.mt == "a" ? "anual" : "mensual"})</span><b>${fmt(c.mf)}</b>${cu.fee > 0 ? `<span class="text-[10px] text-amber-500 ml-1.5">va en esta cuota</span>` : ""}</div>` : ""}
                     ${c.mr > 0 ? `<div><span class="text-slate-400 block">Interés de mora (${tf(c.mr)}% mensual)</span><b class="${cu.mora > 0 ? "text-rose-500" : ""}">${fmt(cu.mora)}</b>${cu.mora > 0 ? `<span class="text-[10px] text-rose-400 ml-1.5">estimado</span>` : ""}</div>` : ""}
-                </div>` : ""}
+                </div>` : ""}`)}
                 ${(cu.ext > 0 || cu.atrLeft > 0) && !cu.ok ? `<p class="text-[11px] ${cu.atrLeft > 0 ? "text-rose-500" : "text-slate-400"} -mt-2 mb-3">La cuota a pagar incluye ${[cu.atrLeft > 0 ? fmt(cu.atrLeft) + " vencidos de meses anteriores" : "", cu.fee > 0 ? fmt(cu.fee) + " de cuota de manejo" : "", cu.mora > 0 ? fmt(cu.mora) + " de mora" : ""].filter(Boolean).join(", ").replace(/, ([^,]*)$/, " y $1")}.</p>` : ""}
                 ${over > 0.5 && !c.paid[n] ? `<p class="text-[11px] text-emerald-600 dark:text-emerald-400 -mt-2 mb-3"><i class="fa-solid fa-circle-check mr-1"></i>Pagaste ${fmt(over)} por encima de la cuota de este mes: se aplica a la cuota siguiente (y lo que sobre, a capital).</p>` : ""}
                 ${nextOnly ? `<p class="text-[11px] text-slate-500 dark:text-slate-400 -mt-2 mb-3"><i class="fa-regular fa-calendar mr-1"></i>Este mes no tienes cuota por pagar: tus compras entran en el extracto que cierra el <b class="text-slate-600 dark:text-slate-300">${dmy(sx.close).slice(0, 5)}</b> y se paga el <b class="text-slate-600 dark:text-slate-300">${dmy(sx.pay)}</b>.</p>` : cn.m != n && cn.due > 0 ? `<p class="text-[11px] text-slate-400 -mt-2 mb-3"><i class="fa-regular fa-calendar mr-1"></i>Próximo pago: <b class="text-slate-600 dark:text-slate-300">${dmy(payDateIn(c.p, cn.m))}</b> · ${fmt(cn.due)}</p>` : ""}
@@ -1035,9 +991,7 @@ function vTar() {
                 <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
                     <button onclick="payCard(${c.id})" class="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-xl text-xs font-semibold">Abonar</button>
                     <button onclick="paidCard(${c.id})" class="px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-xl text-xs font-semibold">${cu.ok ? "Desmarcar pago" : "Marcar pagada"}</button>
-                    <button onclick="openExtract(${c.id})" class="px-3 py-1.5 bg-violet-50 text-violet-600 rounded-xl text-xs font-semibold"><i class="fa-solid fa-receipt mr-1"></i>Extracto</button>
-                    <button onclick="editCard(${c.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold">Editar</button>
-                    <button onclick="delCard(${c.id})" class="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-xl text-xs font-semibold">Borrar</button>
+                    ${mxMenu(`<button onclick="openExtract(${c.id})" class="px-3 py-1.5 bg-violet-50 text-violet-600 rounded-xl text-xs font-semibold"><i class="fa-solid fa-receipt mr-1"></i>Extracto</button><button onclick="editCard(${c.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold">Editar</button><button onclick="delCard(${c.id})" class="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-xl text-xs font-semibold">Borrar</button>`)}
                 </div>
                 ${(() => { const gm = {}; m.filter(x => x.k == c.n && x.t == "g").forEach(x => gm[x.c] = (gm[x.c] || 0) + x.a); const L = Object.entries(gm).sort((p, q) => q[1] - p[1]).slice(0, 5), T = L.reduce((t, z) => t + z[1], 0); if (!T) return ""; return `<h4 class="text-sm font-bold text-slate-800 dark:text-white mt-5 mb-2">Gastos por categoría</h4><div class="tc-seg">${L.map(([k, v]) => `<i style="width:${v / T * 100}%;background:${catIc(k)[1]}"></i>`).join("")}</div>${L.map(([k, v]) => `<div class="tc-cat"><span class="tc-dot" style="background:${catIc(k)[1]}"></span><span class="flex-1 truncate">${esc(k)}</span><span class="text-slate-400">${Math.round(v / T * 100)}%</span><b>${fmt(v)}</b></div>`).join("")}`; })()}
                 </div>
@@ -1245,8 +1199,7 @@ function vDeu() {
             ${d.dd && left > 0 ? (() => { const due = dbtDue(d, ym(new Date())), dt = dueIn(d.dd); return `<div class="text-[11px] mb-3 ${due > 0 && dt <= 3 ? "text-rose-500 font-semibold" : "text-slate-400"}">${d.cu > 0 ? "Cuota " + fmt(d.cu) + " · " : ""}pago el día ${d.dd} · ${due > 0 ? dueTxt(dt) : "al día este mes ✓"}</div>`; })() : ""}
             <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
                 ${left > 0 ? `<button onclick="payDbt(${d.id})" class="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-xl text-xs font-semibold">Abonar</button>` : ""}
-                <button onclick="editDbt(${d.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold">Editar</button>
-                <button onclick="delDbt(${d.id})" class="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-xl text-xs font-semibold">Borrar</button>
+                ${mxMenu(`<button onclick="editDbt(${d.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold">Editar</button><button onclick="delDbt(${d.id})" class="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-xl text-xs font-semibold">Borrar</button>`)}
             </div></div>`;
     }).join("");
     return `<section class="bg-gradient-to-b from-rose-500 to-rose-600 text-white p-6 rounded-[20px] shadow-sm mb-6"><small class="text-xs text-rose-100 font-medium uppercase tracking-wider">Total que debo</small><div class="text-3xl font-extrabold mt-1">${fmt(T)}</div></section>
@@ -1267,9 +1220,9 @@ function themeUI() {
     const ct = customTheme(S.th.c);
     return `
         <section class="${CARD} p-6 space-y-4">
-            <div><h3 class="text-base font-bold">Apariencia</h3><p class="text-xs text-slate-400 mt-1">Elige claro u oscuro y el tema de color de toda la app. Se guarda en este dispositivo.</p></div>
+            <div><h3 class="text-base font-bold">Apariencia${hq("Elige claro u oscuro y el tema de color de toda la app. Se guarda en este dispositivo.")}</h3></div>
             <div class="flex gap-0.5 p-0.5 rounded-[10px] bg-slate-100 dark:bg-slate-800">${mb("auto", "Automático", "fa-circle-half-stroke")}${mb("light", "Claro", "fa-sun")}${mb("dark", "Oscuro", "fa-moon")}</div>
-            <div class="grid grid-cols-3 sm:grid-cols-4 gap-2">
+            <div class="theme-strip">
                 ${THEMES.map(sw).join("")}
                 <label class="relative p-2.5 rounded-2xl border-2 transition text-center cursor-pointer ${cur == "custom" ? on : off}">
                     <span class="block h-9 rounded-xl" style="background:${cur == "custom" ? "linear-gradient(135deg," + ct.p + "," + ct.s + ")" : "conic-gradient(#ef4444,#f59e0b,#10b981,#06b6d4,#6366f1,#d946ef,#ef4444)"}"></span>
@@ -1285,13 +1238,9 @@ function langUI() {
     let dn = null; try { dn = new Intl.DisplayNames([LANG], { type: "language" }); } catch (e) {}
     return `
         <section class="${CARD} p-6 space-y-3">
-            <div><h3 class="text-base font-bold"><i class="fa-solid fa-globe text-indigo-500 mr-2"></i>Idioma</h3><p class="text-xs text-slate-400 mt-1">Elige el idioma de la app. Se guarda en este dispositivo.</p></div>
-            <div class="rounded-2xl overflow-hidden border border-black/[.05] dark:border-white/[.08]" role="radiogroup" translate="no">
-                ${LANGS.map(l => `<button onclick="setLang('${l.id}')" role="radio" aria-checked="${LANG == l.id}" class="ios-row w-full flex items-center gap-3 px-4 py-3 text-left active:bg-slate-100 dark:active:bg-slate-800 transition-colors">
-                    <span class="text-[26px] leading-none">${l.f}</span>
-                    <span class="flex-1 min-w-0"><b class="text-[16px] font-semibold block">${l.n}</b>${dn && l.id != LANG ? `<small class="text-[11px] text-slate-400">${dn.of(l.id)}</small>` : ""}</span>
-                    ${LANG == l.id ? '<i class="fa-solid fa-circle-check text-[20px] text-indigo-600 dark:text-indigo-400"></i>' : '<span class="w-5 h-5 rounded-full border-2 border-slate-300 dark:border-slate-600"></span>'}
-                </button>`).join("")}
+            <div><h3 class="text-base font-bold"><i class="fa-solid fa-globe text-indigo-500 mr-2"></i>Idioma</h3></div>
+            <div class="flex flex-wrap gap-2" role="radiogroup" translate="no">
+                ${LANGS.map(l => `<button onclick="setLang('${l.id}')" role="radio" aria-checked="${LANG == l.id}" class="flex items-center gap-2 px-3 py-2 rounded-2xl border-2 text-sm font-semibold transition ${LANG == l.id ? "border-indigo-500 bg-indigo-50/60 dark:bg-indigo-500/10" : "border-transparent bg-slate-50 dark:bg-slate-800/60"}"><span class="text-[20px] leading-none">${l.f}</span>${l.n}</button>`).join("")}
             </div>
         </section>`;
 }
@@ -1304,10 +1253,10 @@ function vSet() {
         const has = S.bud[c] > 0, ov = ((S.budm || {})[bmk] || {})[c], on = !!(S.budr || {})[c];
         return `<div class="text-xs">
             <div class="flex items-center justify-between gap-3"><span class="font-medium flex items-center gap-2.5 min-w-0">${catChip(c, 1)}<span class="truncate">${c}</span></span><input inputmode="numeric" value="${S.bud[c] ? Number(S.bud[c]).toLocaleString("es-CO") : ""}" placeholder="Sin límite" oninput="fa(this)" onchange="setBud('${c}', this.value)" class="w-36 px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-right"></div>
-            ${has || ov ? `<div class="flex items-center justify-between gap-3 mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+            ${has || ov ? `<details class="sdet" style="margin:2px 0 0" ${on || ov ? "open" : ""}><summary>Más opciones</summary><div class="sdet-b"><div class="flex items-center justify-between gap-3 mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">
                 <label class="flex items-center gap-1.5"><input type="checkbox" ${on ? "checked" : ""} onchange="togBudRoll('${c}')" class="ios-switch sm">Acumular lo que sobre</label>
                 <span class="flex items-center gap-1.5">Solo ${mlab}<input inputmode="numeric" value="${ov ? Number(ov).toLocaleString("es-CO") : ""}" placeholder="igual" oninput="fa(this)" onchange="setBudMonth('${c}', this.value)" class="w-24 px-2 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-right"></span>
-            </div>` : ""}
+            </div></div></details>` : ""}
         </div>`;
     }).join("");
     const ini = WH.map((w, i) => `<div class="flex items-center justify-between gap-3 text-xs"><span class="font-medium">${w}</span><input inputmode="numeric" value="${S.ini[w] ? Number(S.ini[w]).toLocaleString("es-CO") : ""}" placeholder="0" oninput="fa(this)" onchange="setIni(${i}, this.value)" class="w-36 px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-right"></div>`).join("");
@@ -1318,14 +1267,14 @@ function vSet() {
     return `
         ${themeUI()}
         ${langUI()}
-        <section class="${card}"><div class="flex justify-between items-center"><h3 class="text-base font-bold">Mis categorías</h3><button onclick="newCat()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold">+ Nueva</button></div>
-            <p class="text-xs text-slate-400">Además de las 8 de siempre. El tipo (necesidad o gusto) define en qué parte de la regla 50/30/20 cuenta. También puedes crearlas desde Inicio, al anotar un gasto.</p>${cats}</section>
-        <section class="${card}"><h3 class="text-base font-bold">Presupuestos mensuales</h3><p class="text-xs text-slate-400">El valor de arriba se repite cada mes. «Solo ${mlab}» lo cambia únicamente este mes. «Acumular» suma al mes siguiente lo que no gastes (si te pasas, no se descuenta).</p>${bud}</section>
+        ${ratesUI(card)}
+        <section class="${card}"><div class="flex justify-between items-center"><h3 class="text-base font-bold">Mis categorías${hq("Además de las 8 de siempre. El tipo (necesidad o gusto) define en qué parte de la regla 50/30/20 cuenta. También puedes crearlas desde Inicio, al anotar un gasto.")}</h3><button onclick="newCat()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold">+ Nueva</button></div>
+            ${cats}</section>
+        <section class="${card}"><h3 class="text-base font-bold">Presupuestos mensuales${hq(`El valor de arriba se repite cada mes. «Solo ${mlab}» lo cambia únicamente este mes. «Acumular» suma al mes siguiente lo que no gastes (si te pasas, no se descuenta).`)}</h3>${bud}</section>
         <section class="${card}"><div class="flex justify-between items-center"><h3 class="text-base font-bold">Gastos fijos</h3><button onclick="newRec()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold">+ Agregar</button></div>${rec}</section>
-        <section class="${card}"><h3 class="text-base font-bold">Saldos iniciales</h3><p class="text-xs text-slate-400">Lo que ya tenías en cada cuenta antes de empezar a anotar. Para corregir un saldo de hoy usa «Ajustar saldo» en la pestaña Cuentas.</p>${ini}</section>
-        <section class="${card}"><h3 class="text-base font-bold">Ocultar del resumen</h3><p class="text-xs text-slate-400">Lo que ocultes no suma en “En mano” ni en “Tarjetas”, y sus gastos no salen en el resumen ni en las gráficas.</p>${hidUI()}</section>
-        <section class="${card}"><h3 class="text-base font-bold">Avisos de metas</h3>
-            <p class="text-xs text-slate-400">Te avisa de metas (7 días antes), tarjetas y deudas con día de pago (3 días antes) y hasta 7 días después si siguen pendientes. Siempre lo ves también en los Consejos de Inicio.</p>
+        <section class="${card}"><h3 class="text-base font-bold">Saldos iniciales${hq("Lo que ya tenías en cada cuenta antes de empezar a anotar. Para corregir un saldo de hoy usa «Ajustar saldo» en la pestaña Cuentas.")}</h3>${ini}</section>
+        <section class="${card}"><h3 class="text-base font-bold">Ocultar del resumen${hq("Lo que ocultes no suma en “En mano” ni en “Tarjetas”, y sus gastos no salen en el resumen ni en las gráficas.")}</h3>${hidUI()}</section>
+        <section class="${card}"><h3 class="text-base font-bold">Avisos de metas${hq("Te avisa de metas (7 días antes), tarjetas y deudas con día de pago (3 días antes) y hasta 7 días después si siguen pendientes. Siempre lo ves también en los Consejos de Inicio.")}</h3>
             <p class="text-xs text-slate-400">${bgOk ? "Si instalaste la app en Chrome (Android), también intenta avisarte en segundo plano sin que la abras. El sistema decide cuándo, así que no es exacto ni está garantizado." : "En este navegador los avisos solo llegan cuando abres la app (en iPhone no hay avisos en segundo plano). Por eso en Inicio tienes la tarjeta «Esta semana» con lo que vence."}</p>
             ${np == "no" ? '<p class="text-xs text-slate-400">Este navegador no permite notificaciones.</p>'
               : np == "granted" ? '<p class="text-xs text-emerald-500 font-semibold">Avisos activados ✓</p><button onclick="testNotif()" class="px-4 py-2 bg-slate-800 dark:bg-slate-700 text-white font-semibold rounded-xl text-xs">Enviar aviso de prueba</button>'
