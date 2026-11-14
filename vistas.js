@@ -210,25 +210,6 @@ function destUI() {
         <input id="destAmt" inputmode="numeric" placeholder="¿Cuánto de este ingreso? (vacío = todo o la cuota)" oninput="fa(this)" class="${INP} hidden" autocomplete="off">`;
 }
 
-function bkUI() {
-    if (!bkDue()) return "";
-    const d = bkDaysAgo();
-    return `
-        <section class="${CARD} p-4 !border-amber-300 dark:!border-amber-500/40 bg-amber-50/60 dark:bg-amber-500/5">
-            <div class="flex items-start gap-3">
-                <div class="w-9 h-9 shrink-0 rounded-xl flex items-center justify-center text-sm bg-amber-100 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400"><i class="fa-solid fa-cloud-arrow-down"></i></div>
-                <div class="min-w-0 flex-1">
-                    <p class="text-xs font-bold text-slate-800 dark:text-white">${d === null ? "Aún no has hecho una copia de seguridad" : "Tu última copia fue hace " + d + " días"}</p>
-                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Tus datos viven solo en este celular.${hq("Si lo pierdes, lo formateas o borras el navegador, se van con él. Descarga la copia y guárdala en Drive o envíatela por WhatsApp.")}</p>
-                    <div class="flex gap-2 mt-3">
-                        <button onclick="downloadBackup()" class="px-3 py-1.5 bg-indigo-600 text-white rounded-xl text-xs font-semibold shadow-md shadow-indigo-500/20">Descargar copia</button>
-                        <button onclick="snoozeBackup()" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold">Recordarme luego</button>
-                    </div>
-                </div>
-            </div>
-        </section>`;
-}
-
 function dailyUI(disp) {
     const dy = dailyInfo(disp);
     if (!dy) return "";
@@ -274,61 +255,67 @@ function projUI(disp) {
         </div>`;
 }
 
-function recUI() {
+// Barra de gasto del mes con la marca de "hoy deberías ir en X %" (días transcurridos / días del mes). Solo en el mes actual.
+// Lleno = lo gastado frente a lo que había para gastar este mes (gastado + disponible).
+function paceUI(gas, disp) {
+    const n = new Date();
+    if (ym(n) != ym(cur)) return "";
+    const dim = new Date(n.getFullYear(), n.getMonth() + 1, 0).getDate(), mark = Math.round(n.getDate() / dim * 100), tope = gas + Math.max(0, disp);
+    if (tope <= 0) return "";
+    const p = Math.min(100, gas / tope * 100), over = p > mark + 5;
+    return `
+            <div class="pace" role="img" aria-label="Gastado ${Math.round(p)} %, hoy deberías ir en ${mark} %">
+                <div class="pace-h"><span>Gasto del mes</span><b class="${over ? "over" : ""}">${Math.round(p)} %</b></div>
+                <div class="pace-bar"><i class="${over ? "over" : ""}" style="width:${p.toFixed(1)}%"></i><u style="left:${mark}%"></u></div>
+                <div class="pace-f"><span>${fmt(gas)} de ${fmt(tope)}</span><span class="pace-mk">Hoy deberías ir en ${mark} %</span></div>
+            </div>`;
+}
+
+// Avisos de Inicio: una línea por aviso (copia de seguridad, gastos fijos por confirmar y lo que vence esta semana)
+const avDue = d => d < 0 ? "hace " + (-d) + " d" : d == 0 ? "hoy" : d == 1 ? "mañana" : "en " + d + " d";
+function avisosUI() {
+    const rows = [];
+    if (bkDue()) {
+        const d = bkDaysAgo();
+        rows.push({ w: 1, h: `
+            <div class="av-row">
+                <button onclick="downloadBackup()" class="av-main" title="Tus datos viven solo en este celular"><span class="av-ic"><i class="fa-solid fa-cloud-arrow-down"></i></span><span class="av-t">${d === null ? "Sin copia de seguridad" : "Última copia hace " + d + " días"}</span><span class="av-m">Descargar</span></button>
+                <button onclick="snoozeBackup()" class="av-x" title="Recordarme luego" aria-label="Recordarme luego"><i class="fa-solid fa-xmark"></i></button>
+            </div>` });
+    }
     const P = recPend();
-    if (!P.length) return "";
-    return `
-        <section class="${CARD} p-4 !border-amber-300 dark:!border-amber-500/40 bg-amber-50/60 dark:bg-amber-500/5">
-            <div class="flex items-start gap-3">
-                <div class="w-9 h-9 shrink-0 rounded-xl flex items-center justify-center text-sm bg-amber-100 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400"><i class="fa-solid fa-file-invoice-dollar"></i></div>
-                <div class="min-w-0 flex-1">
-                    <p class="text-xs font-bold text-slate-800 dark:text-white">Confirma tus gastos fijos de este mes</p>
-                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">Su valor cambia cada mes. Escribe cuánto llegó (te dejé el del mes pasado). Mientras no lo confirmes, ese valor ya se descuenta de lo que te queda para gastar.</p>
-                    <div class="space-y-2 mt-3">
-                        ${P.map(r => `
-                        <div class="flex items-center gap-2">
-                            <div class="min-w-0 flex-1"><b class="text-xs text-slate-800 dark:text-white block truncate">${esc(r.n)}</b><small class="text-[10px] text-slate-400">día ${r.day} · ${esc(r.c)}</small></div>
-                            <input id="rc${r.id}" inputmode="numeric" value="${Math.round(r.a).toLocaleString("es-CO")}" oninput="fa(this)" onkeydown="if(event.key==='Enter')confirmRec(${r.id})" class="w-28 px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-right text-slate-800 dark:text-white">
-                            <button onclick="confirmRec(${r.id})" class="px-3 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold">Listo</button>
-                            <button onclick="skipRec(${r.id})" title="Omitir este mes" class="px-2.5 py-2 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-xl text-xs"><i class="fa-solid fa-forward"></i></button>
-                        </div>`).join("")}
-                    </div>
+    if (P.length) rows.push({ w: 1, h: `
+            <details class="av-det">
+                <summary class="av-row"><span class="av-main"><span class="av-ic"><i class="fa-solid fa-file-invoice-dollar"></i></span><span class="av-t">Confirma tus gastos fijos</span><span class="av-m">${P.length} por confirmar</span><i class="fa-solid fa-chevron-down av-ch"></i></span></summary>
+                <div class="av-body">
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed mb-2">Su valor cambia cada mes. Escribe cuánto llegó (te dejé el del mes pasado). Mientras no lo confirmes, ese valor ya se descuenta de lo que te queda para gastar.</p>
+                    ${P.map(r => `
+                    <div class="flex items-center gap-2 mb-2">
+                        <div class="min-w-0 flex-1"><b class="text-xs text-slate-800 dark:text-white block truncate">${esc(r.n)}</b><small class="text-[10px] text-slate-400">día ${r.day} · ${esc(r.c)}</small></div>
+                        <input id="rc${r.id}" inputmode="numeric" value="${Math.round(r.a).toLocaleString("es-CO")}" oninput="fa(this)" onkeydown="if(event.key==='Enter')confirmRec(${r.id})" class="w-28 px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-right text-slate-800 dark:text-white">
+                        <button onclick="confirmRec(${r.id})" class="px-3 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold">Listo</button>
+                        <button onclick="skipRec(${r.id})" title="Omitir este mes" aria-label="Omitir este mes" class="px-2.5 py-2 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-xl text-xs"><i class="fa-solid fa-forward"></i></button>
+                    </div>`).join("")}
                 </div>
-            </div>
-        </section>`;
-}
-
-// "Esta semana": lo que vence en los próximos 7 días (tarjetas, deudas y metas) y lo vencido hace poco. Se ve siempre, sin depender de notificaciones.
-const WEEK_ST = { c: ["fa-credit-card", "#FF9500", "Tarjetas"], d: ["fa-hand-holding-dollar", "#FF3B30", "Deudas"], g: ["fa-flag-checkered", "#34C759", "Ahorro"] };
-function weekUI() {
-    const E = weekEvents();
-    if (!E.length) return "";
-    const late = E.filter(e => e.days < 0).length;
-    const rows = E.map(e => {
-        const st = WEEK_ST[e.k], nm = e.title.replace(/^Mi Plata · /, ""), cl = e.days < 0 ? "text-rose-500 font-semibold" : e.days <= 2 ? "text-amber-500 font-semibold" : "text-slate-400";
-        return `
-        <button onclick="goTab(${N.indexOf(st[2])})" class="ios-row w-full flex items-center gap-3 py-2.5 text-left active:opacity-60 transition-opacity">
-            <span class="w-9 h-9 shrink-0 rounded-[10px] flex items-center justify-center text-sm text-white" style="background:${st[1]}"><i class="fa-solid ${st[0]}"></i></span>
-            <div class="min-w-0 flex-1">
-                <strong class="text-sm font-semibold text-slate-800 dark:text-white block truncate">${esc(nm)}</strong>
-                <small class="text-xs ${cl}">${e.what} · ${dueTxt(e.days)}</small>
-            </div>
-            <div class="text-right shrink-0">
-                <b class="text-sm font-bold text-slate-800 dark:text-white block">${e.amt}</b>
-                ${e.k == "g" ? '<small class="text-[10px] text-slate-400 uppercase">faltan</small>' : '<small class="text-[10px] text-slate-400 uppercase">por pagar</small>'}
-            </div>
-        </button>`;
-    }).join("");
+            </details>` });
+    weekEvents().forEach(e => {
+        const st = WEEK_ST[e.k], nm = e.title.replace(/^Mi Plata · /, ""), tone = e.days < 0 ? "late" : e.days <= 2 ? "soon" : "";
+        rows.push({ w: e.days < 0 ? 1 : 0, h: `
+            <div class="av-row">
+                <button onclick="goTab(${N.indexOf(st[2])})" class="av-main ${tone}" title="${esc(e.what)}"><span class="av-ic"><i class="fa-solid ${st[0]}"></i></span><span class="av-t">${esc(nm)}</span><span class="av-m">${avDue(e.days)}</span><b class="av-a">${e.amt}</b></button>
+            </div>` });
+    });
+    if (!rows.length) return "";
+    const late = weekEvents().filter(e => e.days < 0).length;
     return `
-        <section class="${CARD} p-5 pb-3">
-            <div class="flex items-center justify-between mb-1">
-                <h3 class="text-sm font-bold text-slate-800 dark:text-white"><i class="fa-regular fa-calendar-check text-indigo-500 mr-1.5"></i>Esta semana</h3>
-                <span class="text-xs ${late ? "text-rose-500 font-semibold" : "text-slate-400"}">${late ? late + (late == 1 ? " vencido" : " vencidos") : E.length + (E.length == 1 ? " pendiente" : " pendientes")}</span>
-            </div>
-            ${rows}
+        <section class="${CARD} avl">
+            <div class="av-h"><h3>Avisos</h3><span class="${late ? "late" : ""}">${late ? late + (late == 1 ? " vencido" : " vencidos") : rows.length + (rows.length == 1 ? " pendiente" : " pendientes")}</span></div>
+            <div class="av-list">${rows.map(r => r.h).join("")}</div>
         </section>`;
 }
 
+// Íconos de lo que vence esta semana (los usa avisosUI): lo que vence en los próximos 7 días (tarjetas, deudas y metas) y lo vencido hace poco. Se ve siempre, sin depender de notificaciones.
+const WEEK_ST = { c: ["fa-credit-card", "#FF9500", "Tarjetas"], d: ["fa-hand-holding-dollar", "#FF3B30", "Deudas"], g: ["fa-flag-checkered", "#34C759", "Ahorro"] };
 // ---------- Formulario "Anotar movimiento" (vive en un modal que abre el botón flotante +) ----------
 function movFormHTML() {
     const names = type == "g" ? G.filter(x => x[0] != "Ahorro").map(x => x[0]) : I;
@@ -455,8 +442,6 @@ function vHome() {
             <div class="hi-t"><b>Hola${(S.th.nm || "") ? ", " + esc(S.th.nm) : ""}</b><small>Hoy es un buen día para avanzar</small></div>
             <button class="hi-b av" onclick="const n=prompt('¿Cómo te llamas?',S.th.nm||'');if(n!==null){S.th.nm=n.trim();save();draw()}" aria-label="Tu nombre">${esc(((S.th.nm || "").trim()[0] || "").toUpperCase()) || '<i class="fa-solid fa-user"></i>'}</button>
         </div>
-        ${bkUI()}
-        ${recUI()}
         <section data-hero class="relative overflow-hidden bg-gradient-to-b from-indigo-600 to-indigo-700 text-white p-6 rounded-[20px] shadow-sm flex flex-col justify-between">
             <div class="flex justify-between items-start">
                 <div>
@@ -471,6 +456,7 @@ function vHome() {
             </div>
             ${dailyUI(disp)}
             ${projUI(disp)}
+            ${paceUI(gas, disp)}
             <div class="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-white/10">
                 <div><small class="text-[10px] text-indigo-200 block uppercase">En mano</small><b data-cu="have" class="text-xs sm:text-sm font-bold">${fmt(have)}</b>${pk > 0 ? `<small class="text-[10px] text-indigo-200 block font-normal">${fmt(pk)} en bolsillos</small>` : ""}</div>
                 <div><small class="text-[10px] text-indigo-200 block uppercase">Tarjetas</small><b data-cu="due" class="text-xs sm:text-sm font-bold">${fmt(due)}</b>${due <= 0.5 && nm == ym(new Date()) ? (() => { const x = S.cards.filter(c => !(S.hide || {})[c.n]).reduce((s, c) => s + (cardNext(c).due || 0), 0); return x > 0.5 ? `<small class="text-[10px] text-indigo-200 block font-normal">próx. ${fmt(x)}</small>` : ""; })() : ""}</div>
@@ -478,7 +464,7 @@ function vHome() {
             </div>
         </section>
 
-        ${weekUI()}
+        ${avisosUI()}
 
         ${yearTeaser()}
         ${typeof closeTeaser == "function" ? closeTeaser() : ""}
@@ -857,6 +843,22 @@ function planResUI(B) {
 }
 
 // ---------- Gráficas ----------
+
+// Frase de conclusión de Gráficas: el cambio más grande por categoría frente al mes con el que se compara
+function graLead(rows, ta, tb, ok) {
+    if (!ta && !tb) return "Aún no hay gastos este mes para sacar conclusiones.";
+    const lo = x => LANG == "es" ? String(x).toLowerCase() : String(x), od = new Date(ok + "-01T00:00:00"), ol = od.toLocaleDateString(DLOC, od.getFullYear() == cur.getFullYear() ? { month: "long" } : { month: "long", year: "numeric" });
+    const ch = rows.filter(r => r.b > 0 && r.a > 0 && Math.abs(r.a - r.b) / r.b >= 0.05).sort((p, q) => Math.abs(q.a - q.b) - Math.abs(p.a - p.b))[0];
+    const nw = rows.filter(r => r.b == 0 && r.a > 0 && r.a >= ta * 0.1).sort((p, q) => q.a - p.a)[0];
+    let l1;
+    if (ch && (!nw || Math.abs(ch.a - ch.b) >= nw.a)) { const pc = Math.round(Math.abs(ch.a - ch.b) / ch.b * 100); l1 = "Gastaste " + pc + " % " + (ch.a > ch.b ? "más" : "menos") + " en " + lo(ch.c) + " que en " + ol + "."; }
+    else if (nw) l1 = "Este mes empezaste a gastar en " + lo(nw.c) + ": " + fmt(nw.a) + ".";
+    else { const top = rows.slice().sort((p, q) => q.a - p.a)[0]; l1 = top && ta ? "Tu mayor gasto del mes es " + lo(top.c) + ": " + Math.round(top.a / ta * 100) + " % del total." : "Aún no hay gastos este mes para sacar conclusiones."; }
+    const l2 = tb > 0 && ta > 0 && Math.abs(ta - tb) / tb >= 0.02 ? "En total gastaste " + Math.round(Math.abs(ta - tb) / tb * 100) + " % " + (ta > tb ? "más" : "menos") + " que en " + ol + "." : "";
+    return [l1, l2];
+}
+// Tonos de un solo color: la categoría más grande es la más intensa
+const grShade = (i, n) => Math.max(0.2, 1 - i * Math.min(0.35, 0.8 / Math.max(1, (n || 6) - 1)));
 function vGra() {
     const mk = ym(cur), ok = monthKey(cmp);
     const A = catTotals(mk), B = catTotals(ok);
@@ -869,11 +871,16 @@ function vGra() {
     };
     const opts = [[1, "Mes anterior"], [2, "Hace 2 meses"], [3, "Hace 3 meses"], [6, "Hace 6 meses"], [12, "Hace 1 año"]];
     const hasNW = Object.keys(S.nwh).length >= 2;
+    const lead = graLead(rows, ta, tb, ok), L = Array.isArray(lead) ? lead : [lead, ""];
+    const mm = mon(), byC = G.map(([c]) => [c, sum(mm, x => x.t == "g" && x.c == c && !x.s)]).filter(x => x[1] > 0).sort((p, q) => q[1] - p[1]), totC = byC.reduce((s, x) => s + x[1], 0);
+    const leg = byC.slice(0, 6).map(([c, v], i) => `<div onclick="openCat('${esc(c)}')" class="gr-lg" role="button" tabindex="0" onkeydown="if(event.key==='Enter')openCat('${esc(c)}')"><i style="opacity:${grShade(i, byC.length).toFixed(2)}"></i><span class="truncate">${esc(c)}</span><b>${totC ? Math.round(v / totC * 100) : 0} %</b></div>`).join("");
     return `
+        <section class="gr-lead"><p>${L[0]}</p>${L[1] ? `<small>${L[1]}</small>` : ""}</section>
         <section class="${CARD} p-5">
             <div class="flex justify-between items-center mb-4"><h3 class="text-sm font-bold">Gastos por categoría</h3>
             <div class="flex items-center space-x-2"><button onclick="go(-1)" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800">‹</button><span class="text-xs font-semibold capitalize">${cur.toLocaleDateString(DLOC, { month: "long", year: "numeric" })}</span><button onclick="go(1)" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800">›</button></div></div>
             <div class="max-w-xs mx-auto"><canvas id="chCat"></canvas></div>
+            ${leg ? `<div class="gr-lgs">${leg}</div>` : ""}
             <p class="text-[11px] text-slate-400 text-center mt-2">Toca una porción para ver esas compras</p>
         </section>
 
@@ -943,29 +950,63 @@ function drawCharts() {
     // Modo incógnito: sin cifras en los ejes ni en los globos al tocar
     Chart.defaults.plugins.tooltip.enabled = !masked();
     const hy = masked() ? { scales: { y: { ticks: { display: false } } } } : {};
-    const m = mon(), by = G.map(([c]) => [c, sum(m, x => x.t == "g" && x.c == c && !x.s)]).filter(x => x[1] > 0);
-    charts.push(new Chart(document.getElementById("chCat"), { type: "doughnut", plugins: [donutCenter(by)], options: { cutout: "68%", plugins: { tooltip: { enabled: false } }, onClick: (ev, els) => { if (els.length) openCat(by[els[0].index][0]); } }, data: { labels: by.map(x => x[0]), datasets: [{ data: by.map(x => x[1]), backgroundColor: by.map((_, i) => (PAL || [accent(500), accent(500, 1, "s"), "#10b981", "#f59e0b", "#ef4444", "#06b6d4", "#ec4899", "#64748b", "#84cc16", "#f97316", "#14b8a6", "#a855f7", "#0ea5e9", "#e11d48", "#65a30d", "#78716c"])[i % 16]), borderWidth: 0 }] } }));
+    const m = mon(), by = G.map(([c]) => [c, sum(m, x => x.t == "g" && x.c == c && !x.s)]).filter(x => x[1] > 0).sort((p, q) => q[1] - p[1]);
+    charts.push(new Chart(document.getElementById("chCat"), { type: "doughnut", plugins: [donutCenter(by)], options: { cutout: "68%", plugins: { tooltip: { enabled: false } }, onClick: (ev, els) => { if (els.length) openCat(by[els[0].index][0]); } }, data: { labels: by.map(x => x[0]), datasets: [{ data: by.map(x => x[1]), backgroundColor: by.map((_, i) => accent(500, grShade(i, by.length))), borderWidth: 0, spacing: 2 }] } }));
 
     const cc = document.getElementById("chCmp");
     if (cc) {
         const mk = ym(cur), ok = monthKey(cmp), A = catTotals(mk), B = catTotals(ok);
         const idx = G.map((_, i) => i).filter(i => A[i][1] > 0 || B[i][1] > 0);
-        charts.push(new Chart(cc, { type: "bar", options: hy, data: { labels: idx.map(i => G[i][0]), datasets: [{ label: monLabel(ok), data: idx.map(i => B[i][1]), backgroundColor: "#94a3b8" }, { label: monLabel(mk), data: idx.map(i => A[i][1]), backgroundColor: accent(500) }] } }));
+        charts.push(new Chart(cc, { type: "bar", options: hy, data: { labels: idx.map(i => G[i][0]), datasets: [{ label: monLabel(ok), data: idx.map(i => B[i][1]), backgroundColor: accent(500, 0.3) }, { label: monLabel(mk), data: idx.map(i => A[i][1]), backgroundColor: accent(500) }] } }));
     }
 
     const ms = [...Array(6)].map((_, i) => ym(new Date(cur.getFullYear(), cur.getMonth() - 5 + i, 1)));
     const tot = (k, t) => S.items.filter(x => x.d.startsWith(k) && x.t == t && vis(x)).reduce((s, x) => s + x.a, 0);
-    charts.push(new Chart(document.getElementById("chMon"), { type: "bar", options: hy, data: { labels: ms, datasets: [{ label: "Ingresos", data: ms.map(k => tot(k, "i")), backgroundColor: GREEN }, { label: "Gastos", data: ms.map(k => tot(k, "g")), backgroundColor: accent(500) }] } }));
+    charts.push(new Chart(document.getElementById("chMon"), { type: "bar", options: hy, data: { labels: ms, datasets: [{ label: "Ingresos", data: ms.map(k => tot(k, "i")), backgroundColor: accent(500, 0.3) }, { label: "Gastos", data: ms.map(k => tot(k, "g")), backgroundColor: accent(500) }] } }));
 
     const nw = document.getElementById("chNW");
     if (nw) {
         const ks = Object.keys(S.nwh).sort().slice(-12);
         charts.push(new Chart(nw, { type: "line", options: hy, data: { labels: ks, datasets: [{ label: "Patrimonio neto", data: ks.map(k => S.nwh[k]), borderColor: accent(500), backgroundColor: accent(500, .15), fill: true, tension: .3 }] } }));
     }
-    drawInvChart(hy, GREEN); // evolución del portafolio (nuevas.js)
+    drawInvChart(hy, accent(500)); // evolución del portafolio (nuevas.js)
 }
 
 // ---------- Tarjetas ----------
+// Línea de tiempo del ciclo de una tarjeta: hoy → corte → pago. Muestra el extracto que toca pagar primero
+// (el que ya cerró y tiene saldo, o si no, el que está abierto).
+function cardCycleUI(c) {
+    if (!c.p) return "";
+    const td = today(), i0 = mIdx(ym(new Date())), L = [];
+    for (let i = i0 - 1; i <= i0 + 2; i++) L.push(stmt(c, i));
+    const s = L.find(x => x.pay >= td && (x.close >= td || x.pend > 0)) || L.find(x => x.close >= td);
+    if (!s) return "";
+    const D = d => new Date(d + "T00:00:00"), a = D(s.from), tot = Math.max(1, daysBetween(a, D(s.pay)));
+    const pos = d => Math.max(0, Math.min(100, daysBetween(a, D(d)) / tot * 100));
+    const pH = pos(td), pC = pos(s.close), dC = daysTo(s.close), dP = daysTo(s.pay), same = s.close >= s.pay;
+    const lbl = (k, t, d, dd) => `<div class="cy-i ${k}"><small>${t}</small><b>${dmy(d).slice(0, 5)}</b><em>${dd < 0 ? "pasó" : dd == 0 ? "hoy" : "en " + dd + " d"}</em></div>`;
+    return `
+                <div class="cy" role="img" aria-label="Ciclo de la tarjeta: hoy, corte el ${dmy(s.close).slice(0, 5)} y pago el ${dmy(s.pay).slice(0, 5)}">
+                    <div class="cy-track"><i style="width:${pH.toFixed(1)}%"></i>${same ? "" : `<u class="cut ${dC < 0 ? "past" : ""}" style="left:${pC.toFixed(1)}%"></u>`}<u class="pay" style="left:100%"></u><b class="now" style="left:${pH.toFixed(1)}%"></b></div>
+                    <div class="cy-l ${same ? "two" : ""}">
+                        <div class="cy-i now"><small>Hoy</small><b>${dmy(td).slice(0, 5)}</b><em>${dC >= 0 && !same ? "faltan " + dC + " d para el corte" : "faltan " + Math.max(0, dP) + " d para el pago"}</em></div>
+                        ${same ? "" : lbl("cut", "Corte", s.close, dC)}
+                        ${lbl("pay", same ? "Corte y pago" : "Pago", s.pay, dP)}
+                    </div>
+                </div>`;
+}
+// Compras a cuotas de una tarjeta con su barra de progreso (cuotas ya pagadas de las totales)
+function cuotasUI(c, ok) {
+    const n = ym(new Date());
+    const L = S.items.filter(x => x.k == c.n && x.t == "g" && x.q > 1).map(x => ({ x, e: me(x, n) })).filter(r => r.e <= r.x.q);
+    if (!L.length) return "";
+    L.sort((p, q) => pend(q.x, n) - pend(p.x, n));
+    const rows = L.slice(0, 4).map(({ x, e }) => {
+        const done = Math.max(0, Math.min(x.q, e - (ok ? 0 : 1))), pc = done / x.q * 100;
+        return `<div class="cq-r"><div class="cq-t"><span class="truncate">${esc(x.n || x.c)}</span><span>${e < 1 ? "empieza en el próximo extracto" : "cuota " + Math.min(e, x.q) + " de " + x.q}</span></div><div class="cq-bar"><i style="width:${pc.toFixed(1)}%"></i></div><small>Faltan ${fmt(pend(x, n))} de capital</small></div>`;
+    }).join("");
+    return `<h4 class="text-sm font-bold text-slate-800 dark:text-white mt-5 mb-2">Compras a cuotas</h4><div class="cq">${rows}${L.length > 4 ? `<small class="text-[11px] text-slate-400">y ${L.length - 4} más</small>` : ""}</div>`;
+}
 function vTar() {
     const m = monAll(), n = ym(new Date());
     let tc = 0, tu = 0;
@@ -994,6 +1035,7 @@ function vTar() {
                     <div class="min-w-0 flex-1"><small>${nextOnly ? "Próxima cuota" : "Pago mínimo"}</small><b>${nextOnly ? fmt(cn.due) : fmt(cu.ok ? 0 : Math.max(0, owe))}</b><small>${cn.due > 0 || owe > 0.5 ? "Vence " + dmy(payDateIn(c.p, cn.m)) : "Al día"}</small></div>
                     ${cu.ok ? "" : `<button onclick="payCard(${c.id})" class="tc-btn">Pagar</button>`}
                 </div>
+                ${cardCycleUI(c)}
                 <div class="h-px bg-slate-100 dark:bg-white/5 my-4"></div>
                 ${sdet("Ver detalle del mes", `<div class="grid grid-cols-2 gap-2 text-xs mb-4">
                     <div><span class="text-slate-400 block">Compras este mes</span><b>${fmt(u)}</b></div>
@@ -1023,6 +1065,7 @@ function vTar() {
                     <button onclick="paidCard(${c.id})" class="px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-xl text-xs font-semibold">${cu.ok ? "Desmarcar pago" : "Marcar pagada"}</button>
                     ${mxMenu(`<button onclick="openExtract(${c.id})" class="px-3 py-1.5 bg-violet-50 text-violet-600 rounded-xl text-xs font-semibold"><i class="fa-solid fa-receipt mr-1"></i>Extracto</button><button onclick="editCard(${c.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold">Editar</button><button onclick="delCard(${c.id})" class="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-xl text-xs font-semibold">Borrar</button>`)}
                 </div>
+                ${cuotasUI(c, cu.ok)}
                 ${(() => { const gm = {}; m.filter(x => x.k == c.n && x.t == "g").forEach(x => gm[x.c] = (gm[x.c] || 0) + x.a); const L = Object.entries(gm).sort((p, q) => q[1] - p[1]).slice(0, 5), T = L.reduce((t, z) => t + z[1], 0); if (!T) return ""; return `<h4 class="text-sm font-bold text-slate-800 dark:text-white mt-5 mb-2">Gastos por categoría</h4><div class="tc-seg">${L.map(([k, v]) => `<i style="width:${v / T * 100}%;background:${catIc(k)[1]}"></i>`).join("")}</div>${L.map(([k, v]) => `<div class="tc-cat"><span class="tc-dot" style="background:${catIc(k)[1]}"></span><span class="flex-1 truncate">${esc(k)}</span><span class="text-slate-400">${Math.round(v / T * 100)}%</span><b>${fmt(v)}</b></div>`).join("")}`; })()}
                 </div>
             </div>`;
@@ -1061,7 +1104,7 @@ function extractUI(c, i, b) {
                 <small class="text-[11px] text-slate-400">${dmy(x.d)}${x.n ? " · " + esc(x.c) : ""}${r.q > 1 ? " · compra de " + fmt(x.a) + " · cuota " + r.e + " de " + r.q : ""}${r.it > 0 ? " · intereses " + fmt(r.it) : ""}</small>
             </div>
             <b class="text-xs shrink-0">${fmt(r.cu)}</b>
-        </div>`;
+        </div>${r.q > 1 ? `<div class="cq-bar -mt-1.5 mb-2"><i style="width:${r.e / r.q * 100}%"></i></div>` : ""}`;
     };
     const line = (l, v, cl) => `<div class="flex justify-between text-xs py-1.5"><span class="text-slate-500 dark:text-slate-400">${l}</span><b class="${cl || ""}">${v}</b></div>`;
     const sec = (t, n, body) => body ? `<div class="mb-4"><p class="text-[10px] uppercase tracking-wider font-bold text-slate-400 mb-1">${t} · ${n}</p>${body}</div>` : "";

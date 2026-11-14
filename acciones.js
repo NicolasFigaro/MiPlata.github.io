@@ -1233,7 +1233,7 @@ function editRec(id) {
     });
 }
 function delRec(id) { confirmAction("¿Borrar gasto fijo?", () => { S.rec = S.rec.filter(r => r.id != id); save(); }); }
-// Los de monto fijo se registran solos el día que toca. Los de monto variable esperan a que confirmes cuánto llegó (ver recUI en Inicio).
+// Los de monto fijo se registran solos el día que toca. Los de monto variable esperan a que confirmes cuánto llegó (ver avisosUI en Inicio).
 function genRec() {
     const nm = ym(new Date()), td = new Date().getDate();
     (S.rec || []).forEach(r => {

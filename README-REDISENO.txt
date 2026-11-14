@@ -1,20 +1,22 @@
-MI PLATA — VERSIÓN 10 / REDISEÑO VISUAL iOS
+MI PLATA — DISEÑO SERIO, SEGUNDA PASADA
 
-Qué cambió realmente en esta versión:
-- Sistema visual unificado para tarjetas, bordes, sombras y superficies.
-- Panel de balance principal con jerarquía tipográfica más clara y fondo azul refinado.
-- Barra inferior translúcida, estado activo más evidente y soporte para el área segura del iPhone.
-- Formularios con zonas táctiles de al menos 44 px y foco accesible.
-- Modales adaptados como hojas inferiores en pantallas pequeñas.
-- Mejor lectura de cifras, listas de movimientos, barras de progreso y estados oscuro/claro.
-- Metadatos y título de la aplicación actualizados.
+Qué cambió
+- Inicio: la barra "Gasto del mes" lleva la marca "Hoy deberías ir en X %" (día del mes ÷ días del mes).
+  El relleno es lo gastado ÷ (gastado + disponible). Solo aparece en el mes actual.
+- Inicio: los avisos (copia de seguridad, gastos fijos por confirmar, vencimientos de la semana) son una lista de una línea cada uno.
+- Inicio: Movimientos, En qué se va la plata, Consejos y Patrimonio usan un solo acento.
+- Inicio: el selector de mes baja a otra línea si la cifra es grande (la flecha › quedaba fuera de la tarjeta).
+- Tarjetas: línea de tiempo del ciclo (hoy, corte, pago) y sección "Compras a cuotas" con barra de progreso (también en el extracto).
+- Gráficas: frase de conclusión arriba y un solo color (en tonos) en dona, barras y portafolio.
+- Traducciones: frases nuevas en inglés, francés, alemán y ruso (idioma-datos.js).
+- Caché del service worker: miplata-v33. Se quitó redise├▒o-ios.css (no se cargaba).
+- Sin tocar: Calendario, Resumen, Deudas, Suscripciones, Asistente, Más y Ajustes.
 
-No se modificaron los cálculos financieros ni el almacenamiento de datos. El rediseño es principalmente CSS/HTML.
+Cómo probar
+1. Publica en una copia de prueba y cierra la app por completo (o borra los datos del sitio) para que cargue el caché nuevo.
+2. Revisa Inicio, Tarjetas y Gráficas, en claro y oscuro, y que los íconos de los orbes se vean.
 
-Cómo probar:
-1. Descomprime la carpeta completa.
-2. Abre la aplicación mediante el mismo servidor/hosting estático usado por la versión anterior, o publícala en una copia de prueba.
-3. Comprueba Inicio, añadir/editar/eliminar movimiento, cuentas, metas, tarjetas, reportes, exportación y cambio de tema.
-4. No reemplaces la versión publicada hasta confirmar que los flujos importantes funcionan y que tus datos siguen disponibles.
+Verificado: Chromium a 390 px con datos de prueba, temas Mi Plata, Índigo, Violeta, Rosa, Grafito, iOS, Café y color propio, claro y oscuro.
+No verificado: iPhone real, FontAwesome ni Chart.js reales (la prueba fue sin internet), celulares muy viejos (color-mix).
 
-Limitación: se comprobaron sintaxis JavaScript e integridad del ZIP; no se realizó una prueba manual completa en iPhone real.
+Pendiente de decisión: mostrar el EA también en cuentas (Nu, etc.), y el emoji ya elegido en las metas.

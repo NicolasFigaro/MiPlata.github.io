@@ -275,7 +275,7 @@ function drawInvChart(hy, GREEN) {
     const ci = document.getElementById("chInv"), sr = ci && invSeries(); if (!ci || !sr) return;
     charts.push(new Chart(ci, { type: "line", options: Object.assign({ spanGaps: true }, hy), data: { labels: sr.labels, datasets: [
         { label: "Valor", data: sr.val, borderColor: GREEN, backgroundColor: GREEN, tension: .3, pointRadius: 3 },
-        { label: "Invertido", data: sr.inv, borderColor: accent(500), backgroundColor: accent(500), borderDash: [5, 4], tension: .2, pointRadius: 0 }
+        { label: "Invertido", data: sr.inv, borderColor: "#94a3b8", backgroundColor: "#94a3b8", borderDash: [5, 4], tension: .2, pointRadius: 0 }
     ] } }));
 }
 
