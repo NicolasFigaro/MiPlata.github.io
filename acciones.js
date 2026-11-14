@@ -851,19 +851,28 @@ function newAcc() {
     });
 }
 function editAcc(id) {
-    const a = S.acc.find(x => x.id == id);
+    const a = S.acc.find(x => x.id == id), r0 = goalRateAt(a, today());
     openCustomModal("Editar Meta", [
         { l: "Nombre", v: esc(a.n) },
         { l: "Meta", v: tf(a.g), m: "decimal" },
         { l: "Fecha límite (opcional)", v: a.dl || "", t: "date" },
-        { l: "Rendimiento E.A. %", v: tf(a.r), m: "decimal" },
+        { l: "Rendimiento E.A. %", v: tf(r0), m: "decimal" },
+        { l: "La nueva tasa rige desde (si la cambiaste)", v: today(), t: "date" },
         { l: "Emoji", sw: emoSw(), v: a.e || "" },
         { l: "Color", sw: colSw(), v: a.c || "" }
     ], v => {
+        const nr = pr(v[3]) || 0, d = v[4] || today();
+        if (nr < 0 || nr > 100) return "La tasa E.A. debe estar entre 0 y 100.";
+        if (d > today()) return "La fecha no puede ser futura.";
+        // Si cambió la tasa se guarda desde qué día rige: lo ya ganado antes de esa fecha no se recalcula
+        if (Math.abs(nr - r0) > 1e-9) {
+            if (!a.rh || !a.rh.length) a.rh = [{ d: "1970-01-01", r: r0 }];
+            a.rh = a.rh.filter(x => x.d != d); a.rh.push({ d, r: nr }); a.rh.sort((p, q) => p.d.localeCompare(q.d));
+        }
         if (v[0]) a.n = v[0];
-        a.g = pr(v[1]); a.dl = v[2] || ""; a.r = pr(v[3]) || 0;
-        if (v[4]) a.e = v[4]; else delete a.e;
-        if (v[5]) a.c = v[5]; else delete a.c;
+        a.g = pr(v[1]); a.dl = v[2] || ""; a.r = a.rh && a.rh.length ? goalRateAt(a, today()) : nr;
+        if (v[5]) a.e = v[5]; else delete a.e;
+        if (v[6]) a.c = v[6]; else delete a.c;
         save();
     });
 }
