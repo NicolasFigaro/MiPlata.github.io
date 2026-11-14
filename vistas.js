@@ -600,11 +600,12 @@ function vCue() {
     `;
 }
 
+const WCOL = { cash: "#A8660C", bank: "#2F55B0", digital: "#6542B5", savings: "#0B6B58", other: "#5B6676" };
 function walRow(a) {
     const b = walBal(a), pk = pkSum(a), hid = !!(S.hide || {})[a.n], sel = walOpen == a.id, T = WTYPES[a.t];
     return `
         <button onclick="togW(${a.id})" class="ac-row ${sel ? "on" : ""} ${hid ? "dim" : ""}" aria-expanded="${sel}">
-            <span class="ac-ic ${T[3]}"><i class="fa-solid ${T[1]}"></i></span>
+            <span class="ac-ic lg" style="--c:${WCOL[a.t] || WCOL.other}"><i class="fa-solid ${T[1]}"></i></span>
             <span class="ac-main"><b>${esc(a.n)}</b><small>${hid ? "Oculta del resumen" : pk > 0 ? fmt(pk) + " en bolsillos" : T[0]}</small>
                 ${a.pk.length ? `<span class="pk-mini">${a.pk.slice(0, 5).map(p => pkTile(p, p.m ? S.acc.find(x => x.id == p.m) : null, 1)).join("")}${a.pk.length > 5 ? `<span class="pk-more">+${a.pk.length - 5}</span>` : ""}</span>` : ""}</span>
             <span class="ac-bal ${b < 0 ? "neg" : ""}">${fmt(b)}</span><i class="fa-solid fa-chevron-right ac-ch"></i>
@@ -634,7 +635,7 @@ function goalBlock(a, p) {
 // Anillo de progreso con el emoji de la meta al centro
 function goalRing(a, p) {
     const R = 21, C = 2 * Math.PI * R, col = goalCol(a);
-    return `<span class="sv-ring ${a.g ? "" : "nog"}"><svg viewBox="0 0 50 50" aria-hidden="true"><circle cx="25" cy="25" r="${R}" class="sv-ring-bg"/><circle cx="25" cy="25" r="${R}" class="sv-ring-fg" style="stroke:${col};stroke-dasharray:${(C * (a.g ? Math.min(100, p) : 100) / 100).toFixed(1)} ${C.toFixed(1)}"/></svg><span class="sv-emo">${goalEmo(a)}</span></span>`;
+    return `<span class="sv-ring ${a.g ? "" : "nog"}"><svg viewBox="0 0 50 50" aria-hidden="true"><circle cx="25" cy="25" r="${R}" class="sv-ring-bg"/><circle cx="25" cy="25" r="${R}" class="sv-ring-fg" style="stroke:${col};stroke-dasharray:${(C * (a.g ? Math.min(100, p) : 100) / 100).toFixed(1)} ${C.toFixed(1)}"/></svg><span class="lg sv-orb" style="--c:${col}"><i class="fa-solid ${goalIc(a)}"></i></span></span>`;
 }
 const pctTxt = n => (Math.round(n * 100) / 100).toLocaleString("es-CO", { maximumFractionDigits: 2 });
 
@@ -707,8 +708,8 @@ function vAho() {
             <small>Total Ahorrado</small>
             <div class="amt">${fmt(tot)}</div>
             ${D > 0.5 ? `<span class="hchip"><i class="fa-solid fa-arrow-trend-up"></i>+${fmt(D)} hoy</span>` : ""}
-            ${tot > 0 && (Y > 0.5 || PK > 0.5) ? `<div class="hsplit"><i style="width:${w(T)}%;background:#fff"></i><i style="width:${w(Y)}%;background:#a7f3d0"></i><i style="width:${w(PK)}%;background:rgb(255 255 255/.45)"></i></div>
-            <div class="hlegend"><span><i class="dot" style="background:#fff"></i>Aportado <b>${fmt(T)}</b></span>${Y > 0.5 ? `<span><i class="dot" style="background:#a7f3d0"></i>Rendimiento <b>${fmt(Y)}</b></span>` : ""}${PK > 0.5 ? `<span><i class="dot" style="background:rgb(255 255 255/.45)"></i>En bolsillos <b>${fmt(PK)}</b></span>` : ""}</div>` : ""}
+            ${tot > 0 && (Y > 0.5 || PK > 0.5) ? `<div class="hsplit"><i style="width:${w(T)}%;background:#fff"></i><i style="width:${w(Y)}%;background:rgb(var(--p-300))"></i><i style="width:${w(PK)}%;background:rgb(255 255 255/.45)"></i></div>
+            <div class="hlegend"><span><i class="dot" style="background:#fff"></i>Aportado <b>${fmt(T)}</b></span>${Y > 0.5 ? `<span><i class="dot" style="background:rgb(var(--p-300))"></i>Rendimiento <b>${fmt(Y)}</b></span>` : ""}${PK > 0.5 ? `<span><i class="dot" style="background:rgb(255 255 255/.45)"></i>En bolsillos <b>${fmt(PK)}</b></span>` : ""}</div>` : ""}
         </section>
         <div class="sec-h"><h3>Mis Metas</h3><button onclick="newAcc()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold shadow-md">+ Nueva meta</button></div>
         ${goals.map(goalCard).join("") || emptyUI("fa-piggy-bank", "#34C759", "Aún no tienes metas", "Una meta es una cajita para algo concreto: un viaje, un fondo de emergencia, una compra. Mete plata y mira cómo crece.", "Crear la primera meta", "newAcc()")}${arcUI()}

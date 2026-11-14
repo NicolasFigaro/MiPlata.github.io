@@ -837,14 +837,14 @@ function newAcc() {
         { l: "Fecha límite (opcional)", t: "date" },
         { l: "Rendimiento anual E.A. % (0 si no gana)", v: "0", m: "decimal" },
         { l: "Ya tengo ahorrado (opcional)", m: "decimal" },
-        { l: "Emoji", sw: emoSw(), v: "" },
+        { l: "Ícono", sw: goalIcoSw(), v: "", cls: "sw-ic" },
         { l: "Color", sw: colSw(), v: "" }
     ], v => {
         if (!v[0]) return "Escribe un nombre.";
         if (v[3] && v[3] <= today()) return "La fecha límite debe ser futura.";
         const u = v[1].startsWith("USD"), P = s => u ? (pr(s) || 0) : num(s), id = Date.now();
         const ng = { id, n: v[0], g: P(v[2]), r: pr(v[4]) || 0, u: u ? 1 : 0, dl: v[3] || "", s0: today() };
-        if (v[6]) ng.e = v[6]; if (v[7]) ng.c = v[7];
+        if (v[6]) ng.ic = v[6]; if (v[7]) ng.c = v[7];
         S.acc.push(ng);
         if (P(v[5])) S.sv.push({ id: id + 1, a: id, d: today(), v: P(v[5]), i: 1 });
         save();
@@ -858,7 +858,7 @@ function editAcc(id) {
         { l: "Fecha límite (opcional)", v: a.dl || "", t: "date" },
         { l: "Rendimiento E.A. %", v: tf(r0), m: "decimal" },
         { l: "La nueva tasa rige desde (si la cambiaste)", v: today(), t: "date" },
-        { l: "Emoji", sw: emoSw(), v: a.e || "" },
+        { l: "Ícono", sw: goalIcoSw(), v: a.ic || "", cls: "sw-ic" },
         { l: "Color", sw: colSw(), v: a.c || "" }
     ], v => {
         const nr = pr(v[3]) || 0, d = v[4] || today();
@@ -871,7 +871,7 @@ function editAcc(id) {
         }
         if (v[0]) a.n = v[0];
         a.g = pr(v[1]); a.dl = v[2] || ""; a.r = a.rh && a.rh.length ? goalRateAt(a, today()) : nr;
-        if (v[5]) a.e = v[5]; else delete a.e;
+        if (v[5]) a.ic = v[5]; else delete a.ic;
         if (v[6]) a.c = v[6]; else delete a.c;
         save();
     });

@@ -61,7 +61,6 @@ html.dark .sv-pill.up { color: rgb(52 211 153); }
 .sv-ring-bg { stroke: rgb(var(--line) / .09); }
 .sv-ring-fg { stroke-linecap: round; transition: stroke-dasharray .6s cubic-bezier(.2, .8, .2, 1); }
 .sv-ring.nog .sv-ring-fg { opacity: .3; }
-.sv-emo { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 22px; }
 .sv-body { padding: 2px 16px 16px; animation: svIn .35s cubic-bezier(.2, .8, .2, 1) both; }
 @keyframes svIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
 .sv-big { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; margin: 4px 0 2px; }
@@ -107,3 +106,19 @@ html.dark .ac-add { color: rgb(var(--p-300)); }
 .ac-qa.danger { background: rgb(244 63 94 / .1); color: rgb(225 29 72); }
 html.dark .ac-qa { color: rgb(var(--p-300)); } html.dark .ac-qa.danger { color: rgb(251 113 133); }
 @media (prefers-reduced-motion: reduce) { .sv-body, .ac-panel { animation: none; } }
+
+/* ---- Íconos de cristal líquido (.lg): cada uno toma su color de --c ---- */
+.lg { --c: #6366f1; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; isolation: isolate; color: var(--c);
+  background: radial-gradient(120% 90% at 28% 8%, rgb(255 255 255 / .95), rgb(255 255 255 / 0) 52%), linear-gradient(150deg, color-mix(in srgb, var(--c) 34%, transparent), color-mix(in srgb, var(--c) 9%, transparent));
+  border: 1px solid color-mix(in srgb, var(--c) 28%, rgb(255 255 255 / .7));
+  box-shadow: inset 0 1.5px 1px rgb(255 255 255 / .95), inset 0 -7px 10px -7px color-mix(in srgb, var(--c) 55%, transparent), 0 8px 16px -8px color-mix(in srgb, var(--c) 60%, transparent);
+  -webkit-backdrop-filter: blur(10px) saturate(1.7); backdrop-filter: blur(10px) saturate(1.7); }
+.lg::after { content: ""; position: absolute; left: 12%; right: 12%; top: 5%; height: 38%; border-radius: 999px; background: linear-gradient(180deg, rgb(255 255 255 / .75), rgb(255 255 255 / 0)); z-index: -1; pointer-events: none; }
+.lg i { filter: drop-shadow(0 1px 1px rgb(255 255 255 / .55)); }
+html.dark .lg { background: radial-gradient(120% 90% at 28% 8%, rgb(255 255 255 / .28), rgb(255 255 255 / 0) 52%), linear-gradient(150deg, color-mix(in srgb, var(--c) 42%, transparent), color-mix(in srgb, var(--c) 12%, transparent));
+  border-color: color-mix(in srgb, var(--c) 35%, rgb(255 255 255 / .18)); color: color-mix(in srgb, var(--c) 55%, #fff);
+  box-shadow: inset 0 1px 1px rgb(255 255 255 / .4), inset 0 -7px 10px -7px color-mix(in srgb, var(--c) 60%, transparent), 0 8px 18px -8px color-mix(in srgb, var(--c) 70%, #000); }
+html.dark .lg::after { background: linear-gradient(180deg, rgb(255 255 255 / .28), rgb(255 255 255 / 0)); }
+html.dark .lg i { filter: none; }
+.ac-ic.lg { width: 46px; height: 46px; border-radius: 15px; font-size: 18px; }
+.sv-orb { position: absolute; inset: 8px; border-radius: 50%; font-size: 15px; }

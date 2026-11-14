@@ -22,7 +22,7 @@ function fxCard(a) {
     const b = fxBal(a), r = fxRateOf(a), sel = fxOpen == a.id, C = FXC[a.c], k = r > 0 ? fxCost(a) : null;
     return `
         <button onclick="togFx(${a.id})" class="ac-row ${sel ? "on" : ""}" aria-expanded="${sel}">
-            <span class="ac-ic ${FX_CLS[a.c]}"><i class="fa-solid ${C[2]}"></i></span>
+            <span class="ac-ic lg" style="--c:${a.c == "EUR" ? "#2F55B0" : "#0B6B58"}"><i class="fa-solid ${C[2]}"></i></span>
             <span class="ac-main"><b>${esc(a.n)}</b><small>${r > 0 ? "≈ " + fmt(b * r) : "Falta la tasa del euro"}</small>
                 ${k && k.q > 0 && Math.abs(k.gain) >= 0.5 ? `<small class="font-semibold ${fxGcl(k.gain)}">${fxPlus(k.gain)} ${fxPct(k.gain, k.cost)}</small>` : ""}</span>
             <span class="ac-bal ${b < 0 ? "neg" : ""}">${fxFmt(a.c, b)}</span><i class="fa-solid fa-chevron-right ac-ch"></i>
