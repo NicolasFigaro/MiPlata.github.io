@@ -61,53 +61,50 @@ function netHist(n) {
 }
 
 // ---------- Metas: emoji y color propios (si no eligen, se adivinan por el nombre) ----------
-const GOAL_COLS = ["#2F55B0", "#0B6B58", "#A8660C", "#6542B5", "#B4456B", "#1F7A8C", "#4B4FB0", "#B42318", "#A87C0C", "#5B6676"];
+const GOAL_COLS = ["#007AFF", "#34C759", "#FF9500", "#AF52DE", "#FF2D55", "#30B0C7", "#5856D6", "#FF3B30", "#FFB300", "#8E8E93"];
 const GOAL_EMOS = ["🎯", "✈️", "🏠", "🏍️", "🚗", "🚲", "📱", "💻", "🎓", "💍", "🛟", "🏖️", "🌴", "🎁", "🎮", "🍼", "🐶", "🩺", "💼", "🎸", "📷", "👟", "🛋️", "🌎"];
 const GOAL_GUESS = [
-    [/viaj|vacac|paseo|trip|travel|vuelo|tiquete|pasaje|voyage|reise|путешеств|отпуск/i, "fa-plane", "#2F55B0"],
-    [/casa|apart|hogar|vivienda|inmueble|arriendo|house|home|maison|haus|дом|квартир/i, "fa-house", "#A8660C"],
-    [/moto|motocic|bike\b|moto\b/i, "fa-motorcycle", "#B42318"],
-    [/carro|auto\b|coche|veh[ií]c|camioneta|car\b|voiture|машин/i, "fa-car", "#4B4FB0"],
-    [/bici|cicla/i, "fa-bicycle", "#0B6B58"],
-    [/emergen|colch[oó]n|imprevist|fondo de|rainy|urgence|notfall|резерв/i, "fa-shield-halved", "#B4456B"],
-    [/celular|iphone|tel[eé]f|m[oó]vil|phone|samsung|телефон/i, "fa-mobile-screen", "#1F7A8C"],
-    [/compu|laptop|port[aá]til|pc\b|macbook|ordinateur|computer|ноутбук/i, "fa-laptop", "#4B4FB0"],
-    [/boda|matrim|anillo|casamiento|wedding|mariage|hochzeit|свадьб/i, "fa-ring", "#6542B5"],
-    [/estudi|univers|curso|maestr|colegio|matr[ií]cula|school|study|étude|studium|учёб|учеб/i, "fa-graduation-cap", "#2F55B0"],
-    [/salud|m[eé]dic|cirug|dent|health|santé|gesundheit|здоров/i, "fa-heart-pulse", "#B4456B"],
-    [/regalo|navidad|cumple|gift|cadeau|geschenk|подар/i, "fa-gift", "#A8660C"],
-    [/negocio|empresa|emprend|business|entreprise|geschäft|бизнес/i, "fa-briefcase", "#5B6676"],
-    [/playa|crucero|beach|plage|strand|пляж/i, "fa-umbrella-beach", "#1F7A8C"],
-    [/jubil|pensi[oó]n|retiro|retire|rente|пенси/i, "fa-sun", "#0B6B58"],
-    [/beb[eé]|hij[oa]|baby|bébé|kind\b|ребён|ребен/i, "fa-baby", "#A87C0C"],
-    [/mascota|perr|gat[oa]|pet\b|chien|hund|собак/i, "fa-paw", "#A8660C"],
-    [/consola|playstation|play\b|xbox|nintendo|gamer|juego|игр/i, "fa-gamepad", "#6542B5"],
-    [/sof[aá]|mueble|nevera|lavadora|electrodom|furniture|meuble|möbel|мебел/i, "fa-couch", "#A8660C"],
-    [/c[aá]mara|foto|camera|appareil|kamera|фотоап/i, "fa-camera", "#5B6676"]
+    [/viaj|vacac|paseo|trip|travel|vuelo|tiquete|pasaje|voyage|reise|путешеств|отпуск/i, "✈️", "#007AFF"],
+    [/casa|apart|hogar|vivienda|inmueble|arriendo|house|home|maison|haus|дом|квартир/i, "🏠", "#FF9500"],
+    [/moto|motocic|bike\b|moto\b/i, "🏍️", "#FF3B30"],
+    [/carro|auto\b|coche|veh[ií]c|camioneta|car\b|voiture|машин/i, "🚗", "#5856D6"],
+    [/bici|cicla/i, "🚲", "#34C759"],
+    [/emergen|colch[oó]n|imprevist|fondo de|rainy|urgence|notfall|резерв/i, "🛟", "#FF2D55"],
+    [/celular|iphone|tel[eé]f|m[oó]vil|phone|samsung|телефон/i, "📱", "#30B0C7"],
+    [/compu|laptop|port[aá]til|pc\b|macbook|ordinateur|computer|ноутбук/i, "💻", "#5856D6"],
+    [/boda|matrim|anillo|casamiento|wedding|mariage|hochzeit|свадьб/i, "💍", "#AF52DE"],
+    [/estudi|univers|curso|maestr|colegio|matr[ií]cula|school|study|étude|studium|учёб|учеб/i, "🎓", "#007AFF"],
+    [/salud|m[eé]dic|cirug|dent|health|santé|gesundheit|здоров/i, "🩺", "#FF2D55"],
+    [/regalo|navidad|cumple|gift|cadeau|geschenk|подар/i, "🎁", "#FF9500"],
+    [/negocio|empresa|emprend|business|entreprise|geschäft|бизнес/i, "💼", "#8E8E93"],
+    [/playa|crucero|beach|plage|strand|пляж/i, "🏖️", "#30B0C7"],
+    [/jubil|pensi[oó]n|retiro|retire|rente|пенси/i, "🌴", "#34C759"],
+    [/beb[eé]|hij[oa]|baby|bébé|kind\b|ребён|ребен/i, "🍼", "#FFB300"],
+    [/mascota|perr|gat[oa]|pet\b|chien|hund|собак/i, "🐶", "#FF9500"],
+    [/consola|playstation|play\b|xbox|nintendo|gamer|juego|игр/i, "🎮", "#AF52DE"],
+    [/sof[aá]|mueble|nevera|lavadora|electrodom|furniture|meuble|möbel|мебел/i, "🛋️", "#FF9500"],
+    [/c[aá]mara|foto|camera|appareil|kamera|фотоап/i, "📷", "#8E8E93"]
 ];
 const goalGuess = a => GOAL_GUESS.find(g => g[0].test(a.n || "")) || null;
-// Íconos de las metas (antes eran emojis): se dibujan como cristal líquido (.lg en ahorro-cuentas.css). a.ic = ícono elegido; si no hay, se adivina por el nombre.
-const GOAL_ICS = ["fa-bullseye", "fa-plane", "fa-house", "fa-motorcycle", "fa-car", "fa-bicycle", "fa-mobile-screen", "fa-laptop", "fa-graduation-cap", "fa-ring", "fa-shield-halved", "fa-umbrella-beach", "fa-gift", "fa-gamepad", "fa-baby", "fa-paw", "fa-heart-pulse", "fa-briefcase", "fa-camera", "fa-couch", "fa-guitar", "fa-shoe-prints", "fa-earth-americas", "fa-chart-line"];
-const goalIc = a => a.ic || (goalGuess(a) || [])[1] || "fa-bullseye";
-const goalEmo = a => `<i class="fa-solid ${goalIc(a)}" style="color:${goalCol(a)}"></i>`;
+const goalEmo = a => a.e || (goalGuess(a) || [])[1] || "🎯";
 const goalCol = a => a.c || (goalGuess(a) || [])[2] || GOAL_COLS[Math.abs(Number(a.id) || 0) % GOAL_COLS.length];
 
 // ---------- Bolsillos: ícono y color propios (como las categorías) ----------
 const PK_ICS = ["fa-box-archive", "fa-house", "fa-plane", "fa-basket-shopping", "fa-bolt", "fa-car", "fa-graduation-cap", "fa-heart-pulse", "fa-gift", "fa-umbrella-beach", "fa-shirt", "fa-paw", "fa-baby", "fa-wrench", "fa-gamepad", "fa-utensils", "fa-piggy-bank", "fa-star"];
 const PK_COLS = GOAL_COLS;
 const PK_GUESS = [
-    [/arriend|alquiler|renta|casa|hogar|rent\b|loyer|miete|аренд|жиль/i, "fa-house", "#A8660C"],
-    [/viaj|vacac|paseo|trip|travel|voyage|reise|отпуск|путешеств/i, "fa-plane", "#2F55B0"],
-    [/mercad|super|comida|food|courses|lebensmittel|еда|продукт/i, "fa-basket-shopping", "#0B6B58"],
-    [/servici|luz|agua|internet|gas\b|utilit|nebenkosten|коммунал/i, "fa-bolt", "#A87C0C"],
-    [/carro|moto|gasolina|transp|car\b|voiture|auto\b|транспорт|машин/i, "fa-car", "#4B4FB0"],
-    [/estudi|univers|curso|colegio|school|études|studium|учёб|учеб/i, "fa-graduation-cap", "#6542B5"],
-    [/salud|m[eé]dic|health|santé|gesundheit|здоров/i, "fa-heart-pulse", "#B4456B"],
-    [/regalo|navidad|gift|cadeau|geschenk|подар/i, "fa-gift", "#B4456B"],
-    [/mascota|perr|gat[oa]|pet\b|chien|hund|собак/i, "fa-paw", "#A8660C"],
-    [/ropa|clothes|vêtement|kleidung|одежд/i, "fa-shirt", "#1F7A8C"],
-    [/ahorro|saving|épargne|sparen|накоп/i, "fa-piggy-bank", "#0B6B58"],
-    [/beb[eé]|baby|bébé|ребён|ребен/i, "fa-baby", "#A87C0C"]
+    [/arriend|alquiler|renta|casa|hogar|rent\b|loyer|miete|аренд|жиль/i, "fa-house", "#FF9500"],
+    [/viaj|vacac|paseo|trip|travel|voyage|reise|отпуск|путешеств/i, "fa-plane", "#007AFF"],
+    [/mercad|super|comida|food|courses|lebensmittel|еда|продукт/i, "fa-basket-shopping", "#34C759"],
+    [/servici|luz|agua|internet|gas\b|utilit|nebenkosten|коммунал/i, "fa-bolt", "#FFB300"],
+    [/carro|moto|gasolina|transp|car\b|voiture|auto\b|транспорт|машин/i, "fa-car", "#5856D6"],
+    [/estudi|univers|curso|colegio|school|études|studium|учёб|учеб/i, "fa-graduation-cap", "#AF52DE"],
+    [/salud|m[eé]dic|health|santé|gesundheit|здоров/i, "fa-heart-pulse", "#FF2D55"],
+    [/regalo|navidad|gift|cadeau|geschenk|подар/i, "fa-gift", "#FF2D55"],
+    [/mascota|perr|gat[oa]|pet\b|chien|hund|собак/i, "fa-paw", "#FF9500"],
+    [/ropa|clothes|vêtement|kleidung|одежд/i, "fa-shirt", "#30B0C7"],
+    [/ahorro|saving|épargne|sparen|накоп/i, "fa-piggy-bank", "#34C759"],
+    [/beb[eé]|baby|bébé|ребён|ребен/i, "fa-baby", "#FFB300"]
 ];
 const pkGuess = p => PK_GUESS.find(g => g[0].test(p.n || "")) || null;
 const pkIcon = p => p.ic || (pkGuess(p) || [])[1] || "fa-box-archive";
@@ -123,7 +120,6 @@ function pkTile(p, g, sm) {
 // Cada muestra: { v: valor guardado, h: HTML, s: estilo del botón, l: nombre accesible }
 const emoSw = () => [{ v: "", h: "✨", l: "Automático" }].concat(GOAL_EMOS.map(e => ({ v: e, h: e, l: e })));
 const colSw = () => [{ v: "", h: '<i class="fa-solid fa-wand-magic-sparkles"></i>', l: "Automático" }].concat(GOAL_COLS.map(c => ({ v: c, h: "", s: "background:" + c, l: c })));
-const goalIcoSw = () => [{ v: "", h: '<i class="fa-solid fa-wand-magic-sparkles"></i>', l: "Automático" }].concat(GOAL_ICS.map(i => ({ v: i, h: `<i class="fa-solid ${i}"></i>`, l: i.replace("fa-", "") })));
 const icoSw = () => [{ v: "", h: '<i class="fa-solid fa-wand-magic-sparkles"></i>', l: "Automático" }].concat(PK_ICS.map(i => ({ v: i, h: `<i class="fa-solid ${i}"></i>`, l: i.replace("fa-", "") })));
 function swHTML(f, i) {
     const cur = f.v == null ? "" : f.v;

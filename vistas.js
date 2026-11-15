@@ -210,6 +210,25 @@ function destUI() {
         <input id="destAmt" inputmode="numeric" placeholder="¿Cuánto de este ingreso? (vacío = todo o la cuota)" oninput="fa(this)" class="${INP} hidden" autocomplete="off">`;
 }
 
+function bkUI() {
+    if (!bkDue()) return "";
+    const d = bkDaysAgo();
+    return `
+        <section class="${CARD} p-4 !border-amber-300 dark:!border-amber-500/40 bg-amber-50/60 dark:bg-amber-500/5">
+            <div class="flex items-start gap-3">
+                <div class="w-9 h-9 shrink-0 rounded-xl flex items-center justify-center text-sm bg-amber-100 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400"><i class="fa-solid fa-cloud-arrow-down"></i></div>
+                <div class="min-w-0 flex-1">
+                    <p class="text-xs font-bold text-slate-800 dark:text-white">${d === null ? "Aún no has hecho una copia de seguridad" : "Tu última copia fue hace " + d + " días"}</p>
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Tus datos viven solo en este celular.${hq("Si lo pierdes, lo formateas o borras el navegador, se van con él. Descarga la copia y guárdala en Drive o envíatela por WhatsApp.")}</p>
+                    <div class="flex gap-2 mt-3">
+                        <button onclick="downloadBackup()" class="px-3 py-1.5 bg-indigo-600 text-white rounded-xl text-xs font-semibold shadow-md shadow-indigo-500/20">Descargar copia</button>
+                        <button onclick="snoozeBackup()" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold">Recordarme luego</button>
+                    </div>
+                </div>
+            </div>
+        </section>`;
+}
+
 function dailyUI(disp) {
     const dy = dailyInfo(disp);
     if (!dy) return "";
@@ -222,74 +241,94 @@ function dailyUI(disp) {
         lbl = "Hoy te pasaste por"; val = fmt(-dy.rest); red = true;
         sub = dy.left > 1 ? "Para los " + (dy.left - 1) + (dy.left == 2 ? " día que sigue" : " días que siguen") + " quedan ≈ " + fmt(dy.later) + " por día" : "";
     } else {
-        sub = dy.left == 1 ? "Último día del mes" : "≈ " + fmt(dy.perDay) + " por día · quedan " + dy.left + " días";
+        sub = "≈ " + fmt(dy.perDay) + " por día · " + (dy.left == 1 ? "último día del mes" : "quedan " + dy.left + " días");
     }
-    const fx = dy.fixed > 0 ? "Ya descontados " + fmt(dy.fixed) + " de gastos fijos por venir" : "";
-    return `<div class="hg-day"><small>${lbl}</small><b data-cu="day" class="${red ? "over" : ""}">${val}</b></div><p class="hg-sub" ${fx ? `title="${esc(fx)}"` : ""}>${sub}</p>`;
-}
-
-// Barra de gasto del mes con la marca de "hoy deberías ir en X %" (días transcurridos / días del mes). Solo en el mes actual.
-// Lleno = lo gastado frente a lo que había para gastar este mes (gastado + disponible).
-function paceUI(gas, disp) {
-    const n = new Date();
-    if (ym(n) != ym(cur)) return "";
-    const dim = new Date(n.getFullYear(), n.getMonth() + 1, 0).getDate(), mark = Math.round(n.getDate() / dim * 100), tope = gas + Math.max(0, disp);
-    if (tope <= 0) return "";
-    const p = Math.min(100, gas / tope * 100), over = p > mark + 5, pr = monthProjection(disp);
-    const pj = pr && !pr.few ? (pr.end < 0 ? "Te faltarían " + fmt(-pr.end) : "Cierras con " + fmt(pr.end)) : "";
     return `
-            <div class="pace" role="img" aria-label="Gastado ${Math.round(p)} %, hoy deberías ir en ${mark} %" title="${fmt(gas)} de ${fmt(tope)}">
-                <div class="pace-h"><span>Gasto del mes</span><b class="${over ? "over" : ""}">${Math.round(p)} %</b></div>
-                <div class="pace-bar"><i class="${over ? "over" : ""}" style="width:${p.toFixed(1)}%"></i><u style="left:${mark}%"></u></div>
-                <div class="pace-f"><span class="${pr && pr.end < 0 ? "over" : ""}">${pj}</span><span class="pace-mk">Hoy deberías ir en ${mark} %</span></div>
-            </div>`;
+        <div class="mt-4 p-3 rounded-2xl bg-white/10 flex items-center justify-between gap-3">
+            <div class="min-w-0">
+                <small class="text-[10px] text-indigo-200 block uppercase">${lbl}</small>
+                <b data-cu="day" class="text-xl font-extrabold ${red ? "text-rose-300" : ""}">${val}</b>
+            </div>
+            <div class="text-right text-[11px] text-indigo-200 leading-snug">${sub}${dy.fixed > 0 ? `<br>ya descontados ${fmt(dy.fixed)} de gastos fijos por venir` : ""}</div>
+        </div>`;
 }
 
-// Avisos de Inicio: una línea por aviso (copia de seguridad, gastos fijos por confirmar y lo que vence esta semana)
-const avDue = d => d < 0 ? "hace " + (-d) + " d" : d == 0 ? "hoy" : d == 1 ? "mañana" : "en " + d + " d";
-function avisosUI() {
-    const rows = [];
-    if (bkDue()) {
-        const d = bkDaysAgo();
-        rows.push({ w: 1, h: `
-            <div class="av-row">
-                <button onclick="downloadBackup()" class="av-main" title="Tus datos viven solo en este celular"><span class="av-ic"><i class="fa-solid fa-cloud-arrow-down"></i></span><span class="av-t">${d === null ? "Sin copia de seguridad" : "Última copia hace " + d + " días"}</span><span class="av-m">Descargar</span></button>
-                <button onclick="snoozeBackup()" class="av-x" title="Recordarme luego" aria-label="Recordarme luego"><i class="fa-solid fa-xmark"></i></button>
-            </div>` });
-    }
+function projUI(disp) {
+    const p = monthProjection(disp);
+    if (!p) return "";
+    const box = "mt-3 p-3 rounded-2xl bg-white/10 flex items-center justify-between gap-3";
+    if (p.few) return `<div class="${box}"><div class="text-[11px] text-indigo-200 leading-snug"><i class="fa-solid fa-chart-line mr-1.5"></i>Proyección del mes: registra tus gastos unos días más y te diré cómo vas a cerrar.</div></div>`;
+    const bad = p.end < 0;
+    let sub;
+    if (p.left == 0) sub = "Hoy es el último día del mes";
+    else if (p.room <= 0) sub = "Ya no te alcanza para lo que resta del mes, ni sin gastar más";
+    else if (bad) sub = "Gastas ≈ " + fmt(p.pace) + " por día. Para cerrar en $0 baja a ≈ " + fmt(p.fit) + " por día";
+    else sub = "Gastas ≈ " + fmt(p.pace) + " por día · tu tope es ≈ " + fmt(p.fit) + " por día";
+    return `
+        <div class="${box}">
+            <div class="min-w-0">
+                <small class="text-[10px] text-indigo-200 block uppercase"><i class="fa-solid fa-chart-line mr-1"></i>${bad ? "Te faltarían para cerrar el mes" : "A este ritmo terminas el mes con"}</small>
+                <b class="text-xl font-extrabold ${bad ? "text-rose-300" : ""}">${fmt(bad ? -p.end : p.end)}</b>
+            </div>
+            <div class="text-right text-[11px] text-indigo-200 leading-snug">${sub}<br><span class="opacity-80">sin contar compras con tarjeta${p.fixed > 0 ? "; ya descontados " + fmt(p.fixed) + " de gastos fijos por venir" : ""}</span></div>
+        </div>`;
+}
+
+function recUI() {
     const P = recPend();
-    if (P.length) rows.push({ w: 1, h: `
-            <details class="av-det">
-                <summary class="av-row"><span class="av-main"><span class="av-ic"><i class="fa-solid fa-file-invoice-dollar"></i></span><span class="av-t">Confirma tus gastos fijos</span><span class="av-m">${P.length} por confirmar</span><i class="fa-solid fa-chevron-down av-ch"></i></span></summary>
-                <div class="av-body">
-                    <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed mb-2">Su valor cambia cada mes. Escribe cuánto llegó (te dejé el del mes pasado). Mientras no lo confirmes, ese valor ya se descuenta de lo que te queda para gastar.</p>
-                    ${P.map(r => `
-                    <div class="flex items-center gap-2 mb-2">
-                        <div class="min-w-0 flex-1"><b class="text-xs text-slate-800 dark:text-white block truncate">${esc(r.n)}</b><small class="text-[10px] text-slate-400">día ${r.day} · ${esc(r.c)}</small></div>
-                        <input id="rc${r.id}" inputmode="numeric" value="${Math.round(r.a).toLocaleString("es-CO")}" oninput="fa(this)" onkeydown="if(event.key==='Enter')confirmRec(${r.id})" class="w-28 px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-right text-slate-800 dark:text-white">
-                        <button onclick="confirmRec(${r.id})" class="px-3 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold">Listo</button>
-                        <button onclick="skipRec(${r.id})" title="Omitir este mes" aria-label="Omitir este mes" class="px-2.5 py-2 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-xl text-xs"><i class="fa-solid fa-forward"></i></button>
-                    </div>`).join("")}
-                </div>
-            </details>` });
-    weekEvents().forEach(e => {
-        const st = WEEK_ST[e.k], nm = e.title.replace(/^Mi Plata · /, ""), tone = e.days < 0 ? "late" : e.days <= 2 ? "soon" : "";
-        rows.push({ w: e.days < 0 ? 1 : 0, h: `
-            <div class="av-row">
-                <button onclick="goTab(${N.indexOf(st[2])})" class="av-main ${tone}" title="${esc(e.what)}"><span class="av-ic"><i class="fa-solid ${st[0]}"></i></span><span class="av-t">${esc(nm)}</span><span class="av-m">${avDue(e.days)}</span><b class="av-a">${e.amt}</b></button>
-            </div>` });
-    });
-    if (!rows.length) return "";
-    const late = weekEvents().filter(e => e.days < 0).length;
+    if (!P.length) return "";
     return `
-        <section class="${CARD} avl">
-            <div class="av-h"><h3>Avisos</h3><span class="${late ? "late" : ""}">${late ? late + (late == 1 ? " vencido" : " vencidos") : rows.length + (rows.length == 1 ? " pendiente" : " pendientes")}</span></div>
-            <div class="av-list">${rows.map(r => r.h).join("")}</div>
+        <section class="${CARD} p-4 !border-amber-300 dark:!border-amber-500/40 bg-amber-50/60 dark:bg-amber-500/5">
+            <div class="flex items-start gap-3">
+                <div class="w-9 h-9 shrink-0 rounded-xl flex items-center justify-center text-sm bg-amber-100 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400"><i class="fa-solid fa-file-invoice-dollar"></i></div>
+                <div class="min-w-0 flex-1">
+                    <p class="text-xs font-bold text-slate-800 dark:text-white">Confirma tus gastos fijos de este mes</p>
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">Su valor cambia cada mes. Escribe cuánto llegó (te dejé el del mes pasado). Mientras no lo confirmes, ese valor ya se descuenta de lo que te queda para gastar.</p>
+                    <div class="space-y-2 mt-3">
+                        ${P.map(r => `
+                        <div class="flex items-center gap-2">
+                            <div class="min-w-0 flex-1"><b class="text-xs text-slate-800 dark:text-white block truncate">${esc(r.n)}</b><small class="text-[10px] text-slate-400">día ${r.day} · ${esc(r.c)}</small></div>
+                            <input id="rc${r.id}" inputmode="numeric" value="${Math.round(r.a).toLocaleString("es-CO")}" oninput="fa(this)" onkeydown="if(event.key==='Enter')confirmRec(${r.id})" class="w-28 px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-right text-slate-800 dark:text-white">
+                            <button onclick="confirmRec(${r.id})" class="px-3 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold">Listo</button>
+                            <button onclick="skipRec(${r.id})" title="Omitir este mes" class="px-2.5 py-2 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-xl text-xs"><i class="fa-solid fa-forward"></i></button>
+                        </div>`).join("")}
+                    </div>
+                </div>
+            </div>
         </section>`;
 }
 
-// Íconos de lo que vence esta semana (los usa avisosUI): lo que vence en los próximos 7 días (tarjetas, deudas y metas) y lo vencido hace poco. Se ve siempre, sin depender de notificaciones.
+// "Esta semana": lo que vence en los próximos 7 días (tarjetas, deudas y metas) y lo vencido hace poco. Se ve siempre, sin depender de notificaciones.
 const WEEK_ST = { c: ["fa-credit-card", "#FF9500", "Tarjetas"], d: ["fa-hand-holding-dollar", "#FF3B30", "Deudas"], g: ["fa-flag-checkered", "#34C759", "Ahorro"] };
+function weekUI() {
+    const E = weekEvents();
+    if (!E.length) return "";
+    const late = E.filter(e => e.days < 0).length;
+    const rows = E.map(e => {
+        const st = WEEK_ST[e.k], nm = e.title.replace(/^Mi Plata · /, ""), cl = e.days < 0 ? "text-rose-500 font-semibold" : e.days <= 2 ? "text-amber-500 font-semibold" : "text-slate-400";
+        return `
+        <button onclick="goTab(${N.indexOf(st[2])})" class="ios-row w-full flex items-center gap-3 py-2.5 text-left active:opacity-60 transition-opacity">
+            <span class="w-9 h-9 shrink-0 rounded-[10px] flex items-center justify-center text-sm text-white" style="background:${st[1]}"><i class="fa-solid ${st[0]}"></i></span>
+            <div class="min-w-0 flex-1">
+                <strong class="text-sm font-semibold text-slate-800 dark:text-white block truncate">${esc(nm)}</strong>
+                <small class="text-xs ${cl}">${e.what} · ${dueTxt(e.days)}</small>
+            </div>
+            <div class="text-right shrink-0">
+                <b class="text-sm font-bold text-slate-800 dark:text-white block">${e.amt}</b>
+                ${e.k == "g" ? '<small class="text-[10px] text-slate-400 uppercase">faltan</small>' : '<small class="text-[10px] text-slate-400 uppercase">por pagar</small>'}
+            </div>
+        </button>`;
+    }).join("");
+    return `
+        <section class="${CARD} p-5 pb-3">
+            <div class="flex items-center justify-between mb-1">
+                <h3 class="text-sm font-bold text-slate-800 dark:text-white"><i class="fa-regular fa-calendar-check text-indigo-500 mr-1.5"></i>Esta semana</h3>
+                <span class="text-xs ${late ? "text-rose-500 font-semibold" : "text-slate-400"}">${late ? late + (late == 1 ? " vencido" : " vencidos") : E.length + (E.length == 1 ? " pendiente" : " pendientes")}</span>
+            </div>
+            ${rows}
+        </section>`;
+}
+
 // ---------- Formulario "Anotar movimiento" (vive en un modal que abre el botón flotante +) ----------
 function movFormHTML() {
     const names = type == "g" ? G.filter(x => x[0] != "Ahorro").map(x => x[0]) : I;
@@ -416,37 +455,42 @@ function vHome() {
             <div class="hi-t"><b>Hola${(S.th.nm || "") ? ", " + esc(S.th.nm) : ""}</b><small>Hoy es un buen día para avanzar</small></div>
             <button class="hi-b av" onclick="const n=prompt('¿Cómo te llamas?',S.th.nm||'');if(n!==null){S.th.nm=n.trim();save();draw()}" aria-label="Tu nombre">${esc(((S.th.nm || "").trim()[0] || "").toUpperCase()) || '<i class="fa-solid fa-user"></i>'}</button>
         </div>
-        <section data-hero class="hg relative overflow-hidden p-6 rounded-[20px] flex flex-col justify-between">
-            <div class="hg-nav">
-                <button onclick="go(-1)" aria-label="Mes anterior">‹</button>
-                <span class="capitalize">${cur.toLocaleDateString(DLOC, { month: "long", year: "numeric" })}</span>
-                <button onclick="go(1)" aria-label="Mes siguiente">›</button>
+        ${bkUI()}
+        ${recUI()}
+        <section data-hero class="relative overflow-hidden bg-gradient-to-b from-indigo-600 to-indigo-700 text-white p-6 rounded-[20px] shadow-sm flex flex-col justify-between">
+            <div class="flex justify-between items-start">
+                <div>
+                    <p class="text-xs font-medium uppercase tracking-wider text-indigo-200">Disponible para gastar</p>
+                    <h2 data-cu="disp" class="text-3xl font-extrabold mt-1 tracking-tight ${disp < 0 ? "text-rose-300" : ""}">${fmt(disp)}</h2>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <button onclick="go(-1)" class="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-sm font-bold transition">‹</button>
+                    <span class="text-xs font-semibold capitalize">${cur.toLocaleDateString(DLOC, { month: "long", year: "numeric" })}</span>
+                    <button onclick="go(1)" class="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-sm font-bold transition">›</button>
+                </div>
             </div>
-            <div class="hg-top">
-                ${dailyUI(disp)}
-                <div class="hg-av"><small>Disponible</small><b data-cu="disp" class="${disp < 0 ? "over" : ""}">${fmt(disp)}</b></div>
-            </div>
-            ${paceUI(gas, disp)}
-            <div class="hg-stats grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-white/10">
+            ${dailyUI(disp)}
+            ${projUI(disp)}
+            <div class="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-white/10">
                 <div><small class="text-[10px] text-indigo-200 block uppercase">En mano</small><b data-cu="have" class="text-xs sm:text-sm font-bold">${fmt(have)}</b>${pk > 0 ? `<small class="text-[10px] text-indigo-200 block font-normal">${fmt(pk)} en bolsillos</small>` : ""}</div>
                 <div><small class="text-[10px] text-indigo-200 block uppercase">Tarjetas</small><b data-cu="due" class="text-xs sm:text-sm font-bold">${fmt(due)}</b>${due <= 0.5 && nm == ym(new Date()) ? (() => { const x = S.cards.filter(c => !(S.hide || {})[c.n]).reduce((s, c) => s + (cardNext(c).due || 0), 0); return x > 0.5 ? `<small class="text-[10px] text-indigo-200 block font-normal">próx. ${fmt(x)}</small>` : ""; })() : ""}</div>
                 <div><small class="text-[10px] text-indigo-200 block uppercase">Apartado</small><b data-cu="svt" class="text-xs sm:text-sm font-bold">${fmt(svt)}</b></div>
             </div>
         </section>
 
-        ${avisosUI()}
+        ${weekUI()}
 
         ${yearTeaser()}
         ${typeof closeTeaser == "function" ? closeTeaser() : ""}
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div onclick="goTab(${N.indexOf("Ahorro")})" class="${CARD} p-4 cursor-pointer hover:border-indigo-500 transition lift">
-                <div class="flex justify-between items-center mb-1"><span class="text-xs font-semibold text-slate-500">Ahorros y Metas</span><span class="orb"><i class="fa-solid fa-piggy-bank"></i></span></div>
+                <div class="flex justify-between items-center mb-1"><span class="text-xs font-semibold text-slate-500">Ahorros y Metas</span><i class="fa-solid fa-piggy-bank text-indigo-500"></i></div>
                 <h4 data-cu="totAcc" class="text-lg font-bold text-slate-800 dark:text-white mb-2">${fmt(totAcc)}</h4>
                 ${MT}
             </div>
             <div onclick="goTab(${N.indexOf("Inversión")})" class="${CARD} p-4 cursor-pointer hover:border-indigo-500 transition lift">
-                <div class="flex justify-between items-center mb-1"><span class="text-xs font-semibold text-slate-500">Inversiones</span><span class="orb"><i class="fa-solid fa-chart-line"></i></span></div>
+                <div class="flex justify-between items-center mb-1"><span class="text-xs font-semibold text-slate-500">Inversiones</span><i class="fa-solid fa-chart-line text-emerald-500"></i></div>
                 <h4 class="text-lg font-bold text-slate-800 dark:text-white">${show(invT)}</h4>
                 <p class="text-xs ${invT >= invC ? "text-emerald-500" : "text-rose-500"} mt-1 font-semibold">${invT >= invC ? "+" : ""}${fmt(invT - invC)} sobre lo invertido${P.ann !== null ? " · " + pct1(P.ann) + " anual" : ""}</p>
             </div>
@@ -480,9 +524,21 @@ function vHome() {
 }
 
 // ---------- Cuentas ----------
+function walCard(a) {
+    const b = walBal(a), pk = pkSum(a), hid = !!(S.hide || {})[a.n], sel = walOpen == a.id, T = WTYPES[a.t];
+    return `
+        <button onclick="togW(${a.id})" class="${CARD} lift p-4 text-left flex flex-col min-w-0 ${sel ? "!border-indigo-500 ring-2 ring-indigo-500/30" : ""} ${hid ? "opacity-60" : ""}">
+            <span class="w-10 h-10 rounded-xl flex items-center justify-center mb-3 ${T[3]}"><i class="fa-solid ${T[1]}"></i></span>
+            <span class="text-[11px] uppercase tracking-wider text-slate-400 truncate w-full">${esc(a.n)}</span>
+            <b class="text-lg font-extrabold mt-0.5 truncate w-full ${b < 0 ? "text-rose-500" : "text-slate-800 dark:text-white"}">${fmt(b)}</b>
+            <small class="text-[11px] text-slate-400 mt-0.5 truncate w-full">${hid ? "Oculta del resumen" : pk > 0 ? fmt(pk) + " en bolsillos" : T[0]}</small>
+            ${a.pk.length ? `<span class="pk-mini">${a.pk.slice(0, 5).map(p => pkTile(p, p.m ? S.acc.find(x => x.id == p.m) : null, 1)).join("")}${a.pk.length > 5 ? `<span class="pk-more">+${a.pk.length - 5}</span>` : ""}</span>` : ""}
+        </button>`;
+}
+
 function walPanel(a) {
-    const b = walBal(a), pk = pkSum(a);
-    const qa = (cl, fn, ic, t) => `<button onclick="${fn}" class="ac-qa ${cl}"><i class="fa-solid ${ic}"></i><span>${t}</span></button>`;
+    const b = walBal(a), pk = pkSum(a), T = WTYPES[a.t];
+    const act = (cl, fn, t) => `<button onclick="${fn}" class="px-3 py-1.5 ${cl} rounded-xl text-xs font-semibold">${t}</button>`;
     const ib = (cl, fn, ic, t) => `<button onclick="${fn}" title="${t}" aria-label="${t}" class="w-8 h-8 ${cl} rounded-lg text-[11px] flex items-center justify-center"><i class="fa-solid ${ic}"></i></button>`;
     const hasGoals = S.acc.some(g => !g.f);
     const linkedG = S.acc.filter(g => !g.f && a.pk.some(p => p.m == g.id)), linkedAG = linkedG.reduce((s, g) => s + goalTotal(g) * (g.u ? S.trm : 1), 0);
@@ -491,10 +547,12 @@ function walPanel(a) {
         return `
         <div class="flex items-center justify-between gap-2 py-2.5 border-b border-slate-100 dark:border-slate-800 last:border-0">
             <div class="min-w-0 flex items-center gap-3">${pkTile(p, g)}<div class="min-w-0"><b class="text-xs text-slate-800 dark:text-white block truncate">${esc(p.n)}</b><small class="text-[11px] text-slate-400">${fmt(p.v)}${g ? ` · <span class="font-medium" style="color:${goalCol(g)}">${goalEmo(g)} ${esc(g.n)} · lleva ${fm(g, goalAll(g))}${g.g ? " de " + fm(g, g.g) + " (" + gt.toFixed(0) + "%)" : ""}</span>` : ""}</small></div></div>
-            <div class="flex items-center gap-1.5 shrink-0">
+            <div class="flex space-x-1.5 shrink-0">
                 ${ib("bg-emerald-50 text-emerald-600", `pkMove(${a.id},${p.id},1)`, "fa-plus", "Meter")}
                 ${ib("bg-rose-50 text-rose-600", `pkMove(${a.id},${p.id},-1)`, "fa-minus", "Sacar")}
-                ${mxMenu((hasGoals || p.m ? ib(p.m ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 dark:bg-slate-800", `linkPk(${a.id},${p.id})`, "fa-link", "Vincular a una meta") : "") + ib("bg-slate-100 dark:bg-slate-800", `editPk(${a.id},${p.id})`, "fa-pen", "Renombrar") + ib("bg-slate-100 dark:bg-slate-800 text-rose-500", `delPk(${a.id},${p.id})`, "fa-trash", "Borrar"))}
+                ${hasGoals || p.m ? ib(p.m ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 dark:bg-slate-800", `linkPk(${a.id},${p.id})`, "fa-link", "Vincular a una meta") : ""}
+                ${ib("bg-slate-100 dark:bg-slate-800", `editPk(${a.id},${p.id})`, "fa-pen", "Renombrar")}
+                ${ib("bg-slate-100 dark:bg-slate-800 text-rose-500", `delPk(${a.id},${p.id})`, "fa-trash", "Borrar")}
             </div>
         </div>`;
     }).join("");
@@ -506,25 +564,28 @@ function walPanel(a) {
         </div>`;
     }).join("");
     return `
-        <section class="ac-panel">
-            <div class="sv-stats">
-                ${[["Saldo", fmt(b), b < 0 ? "neg" : ""], ["En bolsillos", fmt(pk + linkedAG), ""], ["Libre", fmt(b - pk), b - pk < 0 ? "neg" : "up"]].map(([l, v, cl]) => `<div class="${cl}"><span class="sv-lbl">${l}</span><b>${v}</b></div>`).join("")}
+        <section class="${CARD} p-5 mb-4">
+            <div class="flex items-center gap-3 mb-4">
+                <span class="w-10 h-10 shrink-0 rounded-xl flex items-center justify-center ${T[3]}"><i class="fa-solid ${T[1]}"></i></span>
+                <div class="min-w-0"><b class="text-sm font-bold text-slate-800 dark:text-white block truncate">${esc(a.n)}</b><small class="text-[11px] text-slate-400">${T[0]}</small></div>
             </div>
-            ${linkedAG > 0.5 ? `<p class="text-[10px] text-slate-400 mt-1.5">En bolsillos incluye ${fmt(linkedAG)} de metas</p>` : ""}
-            ${pk > b + 0.5 ? `<p class="text-[11px] text-amber-500 mt-2"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Tus bolsillos suman más que el saldo de la cuenta. Revisa el saldo («Ajustar saldo») o saca plata de algún bolsillo.</p>` : ""}
-            <div class="ac-qas">
-                ${qa("", `adjWal(${a.id})`, "fa-sliders", "Ajustar saldo")}
-                ${qa("", `trfWal(${a.id})`, "fa-right-left", "Transferir")}
-                ${qa("", `editWal(${a.id})`, "fa-pen", "Editar")}
-                ${qa("danger", `delWal(${a.id})`, "fa-trash", "Borrar")}
+            <div class="grid grid-cols-3 gap-2 mb-2">
+                ${[["Saldo", fmt(b), b < 0 ? "text-rose-500" : ""], ["En bolsillos", fmt(pk + linkedAG), "", linkedAG > 0.5 ? "incluye " + fmt(linkedAG) + " de metas" : ""], ["Libre", fmt(b - pk), b - pk < 0 ? "text-rose-500" : "text-emerald-500"]].map(([l, v, cl, nt]) => `<div class="p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 min-w-0"><span class="text-[10px] uppercase tracking-wider text-slate-400 block truncate">${l}</span><b class="text-xs ${cl}">${v}</b>${nt ? `<small class="text-[10px] text-slate-400 block truncate">${nt}</small>` : ""}</div>`).join("")}
             </div>
-            <div class="flex justify-between items-center mt-5 mb-1">
-                <h4 class="sv-lbl !mb-0">Bolsillos</h4>
+                        ${pk > b + 0.5 ? `<p class="text-[11px] text-amber-500 mb-2"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Tus bolsillos suman más que el saldo de la cuenta. Revisa el saldo («Ajustar saldo») o saca plata de algún bolsillo.</p>` : ""}
+            <div class="flex flex-wrap gap-2 mb-4">
+                ${act("bg-indigo-50 text-indigo-600", `adjWal(${a.id})`, "Ajustar saldo")}
+                ${act("bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300", `trfWal(${a.id})`, "↔ Transferir")}
+                ${act("bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300", `editWal(${a.id})`, "Editar")}
+                ${act("bg-slate-100 dark:bg-slate-800 text-rose-500", `delWal(${a.id})`, "Borrar")}
+            </div>
+            <div class="flex justify-between items-center pt-3 border-t border-slate-100 dark:border-slate-800">
+                <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider">Bolsillos</h4>
                 <button onclick="newPk(${a.id})" class="px-3 py-1.5 bg-indigo-600 text-white rounded-xl text-xs font-semibold shadow-md">+ Nuevo bolsillo</button>
             </div>
-            <p class="text-[11px] text-slate-400 mb-1">Plata que sigue en esta cuenta pero ya tiene dueño: no cuenta como «Disponible para gastar».</p>
+            <p class="text-[11px] text-slate-400 mt-1">Plata que sigue en esta cuenta pero ya tiene dueño: no cuenta como «Disponible para gastar».</p>
             ${pks || emptyUI("fa-box-archive", "#5856D6", "Sin bolsillos", "Aparta plata dentro de esta cuenta (arriendo, un viaje…) sin sacarla de ahí.", "Crear bolsillo", `newPk(${a.id})`, true)}
-            <h4 class="sv-lbl mt-5 !mb-0">Últimos movimientos</h4>
+            <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mt-4 pt-3 border-t border-slate-100 dark:border-slate-800">Últimos movimientos</h4>
             ${mv || '<p class="text-xs text-slate-400 text-center py-4">Todavía no hay movimientos en esta cuenta.</p>'}
         </section>`;
 }
@@ -534,38 +595,28 @@ function vCue() {
     const shown = S.wal.filter(a => !(S.hide || {})[a.n]), FX = fxTotal(), T = shown.reduce((s, a) => s + walBal(a), 0) + FX, P = pkHeld(), open = S.wal.find(a => a.id == walOpen);
     // Lo que ya tienen ahorrado las metas que están vinculadas a algún bolsillo (esa plata está en la meta, no en la cuenta: no entra en "Libre")
     const AG = S.acc.filter(g => !g.f && goalPks(g).length).reduce((s, g) => s + goalTotal(g) * (g.u ? S.trm : 1), 0);
-    const held = P + AG, pw = T > 0 ? Math.min(100, Math.max(0, held / T * 100)) : 0;
     return `
-        <section class="ac-hero">
-            <small>Total en cuentas</small>
-            <div class="amt">${fmt(T)}</div>
-            ${FX ? `<p class="hnote">Incluye ≈ ${fmt(FX)} en dólares y euros${Math.abs(fxGain()) >= 0.5 ? ` · ${fxGain() > 0 ? "ganancia por la tasa" : "pérdida por la tasa"} ${fmt(Math.abs(fxGain()))}` : ""}</p>` : ""}
-            <div class="hsplit"><i style="width:${(100 - pw).toFixed(1)}%;background:#fff"></i><i style="width:${pw.toFixed(1)}%;background:rgb(255 255 255/.4)"></i></div>
-            <div class="hlegend two">
-                <span><i class="dot" style="background:#fff"></i><em>Libre</em><b>${fmt(T - P)}</b></span>
-                <span><i class="dot" style="background:rgb(255 255 255/.4)"></i><em>En bolsillos</em><b>${fmt(held)}</b>${AG > 0.5 ? `<small>incluye ${fmt(AG)} de metas</small>` : ""}</span>
+        <section class="bg-gradient-to-b from-sky-500 to-sky-600 text-white p-6 rounded-[20px] shadow-sm mb-6">
+            <small class="text-xs text-sky-100 font-medium uppercase tracking-wider">Total en cuentas</small>
+            <div class="text-3xl font-extrabold mt-1">${fmt(T)}</div>
+            ${FX ? `<p class="text-xs text-sky-100 mt-1">Incluye ≈ ${fmt(FX)} en dólares y euros${Math.abs(fxGain()) >= 0.5 ? ` · ${fxGain() > 0 ? "ganancia por la tasa" : "pérdida por la tasa"} ${fmt(Math.abs(fxGain()))}` : ""}</p>` : ""}
+            <div class="grid grid-cols-2 gap-2 mt-4 pt-4 border-t border-white/10">
+                <div><small class="text-[10px] text-sky-100 block uppercase">En bolsillos</small><b class="text-sm font-bold">${fmt(P + AG)}</b>${AG > 0.5 ? `<small class="text-[10px] text-sky-100 block font-normal">incluye ${fmt(AG)} de metas</small>` : ""}</div>
+                <div><small class="text-[10px] text-sky-100 block uppercase">Libre</small><b class="text-sm font-bold">${fmt(T - P)}</b></div>
             </div>
         </section>
-        <div class="sec-h"><h3>Mis Cuentas</h3></div>
-        <div class="${CARD} ac-group">
-            ${S.wal.map(a => walRow(a) + (open && open.id == a.id ? walPanel(a) : "")).join("")}
-            <button onclick="newWal()" class="ac-add"><span class="plus"><i class="fa-solid fa-plus"></i></span>Agregar cuenta</button>
+        <div class="flex justify-between items-center mb-4"><h3 class="text-base font-bold">Mis Cuentas</h3></div>
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
+            ${S.wal.map(walCard).join("")}
+            <button onclick="newWal()" class="min-h-[140px] rounded-[20px] border-2 border-dashed border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center gap-2 text-slate-500 hover:border-indigo-500 transition">
+                <span class="w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center"><i class="fa-solid fa-plus"></i></span>
+                <span class="text-xs font-semibold">Agregar cuenta</span>
+            </button>
         </div>
+        ${open ? walPanel(open) : ""}
         ${fxSection()}
         <p class="text-[11px] text-slate-400">${hq("El total no incluye las cuentas que ocultes en Ajustes. Los gastos con tarjeta no salen de ninguna cuenta hasta que abonas a la tarjeta.")}</p>
     `;
-}
-
-const WCOL = { cash: "#A8660C", bank: "#2F55B0", digital: "#6542B5", savings: "#0B6B58", other: "#5B6676" };
-function walRow(a) {
-    const b = walBal(a), pk = pkSum(a), hid = !!(S.hide || {})[a.n], sel = walOpen == a.id, T = WTYPES[a.t];
-    return `
-        <button onclick="togW(${a.id})" class="ac-row ${sel ? "on" : ""} ${hid ? "dim" : ""}" aria-expanded="${sel}">
-            <span class="ac-ic lg" style="--c:${WCOL[a.t] || WCOL.other}"><i class="fa-solid ${T[1]}"></i></span>
-            <span class="ac-main"><b>${esc(a.n)}</b><small>${hid ? "Oculta del resumen" : pk > 0 ? fmt(pk) + " en bolsillos" : T[0]}</small>
-                ${a.pk.length ? `<span class="pk-mini">${a.pk.slice(0, 5).map(p => pkTile(p, p.m ? S.acc.find(x => x.id == p.m) : null, 1)).join("")}${a.pk.length > 5 ? `<span class="pk-more">+${a.pk.length - 5}</span>` : ""}</span>` : ""}</span>
-            <span class="ac-bal ${b < 0 ? "neg" : ""}">${fmt(b)}</span><i class="fa-solid fa-chevron-right ac-ch"></i>
-        </button>`;
 }
 
 // ---------- Ahorro ----------
@@ -588,87 +639,53 @@ function goalBlock(a, p) {
     return { bar, info };
 }
 
-// Anillo de progreso con el emoji de la meta al centro
-function goalRing(a, p) {
-    const R = 21, C = 2 * Math.PI * R, col = goalCol(a);
-    return `<span class="sv-ring ${a.g ? "" : "nog"}"><svg viewBox="0 0 50 50" aria-hidden="true"><circle cx="25" cy="25" r="${R}" class="sv-ring-bg"/><circle cx="25" cy="25" r="${R}" class="sv-ring-fg" style="stroke:${col};stroke-dasharray:${(C * (a.g ? Math.min(100, p) : 100) / 100).toFixed(1)} ${C.toFixed(1)}"/></svg><span class="lg sv-orb" style="--c:${col}"><i class="fa-solid ${goalIc(a)}"></i></span></span>`;
-}
-const pctTxt = n => (Math.round(n * 100) / 100).toLocaleString("es-CO", { maximumFractionDigits: 2 });
-
-function goalCard(a) {
-    const s = svb(a.id), gy = goalYield(a), y = gy.total, gp = goalPks(a), pkv = goalPkSum(a), K = a.u ? S.trm : 1;
-    const t = s + y + pkv, p = a.g ? Math.min(100, t / a.g * 100) : 0, gb = goalBlock(a, p), col = goalCol(a), open = goalOpen == a.id, done = a.g && t >= a.g;
-    const rh = (a.rh || []).slice().sort((x, z) => x.d.localeCompare(z.d));
-    const pkBox = gp.length ? `<div class="sv-box">
-            <div class="flex justify-between items-center mb-1"><span class="sv-lbl"><i class="fa-solid fa-box-archive mr-1"></i>En bolsillos de tus cuentas</span><b class="text-xs">${fm(a, pkv)}</b></div>
-            ${gp.map(x => `<div class="flex items-center justify-between gap-2 py-1.5 text-[11px] border-t border-slate-100 dark:border-slate-800 first:border-0"><span class="min-w-0 truncate text-slate-500 dark:text-slate-400">${esc(x.w.n)} › <b class="text-slate-700 dark:text-slate-200">${esc(x.p.n)}</b> · ${fmt(x.p.v)}</span><span class="flex gap-1.5 shrink-0"><button onclick="pkMove(${x.w.id},${x.p.id},1)" class="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 text-[11px]" aria-label="Meter"><i class="fa-solid fa-plus"></i></button><button onclick="pkMove(${x.w.id},${x.p.id},-1)" class="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 text-[11px]" aria-label="Sacar"><i class="fa-solid fa-minus"></i></button></span></div>`).join("")}
-            ${hq("Esta plata sigue en tu cuenta (no sube tu patrimonio dos veces), pero cuenta para esta meta.")}
-        </div>` : "";
-    const badges = [
-        gy.rate > 0 ? `<span class="sv-pill">${pctTxt(gy.rate)}% E.A.</span>` : "",
-        gy.daily * K > 0.5 ? `<span class="sv-pill up"><i class="fa-solid fa-arrow-trend-up"></i>+${fm(a, gy.daily)} hoy</span>` : "",
-        done ? `<span class="sv-pill up">¡Meta lograda! 🎉</span>` : "",
-        a.u ? `<span class="sv-pill">USD</span>` : ""
-    ].join("");
-    let body = "";
-    if (open) {
-        const trio = gy.rate > 0
-            ? `<div class="sv-stats">
-                <div><span class="sv-lbl">Aportado</span><b>${fm(a, s)}</b></div>
-                <div class="up"><span class="sv-lbl">Rendimiento</span><b>+${fm(a, y)}</b></div>
-                <div class="up"><span class="sv-lbl">Hoy</span><b>+${fm(a, gy.daily)}</b></div>
-            </div>
-            ${sdet("Cómo rinde", `<div class="sv-rows">
-                <div><span>Este mes</span><b class="up">+${fm(a, gy.month)}</b></div>
-                <div><span>Al mes, a este ritmo</span><b class="up">+${fm(a, gy.monthly)}</b></div>
-                <div><span>En 12 meses sin aportar más</span><b class="up">+${fm(a, gy.year)}</b></div>
-                <div><span>Tasa equivalente</span><b>${pctTxt((Math.pow(1 + gy.rate / 100, 1 / 12) - 1) * 100)}% mensual</b></div>
-                ${rh.length > 1 ? rh.map((x, i) => `<div><span>${i == 0 ? "Al inicio" : "Desde " + dmy(x.d)}</span><b>${pctTxt(x.r)}% E.A.</b></div>`).join("") : ""}
-            </div><p class="text-[10px] text-slate-400 mt-1">Estimado: interés compuesto día a día sobre la E.A. Si el banco cambia la tasa, usa Editar y elige desde qué día rige: lo ganado antes no se recalcula.</p>`, "sv-det")}`
-            : `<div class="sv-stats two">
-                <div><span class="sv-lbl">Aportado</span><b>${fm(a, s)}</b></div>
-                <button onclick="editAcc(${a.id})" class="sv-cta"><i class="fa-solid fa-percent"></i><span>¿Esta plata gana intereses?<small>Agrega la tasa E.A.</small></span></button>
-            </div>`;
-        body = `<div class="sv-body">
-            <div class="sv-big"><b data-cu="goal${a.id}">${fm(a, t)}</b>${a.g ? `<span>de ${fm(a, a.g)}</span>` : ""}</div>
-            ${a.u ? `<small class="block text-xs text-slate-400 mb-3">≈ ${fmt(t * S.trm)} (TRM ${fmtD(S.trm)})</small>` : ""}
-            ${a.g ? `${gb.bar.replace('bg-emerald-500 h-full', 'h-full').replace('style="width:' + p + '%"', 'style="width:' + p + '%;background:' + col + '"')}<div class="flex justify-between text-[11px] text-slate-400 mt-1 mb-3"><span>${p.toFixed(0)}%</span><span>${done ? "¡Meta lograda!" : "Faltan " + fm(a, a.g - t)}</span></div>${gb.info}` : ""}
-            ${trio}
-            ${pkBox}
-            ${goalHist(a)}
-            <div class="sv-act">
-                <button onclick="mov(${a.id}, 1)" class="sv-btn in"><i class="fa-solid fa-plus"></i>Meter</button>
-                <button onclick="mov(${a.id}, -1)" class="sv-btn out"><i class="fa-solid fa-minus"></i>Sacar</button>
-                ${mxMenu(`<button onclick="pkGoal(${a.id})" class="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-xl text-xs font-semibold"><i class="fa-solid fa-box-archive mr-1"></i>Bolsillo</button>${s + y > 0.5 ? `<button onclick="mov(${a.id}, -1, 1)" class="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-xl text-xs font-semibold">Sacar todo</button>` : ""}<button onclick="editAcc(${a.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold">Editar</button><button onclick="archAcc(${a.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold">Archivar</button><button onclick="delAcc(${a.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-rose-500 rounded-xl text-xs font-semibold">Borrar</button>`)}
-            </div>
-        </div>`;
-    }
-    return `<div class="${CARD} sv-card ${open ? "open" : ""}">
-        <button class="sv-head" onclick="togG(${a.id})" aria-expanded="${open}">
-            ${goalRing(a, p)}
-            <span class="sv-main"><b>${esc(a.n)}</b><small>${fm(a, t)}${a.g ? " / " + fm(a, a.g) : ""}</small>${badges ? `<span class="sv-badges">${badges}</span>` : ""}</span>
-            ${a.g ? `<span class="sv-pct">${p.toFixed(0)}%</span>` : ""}<i class="fa-solid fa-chevron-right sv-ch"></i>
-        </button>${body}</div>`;
-}
-
 function vAho() {
-    let T = 0, Y = 0, PK = 0, D = 0;
-    const goals = S.acc.filter(a => !a.f);
-    goals.forEach(a => {
-        const K = a.u ? S.trm : 1;
-        T += svb(a.id) * K; Y += goalYield(a).total * K; D += goalYield(a).daily * K; PK += goalPkSum(a) * K;
-    });
-    const tot = T + Y + PK, w = v => tot > 0 ? Math.max(0, v / tot * 100).toFixed(1) : 0;
+    let T = 0, Y = 0, PK = 0;
+    const A = S.acc.filter(a => !a.f).map(a => {
+        const s = svb(a.id), y = Math.max(0, yieldOf(a.id, a.r)), gy = goalYield(a);
+        T += a.u ? s * S.trm : s; Y += a.u ? y * S.trm : y;
+        const gp = goalPks(a), pkv = goalPkSum(a); PK += pkv * (a.u ? S.trm : 1);
+        const t = s + y + pkv, p = a.g ? Math.min(100, t / a.g * 100) : 0, gb = goalBlock(a, p), gi0 = goalInfo(a);
+        const pkBox = gp.length ? `<div class="mb-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                    <div class="flex justify-between items-center mb-1"><span class="text-[10px] uppercase tracking-wider text-slate-400"><i class="fa-solid fa-box-archive mr-1"></i>En bolsillos de tus cuentas</span><b class="text-xs">${fm(a, pkv)}</b></div>
+                    ${gp.map(x => `<div class="flex items-center justify-between gap-2 py-1.5 text-[11px] border-t border-slate-100 dark:border-slate-800 first:border-0"><span class="min-w-0 truncate text-slate-500 dark:text-slate-400">${esc(x.w.n)} › <b class="text-slate-700 dark:text-slate-200">${esc(x.p.n)}</b> · ${fmt(x.p.v)}</span><span class="flex gap-1.5 shrink-0"><button onclick="pkMove(${x.w.id},${x.p.id},1)" class="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 text-[11px]" aria-label="Meter"><i class="fa-solid fa-plus"></i></button><button onclick="pkMove(${x.w.id},${x.p.id},-1)" class="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 text-[11px]" aria-label="Sacar"><i class="fa-solid fa-minus"></i></button></span></div>`).join("")}
+                    ${hq("Esta plata sigue en tu cuenta (no sube tu patrimonio dos veces), pero cuenta para esta meta.")}
+                </div>` : "";
+        return `
+            <div class="${CARD} g-card p-5 mb-4 ${goalOpen == a.id ? "g-open" : ""}">
+                <button class="g-row" onclick="togG(${a.id})"><span class="goal-tint" style="background:${goalCol(a)}26">${goalEmo(a)}</span><span class="min-w-0 flex-1 text-left"><b class="block truncate">${esc(a.n)}</b><small>${fm(a, t)}${a.g ? " / " + fm(a, a.g) : ""}</small>${a.g ? `<span class="g-bar"><i style="width:${p}%;background:${goalCol(a)}"></i></span>` : ""}</span>${a.g ? `<span class="g-pct">${p.toFixed(0)}%</span>` : ""}<i class="fa-solid fa-chevron-right g-ch"></i></button>
+                <div class="flex justify-between items-center mb-2 cursor-pointer" onclick="togG(${a.id})">
+                    <b class="text-sm font-bold text-slate-800 dark:text-white">${esc(a.n)} <i class="fa-solid fa-chevron-up text-[10px] text-slate-400 ml-1"></i></b>
+                    <span class="text-xs text-slate-400">${a.u ? "USD · " : ""}${a.r ? a.r + "% E.A." : "sin rendimiento"}</span>
+                </div>
+                <div class="flex items-center gap-4 mb-3">
+                    <span class="goal-tint w-[56px] h-[56px] shrink-0 text-[28px]" style="background:${goalCol(a)}22">${goalEmo(a)}</span>
+                    <div class="min-w-0 flex-1">
+                        <div class="text-2xl font-extrabold text-slate-800 dark:text-white mb-0.5" data-cu="goal${a.id}">${fm(a, t)}</div>
+                        ${a.g ? `<div class="text-xs text-slate-400">${t >= a.g ? "¡Meta lograda! 🎉" : "de " + fm(a, a.g)}</div>` : ""}
+                        ${a.u ? `<small class="text-xs text-slate-400 block mt-0.5">≈ ${fmt(t * S.trm)} (TRM ${fmtD(S.trm)})</small>` : ""}
+                    </div>
+                </div>
+                ${a.r > 0 ? sdet("Ver rendimiento", `<div class="grid grid-cols-3 gap-2 mb-1">${[["Hoy", gy.daily], ["Este mes", gy.month], ["Total ganado", gy.total]].map(([l, v]) => `<div class="p-2.5 rounded-2xl bg-emerald-50 dark:bg-emerald-500/10"><span class="text-[10px] uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block leading-tight">${l}</span><b class="text-xs text-emerald-600 dark:text-emerald-400">+${fm(a, v)}</b></div>`).join("")}</div><p class="text-[10px] text-slate-400 mb-1">Ya incluido en el saldo (${tf(a.r)}% E.A.).</p>`) : ""}
+                ${pkBox}${a.g ? `${gb.bar.replace('bg-emerald-500 h-full', 'h-full').replace('style="width:' + p + '%"', 'style="width:' + p + '%;background:' + goalCol(a) + '"')}<div class="flex justify-between text-[11px] text-slate-400 mb-3"><span>${p.toFixed(0)}% de ${fm(a, a.g)}</span><span>${t >= a.g ? "¡Meta lograda!" : "Faltan " + fm(a, a.g - t)}</span></div>${gb.info}` : ""}
+                ${goalHist(a)}
+                <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                    <button onclick="mov(${a.id}, 1)" class="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-xl text-xs font-semibold">＋ Meter</button>
+                    <button onclick="mov(${a.id}, -1)" class="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-xl text-xs font-semibold">－ Sacar</button>
+                    ${mxMenu(`<button onclick="pkGoal(${a.id})" class="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-xl text-xs font-semibold"><i class="fa-solid fa-box-archive mr-1"></i>Bolsillo</button>${s + y > 0.5 ? `<button onclick="mov(${a.id}, -1, 1)" class="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-xl text-xs font-semibold">Sacar todo</button>` : ""}<button onclick="editAcc(${a.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold">Editar</button><button onclick="archAcc(${a.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold">Archivar</button><button onclick="delAcc(${a.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-rose-500 rounded-xl text-xs font-semibold">Borrar</button>`)}
+                </div>
+            </div>`;
+    }).join("");
+
     return `
-        <section class="sv-hero">
-            <small>Total Ahorrado</small>
-            <div class="amt">${fmt(tot)}</div>
-            ${D > 0.5 ? `<span class="hchip"><i class="fa-solid fa-arrow-trend-up"></i>+${fmt(D)} hoy</span>` : ""}
-            ${tot > 0 && (Y > 0.5 || PK > 0.5) ? `<div class="hsplit"><i style="width:${w(T)}%;background:#fff"></i><i style="width:${w(Y)}%;background:rgb(var(--p-300))"></i><i style="width:${w(PK)}%;background:rgb(255 255 255/.45)"></i></div>
-            <div class="hlegend"><span><i class="dot" style="background:#fff"></i>Aportado <b>${fmt(T)}</b></span>${Y > 0.5 ? `<span><i class="dot" style="background:rgb(var(--p-300))"></i>Rendimiento <b>${fmt(Y)}</b></span>` : ""}${PK > 0.5 ? `<span><i class="dot" style="background:rgb(255 255 255/.45)"></i>En bolsillos <b>${fmt(PK)}</b></span>` : ""}</div>` : ""}
+        <section class="bg-gradient-to-b from-emerald-500 to-emerald-600 text-white p-6 rounded-[20px] shadow-sm mb-6">
+            <small class="text-xs text-emerald-100 font-medium uppercase tracking-wider">Total Ahorrado</small>
+            <div class="text-3xl font-extrabold mt-1">${fmt(T + Y + PK)}</div>
+            ${Y > 0.5 ? `<p class="text-xs text-emerald-100 mt-1">Incluye ${fmt(Y)} de rendimiento ganado (estimado)</p>` : ""}
+            ${PK > 0.5 ? `<p class="text-xs text-emerald-100 mt-1"><i class="fa-solid fa-box-archive mr-1"></i>${fmt(PK)} están en bolsillos de tus cuentas</p>` : ""}
         </section>
-        <div class="sec-h"><h3>Mis Metas</h3><button onclick="newAcc()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold shadow-md">+ Nueva meta</button></div>
-        ${goals.map(goalCard).join("") || emptyUI("fa-piggy-bank", "#34C759", "Aún no tienes metas", "Una meta es una cajita para algo concreto: un viaje, un fondo de emergencia, una compra. Mete plata y mira cómo crece.", "Crear la primera meta", "newAcc()")}${arcUI()}
+        <div class="flex justify-between items-center mb-4"><h3 class="text-base font-bold">Mis Metas</h3><button onclick="newAcc()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold shadow-md">+ Nueva meta</button></div>
+        ${A || emptyUI("fa-piggy-bank", "#34C759", "Aún no tienes metas", "Una meta es una cajita para algo concreto: un viaje, un fondo de emergencia, una compra. Mete plata y mira cómo crece.", "Crear la primera meta", "newAcc()")}${arcUI()}
     `;
 }
 
@@ -813,22 +830,6 @@ function planResUI(B) {
 }
 
 // ---------- Gráficas ----------
-
-// Frase de conclusión de Gráficas: el cambio más grande por categoría frente al mes con el que se compara
-function graLead(rows, ta, tb, ok) {
-    if (!ta && !tb) return "Aún no hay gastos este mes para sacar conclusiones.";
-    const lo = x => LANG == "es" ? String(x).toLowerCase() : String(x), od = new Date(ok + "-01T00:00:00"), ol = od.toLocaleDateString(DLOC, od.getFullYear() == cur.getFullYear() ? { month: "long" } : { month: "long", year: "numeric" });
-    const ch = rows.filter(r => r.b > 0 && r.a > 0 && Math.abs(r.a - r.b) / r.b >= 0.05).sort((p, q) => Math.abs(q.a - q.b) - Math.abs(p.a - p.b))[0];
-    const nw = rows.filter(r => r.b == 0 && r.a > 0 && r.a >= ta * 0.1).sort((p, q) => q.a - p.a)[0];
-    let l1;
-    if (ch && (!nw || Math.abs(ch.a - ch.b) >= nw.a)) { const pc = Math.round(Math.abs(ch.a - ch.b) / ch.b * 100); l1 = "Gastaste " + pc + " % " + (ch.a > ch.b ? "más" : "menos") + " en " + lo(ch.c) + " que en " + ol + "."; }
-    else if (nw) l1 = "Este mes empezaste a gastar en " + lo(nw.c) + ": " + fmt(nw.a) + ".";
-    else { const top = rows.slice().sort((p, q) => q.a - p.a)[0]; l1 = top && ta ? "Tu mayor gasto del mes es " + lo(top.c) + ": " + Math.round(top.a / ta * 100) + " % del total." : "Aún no hay gastos este mes para sacar conclusiones."; }
-    const l2 = tb > 0 && ta > 0 && Math.abs(ta - tb) / tb >= 0.02 ? "En total gastaste " + Math.round(Math.abs(ta - tb) / tb * 100) + " % " + (ta > tb ? "más" : "menos") + " que en " + ol + "." : "";
-    return [l1, l2];
-}
-// Tonos de un solo color: la categoría más grande es la más intensa
-const grShade = (i, n) => Math.max(0.2, 1 - i * Math.min(0.35, 0.8 / Math.max(1, (n || 6) - 1)));
 function vGra() {
     const mk = ym(cur), ok = monthKey(cmp);
     const A = catTotals(mk), B = catTotals(ok);
@@ -841,16 +842,11 @@ function vGra() {
     };
     const opts = [[1, "Mes anterior"], [2, "Hace 2 meses"], [3, "Hace 3 meses"], [6, "Hace 6 meses"], [12, "Hace 1 año"]];
     const hasNW = Object.keys(S.nwh).length >= 2;
-    const lead = graLead(rows, ta, tb, ok), L = Array.isArray(lead) ? lead : [lead, ""];
-    const mm = mon(), byC = G.map(([c]) => [c, sum(mm, x => x.t == "g" && x.c == c && !x.s)]).filter(x => x[1] > 0).sort((p, q) => q[1] - p[1]), totC = byC.reduce((s, x) => s + x[1], 0);
-    const leg = byC.slice(0, 6).map(([c, v], i) => `<div onclick="openCat('${esc(c)}')" class="gr-lg" role="button" tabindex="0" onkeydown="if(event.key==='Enter')openCat('${esc(c)}')"><i style="opacity:${grShade(i, byC.length).toFixed(2)}"></i><span class="truncate">${esc(c)}</span><b>${totC ? Math.round(v / totC * 100) : 0} %</b></div>`).join("");
     return `
-        <section class="gr-lead"><p>${L[0]}</p>${L[1] ? `<small>${L[1]}</small>` : ""}</section>
         <section class="${CARD} p-5">
             <div class="flex justify-between items-center mb-4"><h3 class="text-sm font-bold">Gastos por categoría</h3>
             <div class="flex items-center space-x-2"><button onclick="go(-1)" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800">‹</button><span class="text-xs font-semibold capitalize">${cur.toLocaleDateString(DLOC, { month: "long", year: "numeric" })}</span><button onclick="go(1)" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800">›</button></div></div>
             <div class="max-w-xs mx-auto"><canvas id="chCat"></canvas></div>
-            ${leg ? `<div class="gr-lgs">${leg}</div>` : ""}
             <p class="text-[11px] text-slate-400 text-center mt-2">Toca una porción para ver esas compras</p>
         </section>
 
@@ -920,63 +916,29 @@ function drawCharts() {
     // Modo incógnito: sin cifras en los ejes ni en los globos al tocar
     Chart.defaults.plugins.tooltip.enabled = !masked();
     const hy = masked() ? { scales: { y: { ticks: { display: false } } } } : {};
-    const m = mon(), by = G.map(([c]) => [c, sum(m, x => x.t == "g" && x.c == c && !x.s)]).filter(x => x[1] > 0).sort((p, q) => q[1] - p[1]);
-    charts.push(new Chart(document.getElementById("chCat"), { type: "doughnut", plugins: [donutCenter(by)], options: { cutout: "68%", plugins: { tooltip: { enabled: false } }, onClick: (ev, els) => { if (els.length) openCat(by[els[0].index][0]); } }, data: { labels: by.map(x => x[0]), datasets: [{ data: by.map(x => x[1]), backgroundColor: by.map((_, i) => accent(500, grShade(i, by.length))), borderWidth: 0, spacing: 2 }] } }));
+    const m = mon(), by = G.map(([c]) => [c, sum(m, x => x.t == "g" && x.c == c && !x.s)]).filter(x => x[1] > 0);
+    charts.push(new Chart(document.getElementById("chCat"), { type: "doughnut", plugins: [donutCenter(by)], options: { cutout: "68%", plugins: { tooltip: { enabled: false } }, onClick: (ev, els) => { if (els.length) openCat(by[els[0].index][0]); } }, data: { labels: by.map(x => x[0]), datasets: [{ data: by.map(x => x[1]), backgroundColor: by.map((_, i) => (PAL || [accent(500), accent(500, 1, "s"), "#10b981", "#f59e0b", "#ef4444", "#06b6d4", "#ec4899", "#64748b", "#84cc16", "#f97316", "#14b8a6", "#a855f7", "#0ea5e9", "#e11d48", "#65a30d", "#78716c"])[i % 16]), borderWidth: 0 }] } }));
 
     const cc = document.getElementById("chCmp");
     if (cc) {
         const mk = ym(cur), ok = monthKey(cmp), A = catTotals(mk), B = catTotals(ok);
         const idx = G.map((_, i) => i).filter(i => A[i][1] > 0 || B[i][1] > 0);
-        charts.push(new Chart(cc, { type: "bar", options: hy, data: { labels: idx.map(i => G[i][0]), datasets: [{ label: monLabel(ok), data: idx.map(i => B[i][1]), backgroundColor: accent(500, 0.3) }, { label: monLabel(mk), data: idx.map(i => A[i][1]), backgroundColor: accent(500) }] } }));
+        charts.push(new Chart(cc, { type: "bar", options: hy, data: { labels: idx.map(i => G[i][0]), datasets: [{ label: monLabel(ok), data: idx.map(i => B[i][1]), backgroundColor: "#94a3b8" }, { label: monLabel(mk), data: idx.map(i => A[i][1]), backgroundColor: accent(500) }] } }));
     }
 
     const ms = [...Array(6)].map((_, i) => ym(new Date(cur.getFullYear(), cur.getMonth() - 5 + i, 1)));
     const tot = (k, t) => S.items.filter(x => x.d.startsWith(k) && x.t == t && vis(x)).reduce((s, x) => s + x.a, 0);
-    charts.push(new Chart(document.getElementById("chMon"), { type: "bar", options: hy, data: { labels: ms, datasets: [{ label: "Ingresos", data: ms.map(k => tot(k, "i")), backgroundColor: accent(500, 0.3) }, { label: "Gastos", data: ms.map(k => tot(k, "g")), backgroundColor: accent(500) }] } }));
+    charts.push(new Chart(document.getElementById("chMon"), { type: "bar", options: hy, data: { labels: ms, datasets: [{ label: "Ingresos", data: ms.map(k => tot(k, "i")), backgroundColor: GREEN }, { label: "Gastos", data: ms.map(k => tot(k, "g")), backgroundColor: accent(500) }] } }));
 
     const nw = document.getElementById("chNW");
     if (nw) {
         const ks = Object.keys(S.nwh).sort().slice(-12);
         charts.push(new Chart(nw, { type: "line", options: hy, data: { labels: ks, datasets: [{ label: "Patrimonio neto", data: ks.map(k => S.nwh[k]), borderColor: accent(500), backgroundColor: accent(500, .15), fill: true, tension: .3 }] } }));
     }
-    drawInvChart(hy, accent(500)); // evolución del portafolio (nuevas.js)
+    drawInvChart(hy, GREEN); // evolución del portafolio (nuevas.js)
 }
 
 // ---------- Tarjetas ----------
-// Línea de tiempo del ciclo de una tarjeta: hoy → corte → pago. Muestra el extracto que toca pagar primero
-// (el que ya cerró y tiene saldo, o si no, el que está abierto).
-function cardCycleUI(c) {
-    if (!c.p) return "";
-    const td = today(), i0 = mIdx(ym(new Date())), L = [];
-    for (let i = i0 - 1; i <= i0 + 2; i++) L.push(stmt(c, i));
-    const s = L.find(x => x.pay >= td && (x.close >= td || x.pend > 0)) || L.find(x => x.close >= td);
-    if (!s) return "";
-    const D = d => new Date(d + "T00:00:00"), a = D(s.from), tot = Math.max(1, daysBetween(a, D(s.pay)));
-    const pos = d => Math.max(0, Math.min(100, daysBetween(a, D(d)) / tot * 100));
-    const pH = pos(td), pC = pos(s.close), dC = daysTo(s.close), dP = daysTo(s.pay), same = s.close >= s.pay;
-    const lbl = (k, t, d, dd) => `<div class="cy-i ${k}"><small>${t}</small><b>${dmy(d).slice(0, 5)}</b><em>${dd < 0 ? "pasó" : dd == 0 ? "hoy" : "en " + dd + " d"}</em></div>`;
-    return `
-                <div class="cy" role="img" aria-label="Ciclo de la tarjeta: hoy, corte el ${dmy(s.close).slice(0, 5)} y pago el ${dmy(s.pay).slice(0, 5)}">
-                    <div class="cy-track"><i style="width:${pH.toFixed(1)}%"></i>${same ? "" : `<u class="cut ${dC < 0 ? "past" : ""}" style="left:${pC.toFixed(1)}%"></u>`}<u class="pay" style="left:100%"></u><b class="now" style="left:${pH.toFixed(1)}%"></b></div>
-                    <div class="cy-l ${same ? "two" : ""}">
-                        <div class="cy-i now"><small>Hoy</small><b>${dmy(td).slice(0, 5)}</b><em>${dC >= 0 && !same ? "faltan " + dC + " d para el corte" : "faltan " + Math.max(0, dP) + " d para el pago"}</em></div>
-                        ${same ? "" : lbl("cut", "Corte", s.close, dC)}
-                        ${lbl("pay", same ? "Corte y pago" : "Pago", s.pay, dP)}
-                    </div>
-                </div>`;
-}
-// Compras a cuotas de una tarjeta con su barra de progreso (cuotas ya pagadas de las totales)
-function cuotasUI(c, ok) {
-    const n = ym(new Date());
-    const L = S.items.filter(x => x.k == c.n && x.t == "g" && x.q > 1).map(x => ({ x, e: me(x, n) })).filter(r => r.e <= r.x.q);
-    if (!L.length) return "";
-    L.sort((p, q) => pend(q.x, n) - pend(p.x, n));
-    const rows = L.slice(0, 4).map(({ x, e }) => {
-        const done = Math.max(0, Math.min(x.q, e - (ok ? 0 : 1))), pc = done / x.q * 100;
-        return `<div class="cq-r"><div class="cq-t"><span class="truncate">${esc(x.n || x.c)}</span><span>${e < 1 ? "empieza en el próximo extracto" : "cuota " + Math.min(e, x.q) + " de " + x.q}</span></div><div class="cq-bar"><i style="width:${pc.toFixed(1)}%"></i></div><small>Faltan ${fmt(pend(x, n))} de capital</small></div>`;
-    }).join("");
-    return `<h4 class="text-sm font-bold text-slate-800 dark:text-white mt-5 mb-2">Compras a cuotas</h4><div class="cq">${rows}${L.length > 4 ? `<small class="text-[11px] text-slate-400">y ${L.length - 4} más</small>` : ""}</div>`;
-}
 function vTar() {
     const m = monAll(), n = ym(new Date());
     let tc = 0, tu = 0;
@@ -1005,7 +967,6 @@ function vTar() {
                     <div class="min-w-0 flex-1"><small>${nextOnly ? "Próxima cuota" : "Pago mínimo"}</small><b>${nextOnly ? fmt(cn.due) : fmt(cu.ok ? 0 : Math.max(0, owe))}</b><small>${cn.due > 0 || owe > 0.5 ? "Vence " + dmy(payDateIn(c.p, cn.m)) : "Al día"}</small></div>
                     ${cu.ok ? "" : `<button onclick="payCard(${c.id})" class="tc-btn">Pagar</button>`}
                 </div>
-                ${cardCycleUI(c)}
                 <div class="h-px bg-slate-100 dark:bg-white/5 my-4"></div>
                 ${sdet("Ver detalle del mes", `<div class="grid grid-cols-2 gap-2 text-xs mb-4">
                     <div><span class="text-slate-400 block">Compras este mes</span><b>${fmt(u)}</b></div>
@@ -1035,7 +996,6 @@ function vTar() {
                     <button onclick="paidCard(${c.id})" class="px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-xl text-xs font-semibold">${cu.ok ? "Desmarcar pago" : "Marcar pagada"}</button>
                     ${mxMenu(`<button onclick="openExtract(${c.id})" class="px-3 py-1.5 bg-violet-50 text-violet-600 rounded-xl text-xs font-semibold"><i class="fa-solid fa-receipt mr-1"></i>Extracto</button><button onclick="editCard(${c.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold">Editar</button><button onclick="delCard(${c.id})" class="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-xl text-xs font-semibold">Borrar</button>`)}
                 </div>
-                ${cuotasUI(c, cu.ok)}
                 ${(() => { const gm = {}; m.filter(x => x.k == c.n && x.t == "g").forEach(x => gm[x.c] = (gm[x.c] || 0) + x.a); const L = Object.entries(gm).sort((p, q) => q[1] - p[1]).slice(0, 5), T = L.reduce((t, z) => t + z[1], 0); if (!T) return ""; return `<h4 class="text-sm font-bold text-slate-800 dark:text-white mt-5 mb-2">Gastos por categoría</h4><div class="tc-seg">${L.map(([k, v]) => `<i style="width:${v / T * 100}%;background:${catIc(k)[1]}"></i>`).join("")}</div>${L.map(([k, v]) => `<div class="tc-cat"><span class="tc-dot" style="background:${catIc(k)[1]}"></span><span class="flex-1 truncate">${esc(k)}</span><span class="text-slate-400">${Math.round(v / T * 100)}%</span><b>${fmt(v)}</b></div>`).join("")}`; })()}
                 </div>
             </div>`;
@@ -1074,7 +1034,7 @@ function extractUI(c, i, b) {
                 <small class="text-[11px] text-slate-400">${dmy(x.d)}${x.n ? " · " + esc(x.c) : ""}${r.q > 1 ? " · compra de " + fmt(x.a) + " · cuota " + r.e + " de " + r.q : ""}${r.it > 0 ? " · intereses " + fmt(r.it) : ""}</small>
             </div>
             <b class="text-xs shrink-0">${fmt(r.cu)}</b>
-        </div>${r.q > 1 ? `<div class="cq-bar -mt-1.5 mb-2"><i style="width:${r.e / r.q * 100}%"></i></div>` : ""}`;
+        </div>`;
     };
     const line = (l, v, cl) => `<div class="flex justify-between text-xs py-1.5"><span class="text-slate-500 dark:text-slate-400">${l}</span><b class="${cl || ""}">${v}</b></div>`;
     const sec = (t, n, body) => body ? `<div class="mb-4"><p class="text-[10px] uppercase tracking-wider font-bold text-slate-400 mb-1">${t} · ${n}</p>${body}</div>` : "";

@@ -207,28 +207,13 @@ const sum = (m, f) => m.filter(f).reduce((s, x) => s + x.a, 0);
 const vis = x => x.t != "g" || !(S.hide || {})[x.k || x.w || ""];
 const monAll = () => S.items.filter(x => x.d.startsWith(ym(cur)));
 const mon = () => monAll().filter(vis);
-// ---------- Rendimiento E.A. de las metas ----------
-// La tasa puede cambiar con el tiempo (los bancos la mueven): a.rh = [{ d: "YYYY-MM-DD", r }] guarda desde qué día rige cada tasa.
-// Sin historial, a.r rige desde siempre (así funcionaban las metas antiguas y siguen igual). a.r es siempre la tasa de HOY.
-const goalRateAt = (a, k) => {
-    const h = a.rh; if (!h || !h.length) return +a.r || 0;
-    let r = h[0].r; h.forEach(x => { if (x.d <= k) r = x.r; });
-    return +r || 0;
+const yieldOf = (id, r) => {
+    const now = Date.now();
+    return S.sv.filter(x => x.a == id).reduce((s, x) => {
+        const dd = Math.max(0, Math.floor((now - new Date(x.d + "T00:00:00")) / 864e5));
+        return s + x.v * (Math.pow(1 + r / 100, dd / 365) - 1);
+    }, 0);
 };
-// Saldo de la meta en una fecha: cada tramo entre dos movimientos (o cambios de tasa) crece a la tasa de ese tramo, interés compuesto diario sobre la E.A.
-function goalSim(a, k) {
-    const mv = S.sv.filter(x => x.a == a.id && x.d <= k).sort((p, q) => p.d.localeCompare(q.d));
-    const pts = [...new Set(mv.map(x => x.d).concat((a.rh || []).filter(x => x.d <= k && x.d > "1971").map(x => x.d)))].sort();
-    let bal = 0, prev = null;
-    pts.forEach(d => {
-        if (prev && bal) bal *= Math.pow(1 + goalRateAt(a, prev) / 100, dayDiff(prev, d) / 365);
-        mv.forEach(x => { if (x.d == d) bal += x.v; });
-        prev = d;
-    });
-    if (prev && bal) bal *= Math.pow(1 + goalRateAt(a, prev) / 100, dayDiff(prev, k) / 365);
-    return bal;
-}
-const yieldOf = (id, r) => { const a = S.acc.find(g => g.id == id); return a ? goalSim(a, today()) - svb(id) : 0; };
 const goalTotal = a => svb(a.id) + Math.max(0, yieldOf(a.id, a.r));
 // Bolsillos vinculados a una meta (p.m = id de la meta): la plata sigue en su cuenta, pero cuenta para el avance de la meta.
 // goalTotal = solo lo que está en la meta (movimientos + rendimiento). goalAll = eso + lo que hay en sus bolsillos.
@@ -238,20 +223,16 @@ const goalPkSum = a => goalPks(a).reduce((s, x) => s + x.p.v, 0) / (a.u ? S.trm 
 const goalAll = a => goalTotal(a) + goalPkSum(a);
 // Meta como una "cajita" de Nu: el rendimiento se acumula día a día (interés compuesto sobre la tasa E.A.) y se suma al saldo.
 // Saldo de la meta en una fecha ("YYYY-MM-DD"): cada depósito o retiro crece desde su fecha hasta esa fecha.
-const goalBalAt = (a, k) => goalSim(a, k);
-// Cuánto rinde la meta: hoy (lo que gana en un día con el saldo actual), este mes (lo ganado desde el día 1, sin contar lo que metiste o sacaste),
-// en total, y una proyección a 12 meses si no tocas nada. rate = tasa E.A. de hoy.
+const goalBalAt = (a, k) => S.sv.filter(x => x.a == a.id && x.d <= k).reduce((s, x) => s + x.v * Math.pow(1 + (a.r || 0) / 100, dayDiff(x.d, k) / 365), 0);
+// Cuánto rinde la meta: hoy (lo que gana en un día con el saldo actual), este mes (lo ganado desde el día 1, sin contar lo que metiste o sacaste) y en total.
 function goalYield(a) {
     const td = today(), prevEnd = ymd(new Date(+td.slice(0, 4), +td.slice(5, 7) - 1, 0)), m0 = td.slice(0, 8) + "01";
-    const now = goalBalAt(a, td), start = goalBalAt(a, prevEnd), rate = goalRateAt(a, td);
+    const now = goalBalAt(a, td), start = goalBalAt(a, prevEnd);
     const flow = S.sv.filter(x => x.a == a.id && x.d >= m0 && x.d <= td).reduce((s, x) => s + x.v, 0);
     return {
-        rate,
-        total: Math.max(0, now - svb(a.id)),
+        total: Math.max(0, yieldOf(a.id, a.r)),
         month: Math.max(0, now - start - flow),
-        daily: now > 0 && rate > 0 ? now * (Math.pow(1 + rate / 100, 1 / 365) - 1) : 0,
-        monthly: now > 0 && rate > 0 ? now * (Math.pow(1 + rate / 100, 1 / 12) - 1) : 0,
-        year: now > 0 && rate > 0 ? now * (rate / 100) : 0
+        daily: now > 0 && a.r > 0 ? now * (Math.pow(1 + a.r / 100, 1 / 365) - 1) : 0
     };
 }
 
