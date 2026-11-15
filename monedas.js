@@ -21,12 +21,11 @@ const fxR2 = n => Math.round(n * 100) / 100;
 function fxCard(a) {
     const b = fxBal(a), r = fxRateOf(a), sel = fxOpen == a.id, C = FXC[a.c], k = r > 0 ? fxCost(a) : null;
     return `
-        <button onclick="togFx(${a.id})" class="${CARD} lift p-4 text-left flex flex-col min-w-0 ${sel ? "!border-indigo-500 ring-2 ring-indigo-500/30" : ""}">
-            <span class="w-10 h-10 rounded-xl flex items-center justify-center mb-3 ${FX_CLS[a.c]}"><i class="fa-solid ${C[2]}"></i></span>
-            <span class="text-[11px] uppercase tracking-wider text-slate-400 truncate w-full">${esc(a.n)}</span>
-            <b class="text-lg font-extrabold mt-0.5 truncate w-full ${b < 0 ? "text-rose-500" : "text-slate-800 dark:text-white"}">${fxFmt(a.c, b)}</b>
-            <small class="text-[11px] text-slate-400 mt-0.5 truncate w-full">${r > 0 ? "≈ " + fmt(b * r) : "Falta la tasa del euro"}</small>
-            ${k && k.q > 0 && Math.abs(k.gain) >= 0.5 ? `<small class="text-[11px] font-semibold truncate w-full ${fxGcl(k.gain)}">${fxPlus(k.gain)}</small>` : ""}
+        <button onclick="togFx(${a.id})" class="ac-row ${sel ? "on" : ""}" aria-expanded="${sel}">
+            <span class="ac-ic lg" style="--c:${a.c == "EUR" ? "#2F55B0" : "#0B6B58"}"><i class="fa-solid ${C[2]}"></i></span>
+            <span class="ac-main"><b>${esc(a.n)}</b><small>${r > 0 ? "≈ " + fmt(b * r) : "Falta la tasa del euro"}</small>
+                ${k && k.q > 0 && Math.abs(k.gain) >= 0.5 ? `<small class="font-semibold ${fxGcl(k.gain)}">${fxPlus(k.gain)} ${fxPct(k.gain, k.cost)}</small>` : ""}</span>
+            <span class="ac-bal ${b < 0 ? "neg" : ""}">${fxFmt(a.c, b)}</span><i class="fa-solid fa-chevron-right ac-ch"></i>
         </button>`;
 }
 
@@ -51,11 +50,7 @@ function fxPanel(a) {
         </div>`;
     }).join("");
     return `
-        <section class="${CARD} p-5 mb-4">
-            <div class="flex items-center gap-3 mb-4">
-                <span class="w-10 h-10 shrink-0 rounded-xl flex items-center justify-center ${FX_CLS[a.c]}"><i class="fa-solid ${C[2]}"></i></span>
-                <div class="min-w-0"><b class="text-sm font-bold text-slate-800 dark:text-white block truncate">${esc(a.n)}</b><small class="text-[11px] text-slate-400">${a.c == "EUR" ? "Cuenta en euros" : "Cuenta en dólares"}</small></div>
-            </div>
+        <section class="ac-panel">
             <div class="grid grid-cols-3 gap-2 mb-2">
                 ${box("Saldo", fxFmt(a.c, b), b < 0 ? "text-rose-500" : "")}
                 ${box("En pesos", r > 0 ? fmt(b * r) : "—")}
@@ -67,11 +62,10 @@ function fxPanel(a) {
                 ${box("Ya cobrado", Math.abs(k.real) >= 0.5 ? fxPlus(k.real) : "—", Math.abs(k.real) >= 0.5 ? fxGcl(k.real) : "")}
             </div>`) : `<p class="text-[11px] text-amber-500 mb-2"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Escribe cuántos pesos vale 1 euro (botón «Editar») o actualiza las tasas para ver esta cuenta en pesos y sumarla a tu patrimonio.</p>`}
             <div class="mb-3 text-[11px] text-slate-400">Cuenta en tu patrimonio y en «Disponible para gastar».${hq(`${k.q > 0 && r > 0 ? "La ganancia compara lo que vale hoy con la tasa de cada vez que metiste plata. " : ""}Esta plata suma a tu patrimonio y cuenta como «Disponible para gastar», ya convertida a pesos. Cuando gastes, anótalo con «Sacar».`)}</div>
-            <div class="flex flex-wrap gap-2 mb-4">
-                ${act("bg-emerald-50 text-emerald-600", `fxMove(${a.id},1)`, "＋ Meter")}
-                ${act("bg-rose-50 text-rose-600", `fxMove(${a.id},-1)`, "－ Sacar")}
-                ${act("bg-sky-50 text-sky-600", `fxCash(${a.id})`, "Cambiar a pesos")}
-                ${mxMenu(act("bg-indigo-50 text-indigo-600", `fxAdj(${a.id})`, "Ajustar saldo") + act("bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300", `fxEdit(${a.id})`, "Editar") + act("bg-slate-100 dark:bg-slate-800 text-rose-500", `fxDel(${a.id})`, "Borrar"))}
+            <div class="sv-act" style="border:0;padding:0;margin:0 0 14px">
+                <button onclick="fxMove(${a.id},1)" class="sv-btn in"><i class="fa-solid fa-plus"></i>Meter</button>
+                <button onclick="fxMove(${a.id},-1)" class="sv-btn out"><i class="fa-solid fa-minus"></i>Sacar</button>
+                ${mxMenu(act("bg-sky-50 text-sky-600", `fxCash(${a.id})`, "Cambiar a pesos") + act("bg-indigo-50 text-indigo-600", `fxAdj(${a.id})`, "Ajustar saldo") + act("bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300", `fxEdit(${a.id})`, "Editar") + act("bg-slate-100 dark:bg-slate-800 text-rose-500", `fxDel(${a.id})`, "Borrar"))}
             </div>
             <details class="sdet" ${fxHO[a.id] ? "open" : ""} ontoggle="fxHO[${a.id}]=this.open?1:0"><summary>Historial (${L.length})</summary><div class="sdet-b">
             ${rows || '<p class="text-xs text-slate-400 text-center py-4">Todavía no hay movimientos en esta cuenta.</p>'}
@@ -84,15 +78,12 @@ function fxSection() {
     if (fxOpen && !S.fx.some(a => a.id == fxOpen)) fxOpen = null;
     const open = S.fx.find(a => a.id == fxOpen);
     return `
-        <div class="flex justify-between items-center mb-3 mt-6"><h3 class="text-base font-bold">Dólares y euros</h3><button onclick="fxFetchRates()" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold"><i class="fa-solid fa-rotate mr-1.5"></i>Actualizar tasas</button></div>
-        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
-            ${S.fx.map(fxCard).join("")}
-            <button onclick="newFx()" class="min-h-[140px] rounded-[20px] border-2 border-dashed border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center gap-2 text-slate-500 hover:border-indigo-500 transition px-2 text-center">
-                <span class="w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center"><i class="fa-solid fa-plus"></i></span>
-                <span class="text-xs font-semibold">Cuenta en USD / EUR</span>
-            </button>
+        <div class="sec-h mt-6"><h3>Dólares y euros</h3><button onclick="fxFetchRates()" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold"><i class="fa-solid fa-rotate mr-1.5"></i>Actualizar tasas</button></div>
+        <div class="${CARD} ac-group">
+            ${S.fx.map(a => fxCard(a) + (open && open.id == a.id ? fxPanel(a) : "")).join("")}
+            <button onclick="newFx()" class="ac-add"><span class="plus"><i class="fa-solid fa-plus"></i></span>Cuenta en USD / EUR</button>
         </div>
-        ${open ? fxPanel(open) : S.fx.length ? '' : '<p class="text-[11px] text-slate-400 mb-4">Guarda aquí plata en dólares o euros y mira cuánto ganas o pierdes por la tasa.</p>'}`;
+        ${S.fx.length ? '' : '<p class="text-[11px] text-slate-400 mb-4">Guarda aquí plata en dólares o euros y mira cuánto ganas o pierdes por la tasa.</p>'}`;
 }
 
 function togFx(id) { fxOpen = fxOpen == id ? null : id; walOpen = null; draw(); }

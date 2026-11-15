@@ -244,19 +244,19 @@ function dailyUI(disp) {
         sub = "≈ " + fmt(dy.perDay) + " por día · " + (dy.left == 1 ? "último día del mes" : "quedan " + dy.left + " días");
     }
     return `
-        <div class="mp-budget-item mp-daily-item">
+        <div class="mt-4 p-3 rounded-2xl bg-white/10 flex items-center justify-between gap-3">
             <div class="min-w-0">
-                <small class="mp-budget-label">${lbl}</small>
+                <small class="text-[10px] text-indigo-200 block uppercase">${lbl}</small>
                 <b data-cu="day" class="text-xl font-extrabold ${red ? "text-rose-300" : ""}">${val}</b>
             </div>
-            <div class="mp-budget-note">${sub}${dy.fixed > 0 ? `<br>ya descontados ${fmt(dy.fixed)} de gastos fijos por venir` : ""}</div>
+            <div class="text-right text-[11px] text-indigo-200 leading-snug">${sub}${dy.fixed > 0 ? `<br>ya descontados ${fmt(dy.fixed)} de gastos fijos por venir` : ""}</div>
         </div>`;
 }
 
 function projUI(disp) {
     const p = monthProjection(disp);
     if (!p) return "";
-    const box = "mp-budget-item mp-projection-item";
+    const box = "mt-3 p-3 rounded-2xl bg-white/10 flex items-center justify-between gap-3";
     if (p.few) return `<div class="${box}"><div class="text-[11px] text-indigo-200 leading-snug"><i class="fa-solid fa-chart-line mr-1.5"></i>Proyección del mes: registra tus gastos unos días más y te diré cómo vas a cerrar.</div></div>`;
     const bad = p.end < 0;
     let sub;
@@ -267,10 +267,10 @@ function projUI(disp) {
     return `
         <div class="${box}">
             <div class="min-w-0">
-                <small class="mp-budget-label"><i class="fa-solid fa-chart-line mr-1"></i>${bad ? "Te faltarían para cerrar el mes" : "A este ritmo terminas el mes con"}</small>
+                <small class="text-[10px] text-indigo-200 block uppercase"><i class="fa-solid fa-chart-line mr-1"></i>${bad ? "Te faltarían para cerrar el mes" : "A este ritmo terminas el mes con"}</small>
                 <b class="text-xl font-extrabold ${bad ? "text-rose-300" : ""}">${fmt(bad ? -p.end : p.end)}</b>
             </div>
-            <div class="mp-budget-note">${sub}<br><span>sin contar compras con tarjeta${p.fixed > 0 ? "; ya descontados " + fmt(p.fixed) + " de gastos fijos por venir" : ""}</span></div>
+            <div class="text-right text-[11px] text-indigo-200 leading-snug">${sub}<br><span class="opacity-80">sin contar compras con tarjeta${p.fixed > 0 ? "; ya descontados " + fmt(p.fixed) + " de gastos fijos por venir" : ""}</span></div>
         </div>`;
 }
 
@@ -450,105 +450,85 @@ function vHome() {
         `<p class="text-xs text-slate-400 mt-0.5">${nMov} ${nMov == 1 ? "movimiento" : "movimientos"}</p>`,
         movBody);
     return `
-        <div class="mp-home">
-            <div class="mp-home-head">
-                <div class="mp-brand-mark" aria-hidden="true"><i class="fa-solid fa-wallet"></i></div>
-                <div class="mp-greeting">
-                    <span class="mp-eyebrow">TU ESPACIO FINANCIERO</span>
-                    <b>Hola${(S.th.nm || "") ? ", " + esc(S.th.nm) : ""}</b>
-                    <small>Un vistazo a tu dinero.</small>
-                </div>
-                <div class="mp-head-actions">
-                    <button class="mp-avatar" onclick="const n=prompt('¿Cómo te llamas?',S.th.nm||'');if(n!==null){S.th.nm=n.trim();save();draw()}" aria-label="Editar perfil">${esc(((S.th.nm || "").trim()[0] || "").toUpperCase()) || '<i class="fa-solid fa-user"></i>'}</button>
-                </div>
-            </div>
-            ${bkUI()}
-            ${recUI()}
-
-            <section data-hero class="mp-balance-card">
-                <div class="mp-balance-top">
-                    <div>
-                        <span class="mp-eyebrow">DISPONIBLE PARA GASTAR</span>
-                        <h2 data-cu="disp" class="mp-balance-amount ${disp < 0 ? "is-negative" : ""}">${fmt(disp)}</h2>
-                        <span class="mp-balance-caption">Saldo disponible estimado</span>
-                    </div>
-                    <div class="mp-month-switch">
-                        <button onclick="go(-1)" aria-label="Mes anterior"><i class="fa-solid fa-chevron-left"></i></button>
-                        <span>${cur.toLocaleDateString(DLOC, { month: "short", year: "numeric" })}</span>
-                        <button onclick="go(1)" aria-label="Mes siguiente"><i class="fa-solid fa-chevron-right"></i></button>
-                    </div>
-                </div>
-                <div class="mp-balance-actions" aria-label="Acciones rápidas">
-                    <button onclick="openMov()"><span class="mp-action-icon mp-action-dark"><i class="fa-solid fa-plus"></i></span><span>Registrar</span></button>
-                    <button onclick="goTab(${N.indexOf("Cuentas")})"><span class="mp-action-icon"><i class="fa-solid fa-wallet"></i></span><span>Cuentas</span></button>
-                    <button onclick="goTab(${N.indexOf("Tarjetas")})"><span class="mp-action-icon"><i class="fa-regular fa-credit-card"></i></span><span>Tarjetas</span></button>
-                </div>
-                <div class="mp-budget-stack">
-                    ${dailyUI(disp)}
-                    ${projUI(disp)}
-                </div>
-                <div class="mp-balance-breakdown">
-                    <div><span>En mano</span><b data-cu="have">${fmt(have)}</b>${pk > 0 ? `<small>${fmt(pk)} en bolsillos</small>` : ""}</div>
-                    <div><span>Tarjetas</span><b data-cu="due">${fmt(due)}</b>${due <= 0.5 && nm == ym(new Date()) ? (() => { const x = S.cards.filter(c => !(S.hide || {})[c.n]).reduce((s, c) => s + (cardNext(c).due || 0), 0); return x > 0.5 ? `<small>próx. ${fmt(x)}</small>` : ""; })() : ""}</div>
-                    <div><span>Apartado</span><b data-cu="svt">${fmt(svt)}</b></div>
-                </div>
-            </section>
-
-            <div class="mp-section-heading"><div><span class="mp-eyebrow">TU ACTIVIDAD</span><h3>Resumen financiero</h3></div><span class="mp-section-period">${cur.toLocaleDateString(DLOC, { month: "long" })}</span></div>
-            ${weekUI()}
-            ${yearTeaser()}
-            ${typeof closeTeaser == "function" ? closeTeaser() : ""}
-
-            <div class="mp-wealth-grid">
-                <div onclick="goTab(${N.indexOf("Ahorro")})" class="mp-wealth-card mp-savings-card cursor-pointer lift">
-                    <div class="mp-card-topline"><span>Ahorros y metas</span><i class="fa-solid fa-piggy-bank"></i></div>
-                    <h4 data-cu="totAcc">${fmt(totAcc)}</h4>
-                    <div class="mp-mini-goals">${MT}</div>
-                    <span class="mp-card-link">Ver ahorros <i class="fa-solid fa-arrow-up-right-from-square"></i></span>
-                </div>
-                <div onclick="goTab(${N.indexOf("Inversión")})" class="mp-wealth-card mp-invest-card cursor-pointer lift">
-                    <div class="mp-card-topline"><span>Inversiones</span><i class="fa-solid fa-chart-line"></i></div>
-                    <h4>${show(invT)}</h4>
-                    <p class="${invT >= invC ? "text-emerald-500" : "text-rose-500"}">${invT >= invC ? "+" : ""}${fmt(invT - invC)} sobre lo invertido${P.ann !== null ? " · " + pct1(P.ann) + " anual" : ""}</p>
-                    <span class="mp-card-link">Ver inversiones <i class="fa-solid fa-arrow-up-right-from-square"></i></span>
-                </div>
-            </div>
-
-            <section class="mp-content-card mp-recent-card">
-                <div class="mp-content-heading"><div><span class="mp-eyebrow">TU DINERO EN MOVIMIENTO</span><h3>Últimos movimientos</h3></div><button onclick="openAllMov()">Ver todos <i class="fa-solid fa-chevron-right"></i></button></div>
-                ${movListHTML(4)}
-            </section>
-
-            ${movSec}
-            ${catsSec}
-            ${tipsUI(by)}
-            ${nwUI()}
-
-            <button onclick="openSim()" class="mp-simulator-card">
-                <span class="mp-sim-icon"><i class="fa-solid fa-scale-balanced"></i></span>
-                <span class="mp-sim-copy"><b>¿Puedo permitírmelo?</b><small>Simula una compra antes de tomar la decisión.</small></span>
-                <i class="fa-solid fa-chevron-right mp-sim-chevron"></i>
-            </button>
+        <div class="hi">
+            <button class="hi-b" onclick="openAllMov()" aria-label="Buscar movimientos"><i class="fa-solid fa-magnifying-glass"></i></button>
+            <div class="hi-t"><b>Hola${(S.th.nm || "") ? ", " + esc(S.th.nm) : ""}</b><small>Hoy es un buen día para avanzar</small></div>
+            <button class="hi-b av" onclick="const n=prompt('¿Cómo te llamas?',S.th.nm||'');if(n!==null){S.th.nm=n.trim();save();draw()}" aria-label="Tu nombre">${esc(((S.th.nm || "").trim()[0] || "").toUpperCase()) || '<i class="fa-solid fa-user"></i>'}</button>
         </div>
+        ${bkUI()}
+        ${recUI()}
+        <section data-hero class="relative overflow-hidden bg-gradient-to-b from-indigo-600 to-indigo-700 text-white p-6 rounded-[20px] shadow-sm flex flex-col justify-between">
+            <div class="flex justify-between items-start">
+                <div>
+                    <p class="text-xs font-medium uppercase tracking-wider text-indigo-200">Disponible para gastar</p>
+                    <h2 data-cu="disp" class="text-3xl font-extrabold mt-1 tracking-tight ${disp < 0 ? "text-rose-300" : ""}">${fmt(disp)}</h2>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <button onclick="go(-1)" class="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-sm font-bold transition">‹</button>
+                    <span class="text-xs font-semibold capitalize">${cur.toLocaleDateString(DLOC, { month: "long", year: "numeric" })}</span>
+                    <button onclick="go(1)" class="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-sm font-bold transition">›</button>
+                </div>
+            </div>
+            ${dailyUI(disp)}
+            ${projUI(disp)}
+            <div class="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-white/10">
+                <div><small class="text-[10px] text-indigo-200 block uppercase">En mano</small><b data-cu="have" class="text-xs sm:text-sm font-bold">${fmt(have)}</b>${pk > 0 ? `<small class="text-[10px] text-indigo-200 block font-normal">${fmt(pk)} en bolsillos</small>` : ""}</div>
+                <div><small class="text-[10px] text-indigo-200 block uppercase">Tarjetas</small><b data-cu="due" class="text-xs sm:text-sm font-bold">${fmt(due)}</b>${due <= 0.5 && nm == ym(new Date()) ? (() => { const x = S.cards.filter(c => !(S.hide || {})[c.n]).reduce((s, c) => s + (cardNext(c).due || 0), 0); return x > 0.5 ? `<small class="text-[10px] text-indigo-200 block font-normal">próx. ${fmt(x)}</small>` : ""; })() : ""}</div>
+                <div><small class="text-[10px] text-indigo-200 block uppercase">Apartado</small><b data-cu="svt" class="text-xs sm:text-sm font-bold">${fmt(svt)}</b></div>
+            </div>
+        </section>
+
+        ${quickUI()}
+
+        ${weekUI()}
+
+        ${yearTeaser()}
+        ${typeof closeTeaser == "function" ? closeTeaser() : ""}
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div onclick="goTab(${N.indexOf("Ahorro")})" class="${CARD} p-4 cursor-pointer hover:border-indigo-500 transition lift">
+                <div class="flex justify-between items-center mb-1"><span class="text-xs font-semibold text-slate-500">Ahorros y Metas</span><i class="fa-solid fa-piggy-bank text-indigo-500"></i></div>
+                <h4 data-cu="totAcc" class="text-lg font-bold text-slate-800 dark:text-white mb-2">${fmt(totAcc)}</h4>
+                ${MT}
+            </div>
+            <div onclick="goTab(${N.indexOf("Inversión")})" class="${CARD} p-4 cursor-pointer hover:border-indigo-500 transition lift">
+                <div class="flex justify-between items-center mb-1"><span class="text-xs font-semibold text-slate-500">Inversiones</span><i class="fa-solid fa-chart-line text-emerald-500"></i></div>
+                <h4 class="text-lg font-bold text-slate-800 dark:text-white">${show(invT)}</h4>
+                <p class="text-xs ${invT >= invC ? "text-emerald-500" : "text-rose-500"} mt-1 font-semibold">${invT >= invC ? "+" : ""}${fmt(invT - invC)} sobre lo invertido${P.ann !== null ? " · " + pct1(P.ann) + " anual" : ""}</p>
+            </div>
+        </div>
+
+        <section class="${CARD} p-5">
+            <div class="flex items-center justify-between mb-1">
+                <h3 class="text-sm font-bold text-slate-800 dark:text-white">Últimos movimientos${S.items.length ? hq("Desliza para editar o borrar · mantén presionado para duplicar") : ""}</h3>
+                <button onclick="openAllMov()" class="text-xs font-semibold text-indigo-600 dark:text-indigo-400">Ver todos</button>
+            </div>
+            ${movListHTML(4)}
+        </section>
+
+        ${movSec}
+
+        ${catsSec}
+
+        ${tipsUI(by)}
+
+        ${nwUI()}
+
+        <button onclick="openSim()" class="${CARD} w-full p-4 flex items-center gap-3 text-left hover:border-indigo-500 transition lift">
+            <div class="w-10 h-10 shrink-0 rounded-xl flex items-center justify-center bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400"><i class="fa-solid fa-circle-question"></i></div>
+            <div class="min-w-0 flex-1">
+                <p class="text-sm font-bold text-slate-800 dark:text-white">¿Puedo permitírmelo?</p>
+                <p class="text-[11px] text-slate-400 mt-0.5">Simula una compra y mira cómo cambia tu disponible antes de hacerla</p>
+            </div>
+            <i class="fa-solid fa-chevron-right text-xs text-slate-300"></i>
+        </button>
     `;
 }
 
 // ---------- Cuentas ----------
-function walCard(a) {
-    const b = walBal(a), pk = pkSum(a), hid = !!(S.hide || {})[a.n], sel = walOpen == a.id, T = WTYPES[a.t];
-    return `
-        <button onclick="togW(${a.id})" class="${CARD} lift p-4 text-left flex flex-col min-w-0 ${sel ? "!border-indigo-500 ring-2 ring-indigo-500/30" : ""} ${hid ? "opacity-60" : ""}">
-            <span class="w-10 h-10 rounded-xl flex items-center justify-center mb-3 ${T[3]}"><i class="fa-solid ${T[1]}"></i></span>
-            <span class="text-[11px] uppercase tracking-wider text-slate-400 truncate w-full">${esc(a.n)}</span>
-            <b class="text-lg font-extrabold mt-0.5 truncate w-full ${b < 0 ? "text-rose-500" : "text-slate-800 dark:text-white"}">${fmt(b)}</b>
-            <small class="text-[11px] text-slate-400 mt-0.5 truncate w-full">${hid ? "Oculta del resumen" : pk > 0 ? fmt(pk) + " en bolsillos" : T[0]}</small>
-            ${a.pk.length ? `<span class="pk-mini">${a.pk.slice(0, 5).map(p => pkTile(p, p.m ? S.acc.find(x => x.id == p.m) : null, 1)).join("")}${a.pk.length > 5 ? `<span class="pk-more">+${a.pk.length - 5}</span>` : ""}</span>` : ""}
-        </button>`;
-}
-
 function walPanel(a) {
-    const b = walBal(a), pk = pkSum(a), T = WTYPES[a.t];
-    const act = (cl, fn, t) => `<button onclick="${fn}" class="px-3 py-1.5 ${cl} rounded-xl text-xs font-semibold">${t}</button>`;
+    const b = walBal(a), pk = pkSum(a);
+    const qa = (cl, fn, ic, t) => `<button onclick="${fn}" class="ac-qa ${cl}"><i class="fa-solid ${ic}"></i><span>${t}</span></button>`;
     const ib = (cl, fn, ic, t) => `<button onclick="${fn}" title="${t}" aria-label="${t}" class="w-8 h-8 ${cl} rounded-lg text-[11px] flex items-center justify-center"><i class="fa-solid ${ic}"></i></button>`;
     const hasGoals = S.acc.some(g => !g.f);
     const linkedG = S.acc.filter(g => !g.f && a.pk.some(p => p.m == g.id)), linkedAG = linkedG.reduce((s, g) => s + goalTotal(g) * (g.u ? S.trm : 1), 0);
@@ -557,12 +537,10 @@ function walPanel(a) {
         return `
         <div class="flex items-center justify-between gap-2 py-2.5 border-b border-slate-100 dark:border-slate-800 last:border-0">
             <div class="min-w-0 flex items-center gap-3">${pkTile(p, g)}<div class="min-w-0"><b class="text-xs text-slate-800 dark:text-white block truncate">${esc(p.n)}</b><small class="text-[11px] text-slate-400">${fmt(p.v)}${g ? ` · <span class="font-medium" style="color:${goalCol(g)}">${goalEmo(g)} ${esc(g.n)} · lleva ${fm(g, goalAll(g))}${g.g ? " de " + fm(g, g.g) + " (" + gt.toFixed(0) + "%)" : ""}</span>` : ""}</small></div></div>
-            <div class="flex space-x-1.5 shrink-0">
+            <div class="flex items-center gap-1.5 shrink-0">
                 ${ib("bg-emerald-50 text-emerald-600", `pkMove(${a.id},${p.id},1)`, "fa-plus", "Meter")}
                 ${ib("bg-rose-50 text-rose-600", `pkMove(${a.id},${p.id},-1)`, "fa-minus", "Sacar")}
-                ${hasGoals || p.m ? ib(p.m ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 dark:bg-slate-800", `linkPk(${a.id},${p.id})`, "fa-link", "Vincular a una meta") : ""}
-                ${ib("bg-slate-100 dark:bg-slate-800", `editPk(${a.id},${p.id})`, "fa-pen", "Renombrar")}
-                ${ib("bg-slate-100 dark:bg-slate-800 text-rose-500", `delPk(${a.id},${p.id})`, "fa-trash", "Borrar")}
+                ${mxMenu((hasGoals || p.m ? ib(p.m ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 dark:bg-slate-800", `linkPk(${a.id},${p.id})`, "fa-link", "Vincular a una meta") : "") + ib("bg-slate-100 dark:bg-slate-800", `editPk(${a.id},${p.id})`, "fa-pen", "Renombrar") + ib("bg-slate-100 dark:bg-slate-800 text-rose-500", `delPk(${a.id},${p.id})`, "fa-trash", "Borrar"))}
             </div>
         </div>`;
     }).join("");
@@ -574,28 +552,25 @@ function walPanel(a) {
         </div>`;
     }).join("");
     return `
-        <section class="${CARD} p-5 mb-4">
-            <div class="flex items-center gap-3 mb-4">
-                <span class="w-10 h-10 shrink-0 rounded-xl flex items-center justify-center ${T[3]}"><i class="fa-solid ${T[1]}"></i></span>
-                <div class="min-w-0"><b class="text-sm font-bold text-slate-800 dark:text-white block truncate">${esc(a.n)}</b><small class="text-[11px] text-slate-400">${T[0]}</small></div>
+        <section class="ac-panel">
+            <div class="sv-stats">
+                ${[["Saldo", fmt(b), b < 0 ? "neg" : ""], ["En bolsillos", fmt(pk + linkedAG), ""], ["Libre", fmt(b - pk), b - pk < 0 ? "neg" : "up"]].map(([l, v, cl]) => `<div class="${cl}"><span class="sv-lbl">${l}</span><b>${v}</b></div>`).join("")}
             </div>
-            <div class="grid grid-cols-3 gap-2 mb-2">
-                ${[["Saldo", fmt(b), b < 0 ? "text-rose-500" : ""], ["En bolsillos", fmt(pk + linkedAG), "", linkedAG > 0.5 ? "incluye " + fmt(linkedAG) + " de metas" : ""], ["Libre", fmt(b - pk), b - pk < 0 ? "text-rose-500" : "text-emerald-500"]].map(([l, v, cl, nt]) => `<div class="p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 min-w-0"><span class="text-[10px] uppercase tracking-wider text-slate-400 block truncate">${l}</span><b class="text-xs ${cl}">${v}</b>${nt ? `<small class="text-[10px] text-slate-400 block truncate">${nt}</small>` : ""}</div>`).join("")}
+            ${linkedAG > 0.5 ? `<p class="text-[10px] text-slate-400 mt-1.5">En bolsillos incluye ${fmt(linkedAG)} de metas</p>` : ""}
+            ${pk > b + 0.5 ? `<p class="text-[11px] text-amber-500 mt-2"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Tus bolsillos suman más que el saldo de la cuenta. Revisa el saldo («Ajustar saldo») o saca plata de algún bolsillo.</p>` : ""}
+            <div class="ac-qas">
+                ${qa("", `adjWal(${a.id})`, "fa-sliders", "Ajustar saldo")}
+                ${qa("", `trfWal(${a.id})`, "fa-right-left", "Transferir")}
+                ${qa("", `editWal(${a.id})`, "fa-pen", "Editar")}
+                ${qa("danger", `delWal(${a.id})`, "fa-trash", "Borrar")}
             </div>
-                        ${pk > b + 0.5 ? `<p class="text-[11px] text-amber-500 mb-2"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Tus bolsillos suman más que el saldo de la cuenta. Revisa el saldo («Ajustar saldo») o saca plata de algún bolsillo.</p>` : ""}
-            <div class="flex flex-wrap gap-2 mb-4">
-                ${act("bg-indigo-50 text-indigo-600", `adjWal(${a.id})`, "Ajustar saldo")}
-                ${act("bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300", `trfWal(${a.id})`, "↔ Transferir")}
-                ${act("bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300", `editWal(${a.id})`, "Editar")}
-                ${act("bg-slate-100 dark:bg-slate-800 text-rose-500", `delWal(${a.id})`, "Borrar")}
-            </div>
-            <div class="flex justify-between items-center pt-3 border-t border-slate-100 dark:border-slate-800">
-                <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider">Bolsillos</h4>
+            <div class="flex justify-between items-center mt-5 mb-1">
+                <h4 class="sv-lbl !mb-0">Bolsillos</h4>
                 <button onclick="newPk(${a.id})" class="px-3 py-1.5 bg-indigo-600 text-white rounded-xl text-xs font-semibold shadow-md">+ Nuevo bolsillo</button>
             </div>
-            <p class="text-[11px] text-slate-400 mt-1">Plata que sigue en esta cuenta pero ya tiene dueño: no cuenta como «Disponible para gastar».</p>
+            <p class="text-[11px] text-slate-400 mb-1">Plata que sigue en esta cuenta pero ya tiene dueño: no cuenta como «Disponible para gastar».</p>
             ${pks || emptyUI("fa-box-archive", "#5856D6", "Sin bolsillos", "Aparta plata dentro de esta cuenta (arriendo, un viaje…) sin sacarla de ahí.", "Crear bolsillo", `newPk(${a.id})`, true)}
-            <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mt-4 pt-3 border-t border-slate-100 dark:border-slate-800">Últimos movimientos</h4>
+            <h4 class="sv-lbl mt-5 !mb-0">Últimos movimientos</h4>
             ${mv || '<p class="text-xs text-slate-400 text-center py-4">Todavía no hay movimientos en esta cuenta.</p>'}
         </section>`;
 }
@@ -605,28 +580,62 @@ function vCue() {
     const shown = S.wal.filter(a => !(S.hide || {})[a.n]), FX = fxTotal(), T = shown.reduce((s, a) => s + walBal(a), 0) + FX, P = pkHeld(), open = S.wal.find(a => a.id == walOpen);
     // Lo que ya tienen ahorrado las metas que están vinculadas a algún bolsillo (esa plata está en la meta, no en la cuenta: no entra en "Libre")
     const AG = S.acc.filter(g => !g.f && goalPks(g).length).reduce((s, g) => s + goalTotal(g) * (g.u ? S.trm : 1), 0);
+    const held = P + AG, pw = T > 0 ? Math.min(100, Math.max(0, held / T * 100)) : 0;
     return `
-        <section class="bg-gradient-to-b from-sky-500 to-sky-600 text-white p-6 rounded-[20px] shadow-sm mb-6">
-            <small class="text-xs text-sky-100 font-medium uppercase tracking-wider">Total en cuentas</small>
-            <div class="text-3xl font-extrabold mt-1">${fmt(T)}</div>
-            ${FX ? `<p class="text-xs text-sky-100 mt-1">Incluye ≈ ${fmt(FX)} en dólares y euros${Math.abs(fxGain()) >= 0.5 ? ` · ${fxGain() > 0 ? "ganancia por la tasa" : "pérdida por la tasa"} ${fmt(Math.abs(fxGain()))}` : ""}</p>` : ""}
-            <div class="grid grid-cols-2 gap-2 mt-4 pt-4 border-t border-white/10">
-                <div><small class="text-[10px] text-sky-100 block uppercase">En bolsillos</small><b class="text-sm font-bold">${fmt(P + AG)}</b>${AG > 0.5 ? `<small class="text-[10px] text-sky-100 block font-normal">incluye ${fmt(AG)} de metas</small>` : ""}</div>
-                <div><small class="text-[10px] text-sky-100 block uppercase">Libre</small><b class="text-sm font-bold">${fmt(T - P)}</b></div>
+        <section class="ac-hero">
+            <small>Total en cuentas</small>
+            <div class="amt">${fmt(T)}</div>
+            ${FX ? `<p class="hnote">Incluye ≈ ${fmt(FX)} en dólares y euros${Math.abs(fxGain()) >= 0.5 ? ` · ${fxGain() > 0 ? "ganancia por la tasa" : "pérdida por la tasa"} ${fmt(Math.abs(fxGain()))}` : ""}</p>` : ""}
+            <div class="hsplit"><i style="width:${(100 - pw).toFixed(1)}%;background:#fff"></i><i style="width:${pw.toFixed(1)}%;background:rgb(255 255 255/.4)"></i></div>
+            <div class="hlegend two">
+                <span><i class="dot" style="background:#fff"></i><em>Libre</em><b>${fmt(T - P)}</b></span>
+                <span><i class="dot" style="background:rgb(255 255 255/.4)"></i><em>En bolsillos</em><b>${fmt(held)}</b>${AG > 0.5 ? `<small>incluye ${fmt(AG)} de metas</small>` : ""}</span>
             </div>
         </section>
-        <div class="flex justify-between items-center mb-4"><h3 class="text-base font-bold">Mis Cuentas</h3></div>
-        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
-            ${S.wal.map(walCard).join("")}
-            <button onclick="newWal()" class="min-h-[140px] rounded-[20px] border-2 border-dashed border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center gap-2 text-slate-500 hover:border-indigo-500 transition">
-                <span class="w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center"><i class="fa-solid fa-plus"></i></span>
-                <span class="text-xs font-semibold">Agregar cuenta</span>
-            </button>
+        <div class="sec-h"><h3>Mis Cuentas</h3></div>
+        <div class="${CARD} ac-group">
+            ${S.wal.map(a => walRow(a) + (open && open.id == a.id ? walPanel(a) : "")).join("")}
+            <button onclick="newWal()" class="ac-add"><span class="plus"><i class="fa-solid fa-plus"></i></span>Agregar cuenta</button>
         </div>
-        ${open ? walPanel(open) : ""}
         ${fxSection()}
         <p class="text-[11px] text-slate-400">${hq("El total no incluye las cuentas que ocultes en Ajustes. Los gastos con tarjeta no salen de ninguna cuenta hasta que abonas a la tarjeta.")}</p>
     `;
+}
+
+// ---------- Inicio: acciones rápidas + widgets (tasa del dólar y rendimiento de hoy) ----------
+function quickUI() {
+    const goals = S.acc.filter(a => !a.f), D = goals.reduce((s, a) => s + goalYield(a).daily * (a.u ? S.trm : 1), 0), Y = goals.reduce((s, a) => s + goalYield(a).total * (a.u ? S.trm : 1), 0);
+    return `
+        <div class="qa-row" role="group" aria-label="Acciones rápidas">
+            <button onclick="openMov(); setType('g')" class="qa-pill"><i class="fa-solid fa-arrow-up-right"></i>Gasto</button>
+            <button onclick="openMov(); setType('i')" class="qa-pill"><i class="fa-solid fa-arrow-down-left"></i>Ingreso</button>
+            <button onclick="newTransfer()" class="qa-pill"><i class="fa-solid fa-right-left"></i>Transferir</button>
+        </div>
+        <div class="wd-grid">
+            <button onclick="goTab(N.indexOf('Cuentas'))" class="wd">
+                <span class="wd-l">Dólar hoy</span>
+                <b class="wd-v">${fmtD(S.trm)}</b>
+                <span class="wd-s">COP por US$1</span>
+            </button>
+            <button onclick="goTab(N.indexOf('Ahorro'))" class="wd">
+                <span class="wd-l">Ahorro rinde</span>
+                <b class="wd-v">${D > 0.5 ? "+" + fmt(D) : "—"}</b>
+                <span class="wd-s">${Y > 0.5 ? fmt(Y) + " ganado en total" : "hoy"}</span>
+                <svg class="wd-spark" viewBox="0 0 100 28" aria-hidden="true" preserveAspectRatio="none"><path d="M0 24 C14 22 20 12 34 14 S54 8 66 11 S86 4 100 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            </button>
+        </div>`;
+}
+
+const WCOL = { cash: "#A8660C", bank: "#2F55B0", digital: "#6542B5", savings: "#0B6B58", other: "#5B6676" };
+function walRow(a) {
+    const b = walBal(a), pk = pkSum(a), hid = !!(S.hide || {})[a.n], sel = walOpen == a.id, T = WTYPES[a.t];
+    return `
+        <button onclick="togW(${a.id})" class="ac-row ${sel ? "on" : ""} ${hid ? "dim" : ""}" aria-expanded="${sel}">
+            <span class="ac-ic lg" style="--c:${WCOL[a.t] || WCOL.other}"><i class="fa-solid ${T[1]}"></i></span>
+            <span class="ac-main"><b>${esc(a.n)}</b><small>${hid ? "Oculta del resumen" : pk > 0 ? fmt(pk) + " en bolsillos" : T[0]}</small>
+                ${a.pk.length ? `<span class="pk-mini">${a.pk.slice(0, 5).map(p => pkTile(p, p.m ? S.acc.find(x => x.id == p.m) : null, 1)).join("")}${a.pk.length > 5 ? `<span class="pk-more">+${a.pk.length - 5}</span>` : ""}</span>` : ""}</span>
+            <span class="ac-bal ${b < 0 ? "neg" : ""}">${fmt(b)}</span><i class="fa-solid fa-chevron-right ac-ch"></i>
+        </button>`;
 }
 
 // ---------- Ahorro ----------
@@ -649,53 +658,87 @@ function goalBlock(a, p) {
     return { bar, info };
 }
 
-function vAho() {
-    let T = 0, Y = 0, PK = 0;
-    const A = S.acc.filter(a => !a.f).map(a => {
-        const s = svb(a.id), y = Math.max(0, yieldOf(a.id, a.r)), gy = goalYield(a);
-        T += a.u ? s * S.trm : s; Y += a.u ? y * S.trm : y;
-        const gp = goalPks(a), pkv = goalPkSum(a); PK += pkv * (a.u ? S.trm : 1);
-        const t = s + y + pkv, p = a.g ? Math.min(100, t / a.g * 100) : 0, gb = goalBlock(a, p), gi0 = goalInfo(a);
-        const pkBox = gp.length ? `<div class="mb-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
-                    <div class="flex justify-between items-center mb-1"><span class="text-[10px] uppercase tracking-wider text-slate-400"><i class="fa-solid fa-box-archive mr-1"></i>En bolsillos de tus cuentas</span><b class="text-xs">${fm(a, pkv)}</b></div>
-                    ${gp.map(x => `<div class="flex items-center justify-between gap-2 py-1.5 text-[11px] border-t border-slate-100 dark:border-slate-800 first:border-0"><span class="min-w-0 truncate text-slate-500 dark:text-slate-400">${esc(x.w.n)} › <b class="text-slate-700 dark:text-slate-200">${esc(x.p.n)}</b> · ${fmt(x.p.v)}</span><span class="flex gap-1.5 shrink-0"><button onclick="pkMove(${x.w.id},${x.p.id},1)" class="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 text-[11px]" aria-label="Meter"><i class="fa-solid fa-plus"></i></button><button onclick="pkMove(${x.w.id},${x.p.id},-1)" class="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 text-[11px]" aria-label="Sacar"><i class="fa-solid fa-minus"></i></button></span></div>`).join("")}
-                    ${hq("Esta plata sigue en tu cuenta (no sube tu patrimonio dos veces), pero cuenta para esta meta.")}
-                </div>` : "";
-        return `
-            <div class="${CARD} g-card p-5 mb-4 ${goalOpen == a.id ? "g-open" : ""}">
-                <button class="g-row" onclick="togG(${a.id})"><span class="goal-tint" style="background:${goalCol(a)}26">${goalEmo(a)}</span><span class="min-w-0 flex-1 text-left"><b class="block truncate">${esc(a.n)}</b><small>${fm(a, t)}${a.g ? " / " + fm(a, a.g) : ""}</small>${a.g ? `<span class="g-bar"><i style="width:${p}%;background:${goalCol(a)}"></i></span>` : ""}</span>${a.g ? `<span class="g-pct">${p.toFixed(0)}%</span>` : ""}<i class="fa-solid fa-chevron-right g-ch"></i></button>
-                <div class="flex justify-between items-center mb-2 cursor-pointer" onclick="togG(${a.id})">
-                    <b class="text-sm font-bold text-slate-800 dark:text-white">${esc(a.n)} <i class="fa-solid fa-chevron-up text-[10px] text-slate-400 ml-1"></i></b>
-                    <span class="text-xs text-slate-400">${a.u ? "USD · " : ""}${a.r ? a.r + "% E.A." : "sin rendimiento"}</span>
-                </div>
-                <div class="flex items-center gap-4 mb-3">
-                    <span class="goal-tint w-[56px] h-[56px] shrink-0 text-[28px]" style="background:${goalCol(a)}22">${goalEmo(a)}</span>
-                    <div class="min-w-0 flex-1">
-                        <div class="text-2xl font-extrabold text-slate-800 dark:text-white mb-0.5" data-cu="goal${a.id}">${fm(a, t)}</div>
-                        ${a.g ? `<div class="text-xs text-slate-400">${t >= a.g ? "¡Meta lograda! 🎉" : "de " + fm(a, a.g)}</div>` : ""}
-                        ${a.u ? `<small class="text-xs text-slate-400 block mt-0.5">≈ ${fmt(t * S.trm)} (TRM ${fmtD(S.trm)})</small>` : ""}
-                    </div>
-                </div>
-                ${a.r > 0 ? sdet("Ver rendimiento", `<div class="grid grid-cols-3 gap-2 mb-1">${[["Hoy", gy.daily], ["Este mes", gy.month], ["Total ganado", gy.total]].map(([l, v]) => `<div class="p-2.5 rounded-2xl bg-emerald-50 dark:bg-emerald-500/10"><span class="text-[10px] uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block leading-tight">${l}</span><b class="text-xs text-emerald-600 dark:text-emerald-400">+${fm(a, v)}</b></div>`).join("")}</div><p class="text-[10px] text-slate-400 mb-1">Ya incluido en el saldo (${tf(a.r)}% E.A.).</p>`) : ""}
-                ${pkBox}${a.g ? `${gb.bar.replace('bg-emerald-500 h-full', 'h-full').replace('style="width:' + p + '%"', 'style="width:' + p + '%;background:' + goalCol(a) + '"')}<div class="flex justify-between text-[11px] text-slate-400 mb-3"><span>${p.toFixed(0)}% de ${fm(a, a.g)}</span><span>${t >= a.g ? "¡Meta lograda!" : "Faltan " + fm(a, a.g - t)}</span></div>${gb.info}` : ""}
-                ${goalHist(a)}
-                <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-                    <button onclick="mov(${a.id}, 1)" class="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-xl text-xs font-semibold">＋ Meter</button>
-                    <button onclick="mov(${a.id}, -1)" class="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-xl text-xs font-semibold">－ Sacar</button>
-                    ${mxMenu(`<button onclick="pkGoal(${a.id})" class="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-xl text-xs font-semibold"><i class="fa-solid fa-box-archive mr-1"></i>Bolsillo</button>${s + y > 0.5 ? `<button onclick="mov(${a.id}, -1, 1)" class="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-xl text-xs font-semibold">Sacar todo</button>` : ""}<button onclick="editAcc(${a.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold">Editar</button><button onclick="archAcc(${a.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold">Archivar</button><button onclick="delAcc(${a.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-rose-500 rounded-xl text-xs font-semibold">Borrar</button>`)}
-                </div>
-            </div>`;
-    }).join("");
+// Anillo de progreso con el emoji de la meta al centro
+function goalRing(a, p) {
+    const R = 21, C = 2 * Math.PI * R, col = goalCol(a);
+    return `<span class="sv-ring ${a.g ? "" : "nog"}"><svg viewBox="0 0 50 50" aria-hidden="true"><circle cx="25" cy="25" r="${R}" class="sv-ring-bg"/><circle cx="25" cy="25" r="${R}" class="sv-ring-fg" style="stroke:${col};stroke-dasharray:${(C * (a.g ? Math.min(100, p) : 100) / 100).toFixed(1)} ${C.toFixed(1)}"/></svg><span class="lg sv-orb" style="--c:${col}"><i class="fa-solid ${goalIc(a)}"></i></span></span>`;
+}
+const pctTxt = n => (Math.round(n * 100) / 100).toLocaleString("es-CO", { maximumFractionDigits: 2 });
 
+function goalCard(a) {
+    const s = svb(a.id), gy = goalYield(a), y = gy.total, gp = goalPks(a), pkv = goalPkSum(a), K = a.u ? S.trm : 1;
+    const t = s + y + pkv, p = a.g ? Math.min(100, t / a.g * 100) : 0, gb = goalBlock(a, p), col = goalCol(a), open = goalOpen == a.id, done = a.g && t >= a.g;
+    const rh = (a.rh || []).slice().sort((x, z) => x.d.localeCompare(z.d));
+    const pkBox = gp.length ? `<div class="sv-box">
+            <div class="flex justify-between items-center mb-1"><span class="sv-lbl"><i class="fa-solid fa-box-archive mr-1"></i>En bolsillos de tus cuentas</span><b class="text-xs">${fm(a, pkv)}</b></div>
+            ${gp.map(x => `<div class="flex items-center justify-between gap-2 py-1.5 text-[11px] border-t border-slate-100 dark:border-slate-800 first:border-0"><span class="min-w-0 truncate text-slate-500 dark:text-slate-400">${esc(x.w.n)} › <b class="text-slate-700 dark:text-slate-200">${esc(x.p.n)}</b> · ${fmt(x.p.v)}</span><span class="flex gap-1.5 shrink-0"><button onclick="pkMove(${x.w.id},${x.p.id},1)" class="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 text-[11px]" aria-label="Meter"><i class="fa-solid fa-plus"></i></button><button onclick="pkMove(${x.w.id},${x.p.id},-1)" class="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 text-[11px]" aria-label="Sacar"><i class="fa-solid fa-minus"></i></button></span></div>`).join("")}
+            ${hq("Esta plata sigue en tu cuenta (no sube tu patrimonio dos veces), pero cuenta para esta meta.")}
+        </div>` : "";
+    const badges = [
+        gy.rate > 0 ? `<span class="sv-pill">${pctTxt(gy.rate)}% E.A.</span>` : "",
+        gy.daily * K > 0.5 ? `<span class="sv-pill up"><i class="fa-solid fa-arrow-trend-up"></i>+${fm(a, gy.daily)} hoy</span>` : "",
+        done ? `<span class="sv-pill up">¡Meta lograda! 🎉</span>` : "",
+        a.u ? `<span class="sv-pill">USD</span>` : ""
+    ].join("");
+    let body = "";
+    if (open) {
+        const trio = gy.rate > 0
+            ? `<div class="sv-stats">
+                <div><span class="sv-lbl">Aportado</span><b>${fm(a, s)}</b></div>
+                <div class="up"><span class="sv-lbl">Rendimiento</span><b>+${fm(a, y)}</b></div>
+                <div class="up"><span class="sv-lbl">Hoy</span><b>+${fm(a, gy.daily)}</b></div>
+            </div>
+            ${sdet("Cómo rinde", `<div class="sv-rows">
+                <div><span>Este mes</span><b class="up">+${fm(a, gy.month)}</b></div>
+                <div><span>Al mes, a este ritmo</span><b class="up">+${fm(a, gy.monthly)}</b></div>
+                <div><span>En 12 meses sin aportar más</span><b class="up">+${fm(a, gy.year)}</b></div>
+                <div><span>Tasa equivalente</span><b>${pctTxt((Math.pow(1 + gy.rate / 100, 1 / 12) - 1) * 100)}% mensual</b></div>
+                ${rh.length > 1 ? rh.map((x, i) => `<div><span>${i == 0 ? "Al inicio" : "Desde " + dmy(x.d)}</span><b>${pctTxt(x.r)}% E.A.</b></div>`).join("") : ""}
+            </div><p class="text-[10px] text-slate-400 mt-1">Estimado: interés compuesto día a día sobre la E.A. Si el banco cambia la tasa, usa Editar y elige desde qué día rige: lo ganado antes no se recalcula.</p>`, "sv-det")}`
+            : `<div class="sv-stats two">
+                <div><span class="sv-lbl">Aportado</span><b>${fm(a, s)}</b></div>
+                <button onclick="editAcc(${a.id})" class="sv-cta"><i class="fa-solid fa-percent"></i><span>¿Esta plata gana intereses?<small>Agrega la tasa E.A.</small></span></button>
+            </div>`;
+        body = `<div class="sv-body">
+            <div class="sv-big"><b data-cu="goal${a.id}">${fm(a, t)}</b>${a.g ? `<span>de ${fm(a, a.g)}</span>` : ""}</div>
+            ${a.u ? `<small class="block text-xs text-slate-400 mb-3">≈ ${fmt(t * S.trm)} (TRM ${fmtD(S.trm)})</small>` : ""}
+            ${a.g ? `${gb.bar.replace('bg-emerald-500 h-full', 'h-full').replace('style="width:' + p + '%"', 'style="width:' + p + '%;background:' + col + '"')}<div class="flex justify-between text-[11px] text-slate-400 mt-1 mb-3"><span>${p.toFixed(0)}%</span><span>${done ? "¡Meta lograda!" : "Faltan " + fm(a, a.g - t)}</span></div>${gb.info}` : ""}
+            ${trio}
+            ${pkBox}
+            ${goalHist(a)}
+            <div class="sv-act">
+                <button onclick="mov(${a.id}, 1)" class="sv-btn in"><i class="fa-solid fa-plus"></i>Meter</button>
+                <button onclick="mov(${a.id}, -1)" class="sv-btn out"><i class="fa-solid fa-minus"></i>Sacar</button>
+                ${mxMenu(`<button onclick="pkGoal(${a.id})" class="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-xl text-xs font-semibold"><i class="fa-solid fa-box-archive mr-1"></i>Bolsillo</button>${s + y > 0.5 ? `<button onclick="mov(${a.id}, -1, 1)" class="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-xl text-xs font-semibold">Sacar todo</button>` : ""}<button onclick="editAcc(${a.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold">Editar</button><button onclick="archAcc(${a.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold">Archivar</button><button onclick="delAcc(${a.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-rose-500 rounded-xl text-xs font-semibold">Borrar</button>`)}
+            </div>
+        </div>`;
+    }
+    return `<div class="${CARD} sv-card ${open ? "open" : ""}">
+        <button class="sv-head" onclick="togG(${a.id})" aria-expanded="${open}">
+            ${goalRing(a, p)}
+            <span class="sv-main"><b>${esc(a.n)}</b><small>${fm(a, t)}${a.g ? " / " + fm(a, a.g) : ""}</small>${badges ? `<span class="sv-badges">${badges}</span>` : ""}</span>
+            ${a.g ? `<span class="sv-pct">${p.toFixed(0)}%</span>` : ""}<i class="fa-solid fa-chevron-right sv-ch"></i>
+        </button>${body}</div>`;
+}
+
+function vAho() {
+    let T = 0, Y = 0, PK = 0, D = 0;
+    const goals = S.acc.filter(a => !a.f);
+    goals.forEach(a => {
+        const K = a.u ? S.trm : 1;
+        T += svb(a.id) * K; Y += goalYield(a).total * K; D += goalYield(a).daily * K; PK += goalPkSum(a) * K;
+    });
+    const tot = T + Y + PK, w = v => tot > 0 ? Math.max(0, v / tot * 100).toFixed(1) : 0;
     return `
-        <section class="bg-gradient-to-b from-emerald-500 to-emerald-600 text-white p-6 rounded-[20px] shadow-sm mb-6">
-            <small class="text-xs text-emerald-100 font-medium uppercase tracking-wider">Total Ahorrado</small>
-            <div class="text-3xl font-extrabold mt-1">${fmt(T + Y + PK)}</div>
-            ${Y > 0.5 ? `<p class="text-xs text-emerald-100 mt-1">Incluye ${fmt(Y)} de rendimiento ganado (estimado)</p>` : ""}
-            ${PK > 0.5 ? `<p class="text-xs text-emerald-100 mt-1"><i class="fa-solid fa-box-archive mr-1"></i>${fmt(PK)} están en bolsillos de tus cuentas</p>` : ""}
+        <section class="sv-hero">
+            <small>Total Ahorrado</small>
+            <div class="amt">${fmt(tot)}</div>
+            ${D > 0.5 ? `<span class="hchip"><i class="fa-solid fa-arrow-trend-up"></i>+${fmt(D)} hoy</span>` : ""}
+            ${tot > 0 && (Y > 0.5 || PK > 0.5) ? `<div class="hsplit"><i style="width:${w(T)}%;background:#fff"></i><i style="width:${w(Y)}%;background:rgb(var(--p-300))"></i><i style="width:${w(PK)}%;background:rgb(255 255 255/.45)"></i></div>
+            <div class="hlegend"><span><i class="dot" style="background:#fff"></i>Aportado <b>${fmt(T)}</b></span>${Y > 0.5 ? `<span><i class="dot" style="background:rgb(var(--p-300))"></i>Rendimiento <b>${fmt(Y)}</b></span>` : ""}${PK > 0.5 ? `<span><i class="dot" style="background:rgb(255 255 255/.45)"></i>En bolsillos <b>${fmt(PK)}</b></span>` : ""}</div>` : ""}
         </section>
-        <div class="flex justify-between items-center mb-4"><h3 class="text-base font-bold">Mis Metas</h3><button onclick="newAcc()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold shadow-md">+ Nueva meta</button></div>
-        ${A || emptyUI("fa-piggy-bank", "#34C759", "Aún no tienes metas", "Una meta es una cajita para algo concreto: un viaje, un fondo de emergencia, una compra. Mete plata y mira cómo crece.", "Crear la primera meta", "newAcc()")}${arcUI()}
+        <div class="sec-h"><h3>Mis Metas</h3><button onclick="newAcc()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold shadow-md">+ Nueva meta</button></div>
+        ${goals.map(goalCard).join("") || emptyUI("fa-piggy-bank", "#34C759", "Aún no tienes metas", "Una meta es una cajita para algo concreto: un viaje, un fondo de emergencia, una compra. Mete plata y mira cómo crece.", "Crear la primera meta", "newAcc()")}${arcUI()}
     `;
 }
 
