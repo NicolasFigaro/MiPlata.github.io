@@ -482,6 +482,9 @@ function vHome() {
 
         ${weekUI()}
 
+        ${yearTeaser()}
+        ${typeof closeTeaser == "function" ? closeTeaser() : ""}
+
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div onclick="goTab(${N.indexOf("Ahorro")})" class="${CARD} p-4 cursor-pointer hover:border-indigo-500 transition lift">
                 <div class="flex justify-between items-center mb-1"><span class="text-xs font-semibold text-slate-500">Ahorros y Metas</span><i class="fa-solid fa-piggy-bank text-indigo-500"></i></div>
@@ -494,9 +497,6 @@ function vHome() {
                 <p class="text-xs ${invT >= invC ? "text-emerald-500" : "text-rose-500"} mt-1 font-semibold">${invT >= invC ? "+" : ""}${fmt(invT - invC)} sobre lo invertido${P.ann !== null ? " · " + pct1(P.ann) + " anual" : ""}</p>
             </div>
         </div>
-
-        ${yearTeaser()}
-        ${typeof closeTeaser == "function" ? closeTeaser() : ""}
 
         <section class="${CARD} p-5">
             <div class="flex items-center justify-between mb-1">

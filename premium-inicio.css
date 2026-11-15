@@ -1,90 +1,48 @@
-/* MiPlata — Premium Fintech / Inicio spacious */
+/* MiPlata · Premium Inicio — rediseño estructural, no liquid glass */
 :root{
-  --mp-premium-bg:#F4F5FA;
-  --mp-premium-surface:#FFFFFF;
-  --mp-premium-ink:#151A2D;
-  --mp-premium-muted:#7B8297;
-  --mp-premium-line:rgba(28,39,72,.085);
-  --mp-premium-blue:#5278F5;
-  --mp-premium-violet:#8068E8;
+ --mp-bg:#0B1020;--mp-panel:#121A2D;--mp-panel2:#172239;--mp-line:rgba(148,163,184,.16);
+ --mp-text:#F4F7FF;--mp-muted:#9AA8C0;--mp-blue:#397BFF;--mp-violet:#7867F7;
 }
-html.dark{
-  --mp-premium-bg:#090D19;
-  --mp-premium-surface:#111827;
-  --mp-premium-ink:#F4F6FF;
-  --mp-premium-muted:#9AA5BC;
-  --mp-premium-line:rgba(220,230,255,.09);
+html,body{background:var(--mp-bg)!important;color:var(--mp-text)}
+body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif;letter-spacing:-.018em}
+#appMain{padding-top:22px!important;padding-bottom:36px!important}
+#appMain>*{margin-top:0!important;margin-bottom:24px!important}
+#largeTitle{color:var(--mp-text)!important;font-weight:780!important;letter-spacing:-.05em!important}
+#topBar{background:var(--mp-bg)!important}
+#topBar.scrolled{background:rgba(11,16,32,.96)!important;border-color:var(--mp-line)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+#appMain .hi{display:flex;align-items:center;gap:14px;margin-bottom:24px!important}
+#appMain .hi-t{flex:1;min-width:0}
+#appMain .hi-t b{display:block;color:var(--mp-text);font-size:25px;font-weight:760;letter-spacing:-.045em}
+#appMain .hi-t small{display:block;color:var(--mp-muted);font-size:13px;margin-top:4px}
+#appMain .hi-b{width:44px;height:44px;border-radius:15px;background:var(--mp-panel2);color:#AFC7FF;border:1px solid var(--mp-line)}
+#appMain [data-hero]{min-height:255px;padding:26px!important;border-radius:27px!important;background:linear-gradient(135deg,#245DDB 0%,#2548A6 54%,#332D78 100%)!important;border:1px solid rgba(166,194,255,.22)!important;box-shadow:0 18px 42px rgba(17,65,164,.24)!important}
+#appMain [data-hero] h2{font-size:clamp(36px,9vw,46px)!important;line-height:1.04!important;letter-spacing:-.06em!important;margin-top:9px!important}
+#appMain [data-hero] p,#appMain [data-hero] small{color:rgba(245,248,255,.76)!important}
+#appMain [data-hero] .grid{gap:16px!important}
+#appMain [data-hero] .border-t{border-color:rgba(255,255,255,.22)!important;margin-top:22px!important;padding-top:18px!important}
+#appMain [data-hero] button{background:rgba(255,255,255,.13)!important;border:1px solid rgba(255,255,255,.2)!important}
+#appMain [data-col],#appMain .rounded-2xl,#appMain .rounded-3xl,#appMain section:not([data-hero]){
+ border-radius:23px!important
 }
-body{background:var(--mp-premium-bg)!important;color:var(--mp-premium-ink)}
-#largeTitle{color:var(--mp-premium-ink)!important;letter-spacing:-.055em!important}
-#appMain{gap:24px!important;padding-top:22px!important;padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))!important}
-#appMain>section,#appMain>div>section{margin-bottom:2px}
-#appMain [data-hero]{
-  min-height:0!important;padding:26px!important;border-radius:30px!important;
-  background:
-    radial-gradient(100% 120% at 100% 0%,rgba(139,157,255,.30),transparent 55%),
-    radial-gradient(65% 80% at 0% 100%,rgba(79,109,220,.18),transparent 65%),
-    linear-gradient(145deg,#171F3D 0%,#101A35 58%,#11152B 100%)!important;
-  border:1px solid rgba(255,255,255,.11)!important;
-  box-shadow:0 20px 48px -28px rgba(24,37,90,.65),inset 0 1px 0 rgba(255,255,255,.08)!important;
+#appMain [data-col],#appMain section:not([data-hero]),#appMain .bg-white{
+ background:var(--mp-panel)!important;border:1px solid var(--mp-line)!important;box-shadow:0 10px 30px rgba(0,0,0,.12)!important;color:var(--mp-text)
 }
-#appMain [data-hero]::after{
-  width:260px;height:260px;right:-130px;top:-165px;
-  border-color:rgba(255,255,255,.12);
-  box-shadow:0 0 0 26px rgba(255,255,255,.025),0 0 0 54px rgba(255,255,255,.018);
-}
-#appMain [data-hero] h2{font-size:clamp(34px,8vw,44px)!important;letter-spacing:-.065em!important}
-#appMain [data-hero] .grid.grid-cols-3{gap:10px!important;margin-top:22px!important;padding-top:18px!important;border-color:rgba(255,255,255,.13)!important}
-#appMain [data-hero] .grid.grid-cols-3>div{
-  min-height:64px;padding:12px!important;border-radius:16px;
-  background:rgba(255,255,255,.065);border:1px solid rgba(255,255,255,.07);
-}
-#appMain [data-hero] .grid.grid-cols-3>div b{display:block;font-size:14px!important;margin-top:5px}
-#appMain [data-hero] .grid.grid-cols-3>div small{font-size:9px!important;letter-spacing:.075em}
-#appMain [data-hero] .text-indigo-200{color:rgba(231,237,255,.68)!important}
-#appMain [data-hero] button{background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.14)}
-#appMain .hi{margin:0 0 2px;gap:14px}
-#appMain .hi-t b{font-size:21px;letter-spacing:-.04em;color:var(--mp-premium-ink)}
-#appMain .hi-t small{font-size:12px;color:var(--mp-premium-muted)}
-#appMain .hi-b{width:42px;height:42px;background:var(--mp-premium-surface);border:1px solid var(--mp-premium-line);box-shadow:0 5px 18px rgba(20,30,65,.045)}
-#appMain .hi-b.av{background:linear-gradient(145deg,#708BFF,#5D61D9);color:white;border:0}
-#appMain [data-col]{
-  padding:22px!important;border-radius:26px!important;
-  background:var(--mp-premium-surface)!important;border:1px solid var(--mp-premium-line)!important;
-  box-shadow:0 8px 30px -24px rgba(25,35,75,.24)!important;
-}
-html.dark #appMain [data-col]{box-shadow:0 12px 36px -28px rgba(0,0,0,.8)!important}
-#appMain [data-col]>div:first-child{margin-bottom:12px}
-#appMain [data-col] h3{font-size:15px!important;letter-spacing:-.025em}
-#appMain [data-col] .nw-head{align-items:center;gap:16px}
-#appMain [data-col] .nw-head [data-cu="nw"]{font-size:34px;letter-spacing:-.06em}
-#appMain [data-col] .nw-trend{font-size:11px;font-weight:700;margin-top:5px}
-#appMain [data-col] .nw-head svg{opacity:.95}
-#appMain [data-col] .grid.grid-cols-1.sm\:grid-cols-2{gap:18px!important}
-#appMain [data-col] .grid.grid-cols-1.sm\:grid-cols-2>div{padding:14px;border-radius:17px;background:rgba(110,130,180,.045)}
-html.dark #appMain [data-col] .grid.grid-cols-1.sm\:grid-cols-2>div{background:rgba(255,255,255,.035)}
-#appMain .grid.grid-cols-1.sm\:grid-cols-2{gap:14px!important}
-#appMain .grid.grid-cols-1.sm\:grid-cols-2>.lift,
-#appMain .grid.grid-cols-1.sm\:grid-cols-2>div.lift{
-  padding:20px!important;border-radius:23px!important;background:var(--mp-premium-surface)!important;
-  border:1px solid var(--mp-premium-line)!important;box-shadow:0 8px 28px -24px rgba(20,30,65,.28)!important;
-}
-#appMain section.rounded-2xl,#appMain section.rounded-3xl{border-radius:25px!important}
-#appMain .rounded-2xl.bg-slate-50,#appMain .rounded-2xl.dark\:bg-slate-800\/50{border-radius:17px}
-#appMain .text-slate-400{color:var(--mp-premium-muted)}
-#appMain button.lift{transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}
-@media(hover:hover) and (pointer:fine){#appMain button.lift:hover{transform:translateY(-2px);border-color:rgba(82,120,245,.3)!important;box-shadow:0 12px 28px -20px rgba(82,120,245,.45)!important}}
-#tabBar{
-  background:rgba(248,249,253,.86)!important;border-top:1px solid var(--mp-premium-line)!important;
-  -webkit-backdrop-filter:blur(28px) saturate(180%)!important;backdrop-filter:blur(28px) saturate(180%)!important;
-}
-html.dark #tabBar{background:rgba(12,17,30,.88)!important}
-#fab{background:linear-gradient(145deg,#718BFF,#5369E8)!important;box-shadow:0 12px 28px -10px rgba(83,105,232,.72)!important}
-@media(max-width:430px){
- #appMain{gap:22px!important}
- #appMain [data-hero]{padding:22px!important}
- #appMain [data-hero] .grid.grid-cols-3>div{padding:10px 8px!important}
- #appMain [data-col]{padding:19px!important}
- #appMain [data-col] .nw-head [data-cu="nw"]{font-size:30px}
-}
-@media(prefers-reduced-motion:reduce){#appMain *,#tabBar *,#fab{transition:none!important;animation:none!important}}
+#appMain [data-col]{padding:22px!important}
+#appMain [data-col] h3,#appMain section h3,#appMain section h4{color:var(--mp-text)!important}
+#appMain .text-slate-800,#appMain .text-slate-700,#appMain .dark\:text-white{color:var(--mp-text)!important}
+#appMain .text-slate-500,#appMain .text-slate-400{color:var(--mp-muted)!important}
+#appMain .border-slate-100,#appMain .border-slate-200,#appMain .dark\:border-slate-800{border-color:var(--mp-line)!important}
+#appMain .bg-slate-50,#appMain .dark\:bg-slate-800\/50{background:var(--mp-panel2)!important}
+#appMain .nw-head{align-items:center;margin:10px 0 8px}
+#appMain [data-col] .nw-head [data-cu="nw"]{font-size:36px!important;font-weight:780;letter-spacing:-.06em}
+#appMain .nw-trend{font-size:12px;margin-top:7px}
+#appMain .ios-row{min-height:64px}
+#appMain .ios-row:not(:last-child)::after{background:var(--mp-line)!important}
+#appMain .lift:hover{transform:translateY(-2px)}
+#tabBar{background:#10182A!important;border-top:1px solid var(--mp-line)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+#tabBar button[aria-current="page"]{color:#80A9FF!important}
+#fab{background:linear-gradient(145deg,#438AFF,#6659EA)!important;box-shadow:0 10px 24px rgba(48,103,235,.32)!important}
+#toast{background:#1A2740!important;color:#fff!important}
+#modalContainer{background:#121A2D!important;color:var(--mp-text)!important;border:1px solid var(--mp-line)!important}
+@media(min-width:700px){#appMain{max-width:900px!important}#appMain [data-hero]{padding:32px!important}#appMain [data-col]{padding:26px!important}}
+@media(prefers-reduced-motion:reduce){#appMain *{transition:none!important;animation:none!important}}
