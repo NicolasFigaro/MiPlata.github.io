@@ -12,9 +12,9 @@ Qué cambió
 - Caché del service worker: miplata-v33. Se quitó redise├▒o-ios.css (no se cargaba).
 - Sin tocar: Calendario, Resumen, Deudas, Suscripciones, Asistente, Más y Ajustes.
 
-- Inicio rediseñado (liquid glass): cabecera de vidrio oscuro teñido con el color del tema (usa color-mix; en celulares viejos queda un fondo plano).
-  "Hoy puedes gastar" es la cifra grande, "Disponible" baja a tamaño medio, la barra del mes es una cápsula de líquido
-  (se pone roja si vas por encima del ritmo) y la proyección es una sola línea. Orbes de vidrio en Ahorros e Inversiones.
+- Inicio rediseñado (vidrio claro translúcido): cabecera de vidrio claro teñido con el color del tema (oscuro automático en modo oscuro; usa color-mix,
+  en celulares viejos queda un fondo plano). Mes arriba, "Hoy puedes gastar" como cifra principal junto a "Disponible", una línea de texto,
+  barra delgada con la marca de hoy y, al pie, "Cierras con $X" y "Hoy deberías ir en X %". Orbes de vidrio en Ahorros e Inversiones.
   Los estilos están al final de serio.css.
 
 Cómo probar

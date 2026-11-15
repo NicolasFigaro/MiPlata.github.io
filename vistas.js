@@ -222,27 +222,10 @@ function dailyUI(disp) {
         lbl = "Hoy te pasaste por"; val = fmt(-dy.rest); red = true;
         sub = dy.left > 1 ? "Para los " + (dy.left - 1) + (dy.left == 2 ? " día que sigue" : " días que siguen") + " quedan ≈ " + fmt(dy.later) + " por día" : "";
     } else {
-        sub = "≈ " + fmt(dy.perDay) + " por día · " + (dy.left == 1 ? "último día del mes" : "quedan " + dy.left + " días");
+        sub = dy.left == 1 ? "Último día del mes" : "≈ " + fmt(dy.perDay) + " por día · quedan " + dy.left + " días";
     }
-    return `
-        <div class="hg-day">
-            <small>${lbl}</small>
-            <b data-cu="day" class="${red ? "over" : ""}">${val}</b>
-            <p>${sub}${dy.fixed > 0 ? ` · ya descontados ${fmt(dy.fixed)} de gastos fijos por venir` : ""}</p>
-        </div>`;
-}
-
-function projUI(disp) {
-    const p = monthProjection(disp);
-    if (!p) return "";
-    if (p.few) return `<p class="hg-proj"><i class="fa-solid fa-chart-line"></i><span>Proyección del mes: registra tus gastos unos días más y te diré cómo vas a cerrar.</span></p>`;
-    const bad = p.end < 0;
-    let sub;
-    if (p.left == 0) sub = "Hoy es el último día del mes";
-    else if (p.room <= 0) sub = "Ya no te alcanza para lo que resta del mes, ni sin gastar más";
-    else if (bad) sub = "Gastas ≈ " + fmt(p.pace) + " por día; para cerrar en $0 baja a ≈ " + fmt(p.fit);
-    else sub = "Gastas ≈ " + fmt(p.pace) + " por día · tu tope es ≈ " + fmt(p.fit);
-    return `<p class="hg-proj" title="${esc(sub)}"><i class="fa-solid fa-chart-line"></i><span>${bad ? "Te faltarían" : "A este ritmo cierras con"} <b class="${bad ? "over" : ""}">${fmt(bad ? -p.end : p.end)}</b>${bad ? " para cerrar el mes" : ""} · ${sub}</span></p>`;
+    const fx = dy.fixed > 0 ? "Ya descontados " + fmt(dy.fixed) + " de gastos fijos por venir" : "";
+    return `<div class="hg-day"><small>${lbl}</small><b data-cu="day" class="${red ? "over" : ""}">${val}</b></div><p class="hg-sub" ${fx ? `title="${esc(fx)}"` : ""}>${sub}</p>`;
 }
 
 // Barra de gasto del mes con la marca de "hoy deberías ir en X %" (días transcurridos / días del mes). Solo en el mes actual.
@@ -252,12 +235,13 @@ function paceUI(gas, disp) {
     if (ym(n) != ym(cur)) return "";
     const dim = new Date(n.getFullYear(), n.getMonth() + 1, 0).getDate(), mark = Math.round(n.getDate() / dim * 100), tope = gas + Math.max(0, disp);
     if (tope <= 0) return "";
-    const p = Math.min(100, gas / tope * 100), over = p > mark + 5;
+    const p = Math.min(100, gas / tope * 100), over = p > mark + 5, pr = monthProjection(disp);
+    const pj = pr && !pr.few ? (pr.end < 0 ? "Te faltarían " + fmt(-pr.end) : "Cierras con " + fmt(pr.end)) : "";
     return `
-            <div class="pace" role="img" aria-label="Gastado ${Math.round(p)} %, hoy deberías ir en ${mark} %">
+            <div class="pace" role="img" aria-label="Gastado ${Math.round(p)} %, hoy deberías ir en ${mark} %" title="${fmt(gas)} de ${fmt(tope)}">
                 <div class="pace-h"><span>Gasto del mes</span><b class="${over ? "over" : ""}">${Math.round(p)} %</b></div>
                 <div class="pace-bar"><i class="${over ? "over" : ""}" style="width:${p.toFixed(1)}%"></i><u style="left:${mark}%"></u></div>
-                <div class="pace-f"><span>${fmt(gas)} de ${fmt(tope)}</span><span class="pace-mk">Hoy deberías ir en ${mark} %</span></div>
+                <div class="pace-f"><span class="${pr && pr.end < 0 ? "over" : ""}">${pj}</span><span class="pace-mk">Hoy deberías ir en ${mark} %</span></div>
             </div>`;
 }
 
@@ -432,22 +416,18 @@ function vHome() {
             <div class="hi-t"><b>Hola${(S.th.nm || "") ? ", " + esc(S.th.nm) : ""}</b><small>Hoy es un buen día para avanzar</small></div>
             <button class="hi-b av" onclick="const n=prompt('¿Cómo te llamas?',S.th.nm||'');if(n!==null){S.th.nm=n.trim();save();draw()}" aria-label="Tu nombre">${esc(((S.th.nm || "").trim()[0] || "").toUpperCase()) || '<i class="fa-solid fa-user"></i>'}</button>
         </div>
-        <section data-hero class="hg relative overflow-hidden bg-gradient-to-b from-indigo-600 to-indigo-700 text-white p-6 rounded-[20px] shadow-sm flex flex-col justify-between">
-            <div class="flex justify-between items-start">
-                <div>
-                    <p class="hg-k">Disponible para gastar</p>
-                    <h2 data-cu="disp" class="hg-disp ${disp < 0 ? "over" : ""}">${fmt(disp)}</h2>
-                </div>
-                <div class="flex items-center space-x-2">
-                    <button onclick="go(-1)" class="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-sm font-bold transition">‹</button>
-                    <span class="text-xs font-semibold capitalize">${cur.toLocaleDateString(DLOC, { month: "long", year: "numeric" })}</span>
-                    <button onclick="go(1)" class="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-sm font-bold transition">›</button>
-                </div>
+        <section data-hero class="hg relative overflow-hidden p-6 rounded-[20px] flex flex-col justify-between">
+            <div class="hg-nav">
+                <button onclick="go(-1)" aria-label="Mes anterior">‹</button>
+                <span class="capitalize">${cur.toLocaleDateString(DLOC, { month: "long", year: "numeric" })}</span>
+                <button onclick="go(1)" aria-label="Mes siguiente">›</button>
             </div>
-            ${dailyUI(disp)}
+            <div class="hg-top">
+                ${dailyUI(disp)}
+                <div class="hg-av"><small>Disponible</small><b data-cu="disp" class="${disp < 0 ? "over" : ""}">${fmt(disp)}</b></div>
+            </div>
             ${paceUI(gas, disp)}
-            ${projUI(disp)}
-            <div class="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-white/10">
+            <div class="hg-stats grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-white/10">
                 <div><small class="text-[10px] text-indigo-200 block uppercase">En mano</small><b data-cu="have" class="text-xs sm:text-sm font-bold">${fmt(have)}</b>${pk > 0 ? `<small class="text-[10px] text-indigo-200 block font-normal">${fmt(pk)} en bolsillos</small>` : ""}</div>
                 <div><small class="text-[10px] text-indigo-200 block uppercase">Tarjetas</small><b data-cu="due" class="text-xs sm:text-sm font-bold">${fmt(due)}</b>${due <= 0.5 && nm == ym(new Date()) ? (() => { const x = S.cards.filter(c => !(S.hide || {})[c.n]).reduce((s, c) => s + (cardNext(c).due || 0), 0); return x > 0.5 ? `<small class="text-[10px] text-indigo-200 block font-normal">próx. ${fmt(x)}</small>` : ""; })() : ""}</div>
                 <div><small class="text-[10px] text-indigo-200 block uppercase">Apartado</small><b data-cu="svt" class="text-xs sm:text-sm font-bold">${fmt(svt)}</b></div>

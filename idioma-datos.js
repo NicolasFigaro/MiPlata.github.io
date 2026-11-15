@@ -1157,4 +1157,8 @@ window.I18N_ROWS = [
 ["Aún no hay gastos este mes para sacar conclusiones.","There are no expenses yet this month to draw conclusions from.","Il n'y a pas encore de dépenses ce mois-ci pour tirer des conclusions.","Diesen Monat gibt es noch keine Ausgaben, aus denen sich etwas ableiten ließe.","В этом месяце ещё нет расходов, по которым можно сделать выводы."],
 ["Sin copia de seguridad", "No backup yet", "Aucune sauvegarde", "Keine Sicherung", "Нет резервной копии"],
 ["Última copia hace {} días", "Last backup {} days ago", "Dernière sauvegarde il y a {} jours", "Letzte Sicherung vor {} Tagen", "Последняя копия {} дн. назад"],
+["Cierras con {}", "You'll end with {}", "Vous finirez avec {}", "Du endest mit {}", "Вы закончите с {}"],
+["Te faltarían {}", "You'd be short {}", "Il vous manquerait {}", "Dir würden {} fehlen", "Вам не хватит {}"],
+["Último día del mes", "Last day of the month", "Dernier jour du mois", "Letzter Tag des Monats", "Последний день месяца"],
+["Ya descontados {} de gastos fijos por venir", "{} of upcoming fixed expenses already deducted", "{} de dépenses fixes à venir déjà déduits", "{} an anstehenden Fixkosten bereits abgezogen", "{} предстоящих постоянных расходов уже вычтено"],
 ];
