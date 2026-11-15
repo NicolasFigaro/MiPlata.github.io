@@ -1,0 +1,92 @@
+/* ===== Mi Plata · summit.css =====
+   Rediseño estructural "Summit": metal líquido de fondo (metal.jpg, teñido con el acento del tema), tarjetas de vidrio oscuro muy redondeadas,
+   cifras enormes y delgadas, píldoras de acción, widgets cuadrados, cada cuenta/meta/tarjeta como un bloque grande y un dock de botones redondos.
+   Solo usa --p-* / --n-*: cambia con los 10 temas y el color propio. Se carga después de cristal.css. */
+
+:root { --sm-tint: color-mix(in srgb, rgb(var(--p-400)) 26%, rgb(168 162 154)); --sm-glass: rgb(12 14 18 / .86); --sm-line: rgb(255 255 255 / .13); --sm-hi: rgb(255 255 255 / .22); }
+html.dark { --sm-glass: rgb(8 8 10 / .46); }
+html:not(.dark) .hi-t b, html:not(.dark) .hi-t small, html:not(.dark) #largeTitle { color: rgb(var(--n-900)); }
+
+/* ---- Fondo: metal líquido teñido por el tema ---- */
+body::before { background-color: #000 !important; background-image: linear-gradient(rgb(var(--n-50) / .72), rgb(var(--n-50) / .84)), linear-gradient(var(--sm-tint), var(--sm-tint)), url(metal.jpg) !important;
+  background-size: cover !important; background-position: center top !important; background-blend-mode: normal, color, normal !important; }
+html.dark body::before { background-image: linear-gradient(rgb(0 0 0 / .34), rgb(0 0 0 / .34)), linear-gradient(var(--sm-tint), var(--sm-tint)), url(metal.jpg) !important; }
+
+/* ---- Saludo y botones redondos de arriba ---- */
+.hi { margin: 2px 0 6px; }
+.hi-t b { font-size: 24px; font-weight: 300; letter-spacing: -.03em; }
+.hi-b, .nav-btn { background: rgb(8 8 10 / .5) !important; border: 1px solid var(--sm-line) !important; color: #fff !important; width: 44px; height: 44px; box-shadow: inset 0 1px 0 var(--sm-hi); }
+.nav-btn i { color: #fff; }
+#largeTitle { font-weight: 300; letter-spacing: -.045em; }
+
+/* ---- Tarjeta grande de vidrio oscuro con la cifra enorme ---- */
+[data-hero], .sv-hero, .ac-hero, #appMain section[class*="bg-gradient-to-b"], .tc-card, html.dark [data-hero], html.dark .sv-hero, html.dark .ac-hero, html.dark #appMain section[class*="bg-gradient-to-b"], html.dark .tc-card {
+  background: linear-gradient(160deg, rgb(255 255 255 / .1), rgb(255 255 255 / .02) 45%), var(--sm-glass) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(1.25); backdrop-filter: blur(16px) saturate(1.25);
+  border: 1px solid var(--sm-line) !important; border-radius: 32px !important; color: #fff;
+  box-shadow: inset 0 1px 0 var(--sm-hi), 0 30px 50px -30px rgb(0 0 0 / .8) !important; }
+[data-hero] { padding: 24px 22px 22px !important; min-height: 220px; }
+[data-hero] h2 { font-size: clamp(40px, 12.5vw, 56px) !important; font-weight: 200 !important; letter-spacing: -.05em !important; line-height: 1.02; margin-top: 18px !important; }
+[data-hero] .text-xs.uppercase, .sv-hero .sv-lbl, .ac-hero .sv-lbl { text-transform: none !important; letter-spacing: 0 !important; font-size: 14px !important; font-weight: 500; color: rgb(255 255 255 / .82) !important; }
+.sv-hero .amt, .ac-hero .amt, .tc-amt { font-size: clamp(40px, 12.5vw, 56px) !important; font-weight: 200 !important; letter-spacing: -.05em !important; line-height: 1.04; }
+.sv-hero, .ac-hero { padding: 24px 22px !important; min-height: 190px; }
+
+/* ---- Acciones: dos píldoras anchas + círculo con el acento ---- */
+.qa-row { gap: 10px; align-items: center; }
+.qa-pill { height: 60px; border-radius: 30px; background: var(--sm-glass); color: #fff; border: 1px solid var(--sm-line); box-shadow: inset 0 1px 0 var(--sm-hi); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); font-weight: 500; font-size: 15px; }
+.qa-pill i { color: rgb(255 255 255 / .85) !important; }
+.qa-round { flex: none; width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgb(var(--p-200)); color: rgb(var(--n-950)); box-shadow: inset 0 1px 0 rgb(255 255 255 / .6), 0 14px 24px -12px rgb(var(--p-600) / .8); }
+.qa-round:active { transform: scale(.94); }
+
+/* ---- Widgets cuadrados ---- */
+.wd { min-height: 168px; padding: 18px; border-radius: 30px; background: var(--sm-glass); color: #fff; border: 1px solid var(--sm-line); box-shadow: inset 0 1px 0 var(--sm-hi); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
+.wd-l, .wd-s { color: rgb(255 255 255 / .7); font-size: 13px; }
+.wd-v { font-size: 34px; font-weight: 200; letter-spacing: -.05em; }
+.wd-spark { color: rgb(var(--p-200)); top: 46px; width: 62%; height: 44px; }
+
+/* ---- Tarjetas y listas: vidrio oscuro grande en cualquier modo ---- */
+#appMain .rounded-\[20px\].bg-white:not(.yt-sec), html.dark #appMain .rounded-\[20px\].dark\:bg-slate-900:not(.yt-sec) {
+  background: linear-gradient(160deg, rgb(255 255 255 / .085), rgb(255 255 255 / .02) 50%), var(--sm-glass) !important; border: 1px solid var(--sm-line) !important; border-radius: 30px !important; color: #fff;
+  box-shadow: inset 0 1px 0 var(--sm-hi) !important; }
+#appMain .rounded-\[20px\]:not(.yt-sec) :is(.text-slate-800, .text-slate-900, .text-slate-700, .dark\:text-white) { color: #fff !important; }
+#appMain .rounded-\[20px\]:not(.yt-sec) :is(.text-slate-400, .text-slate-500, .text-slate-600) { color: rgb(255 255 255 / .62) !important; }
+#appMain h3.text-sm, #appMain .sec-h h3, #appMain .sec-h { color: #fff; }
+html:not(.dark) #appMain > h3, html:not(.dark) .sec-h { color: rgb(var(--n-900)); }
+
+/* ---- Cuentas: cada una es un bloque grande (nombre arriba, saldo enorme abajo) ---- */
+.ac-group { background: none !important; border: 0 !important; box-shadow: none !important; overflow: visible !important; display: flex; flex-direction: column; gap: 12px; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+.ac-row { position: relative; display: grid !important; grid-template-columns: 1fr auto; grid-template-areas: "main ic" "bal bal"; align-items: start; min-height: 156px; padding: 18px 20px 16px !important; border: 1px solid var(--sm-line) !important; border-radius: 30px; color: #fff;
+  background: linear-gradient(160deg, rgb(255 255 255 / .09), rgb(255 255 255 / .02) 50%), var(--sm-glass) !important; box-shadow: inset 0 1px 0 var(--sm-hi); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
+.ac-row.on { background: linear-gradient(160deg, rgb(255 255 255 / .14), rgb(255 255 255 / .04) 50%), rgb(8 8 10 / .6) !important; }
+.ac-row .ac-main { grid-area: main; }
+.ac-row .ac-main b { font-size: 15px; font-weight: 500; color: rgb(255 255 255 / .85); }
+.ac-row .ac-main small { color: rgb(255 255 255 / .55) !important; }
+.ac-row .ac-ic { grid-area: ic; width: 40px; height: 40px; }
+.ac-row .ac-bal { grid-area: bal; align-self: end; margin-top: 22px; font-size: 36px; font-weight: 200; letter-spacing: -.05em; color: #fff; }
+.ac-row .ac-bal.neg { color: rgb(255 140 150); }
+.ac-row .ac-ch { display: none; }
+.ac-panel { border-radius: 30px !important; }
+
+/* ---- Dock: botones redondos, el activo con el acento ---- */
+#tabBar { left: 50% !important; right: auto !important; width: auto !important; transform: translateX(-50%); padding: 7px !important; border-radius: 40px !important; max-width: none !important;
+  background: rgb(8 8 10 / .55) !important; border: 1px solid var(--sm-line) !important; -webkit-backdrop-filter: blur(18px) saturate(1.3); backdrop-filter: blur(18px) saturate(1.3); box-shadow: inset 0 1px 0 var(--sm-hi), 0 20px 36px -18px rgb(0 0 0 / .8) !important; }
+#tabBar > div { gap: 4px; }
+#tabBar button { flex: none !important; width: 46px; height: 46px; min-height: 0 !important; border-radius: 50%; padding: 0 !important; color: rgb(255 255 255 / .82) !important; background: rgb(255 255 255 / .06); }
+#tabBar button span { display: none; }
+#tabBar button i { font-size: 19px; }
+#tabBar button[aria-current="page"] { color: rgb(var(--n-950)) !important; background: transparent; }
+#tabPill { background: rgb(var(--p-200)) !important; }
+html.dark #tabPill { background: rgb(var(--p-200)) !important; }
+#fab { bottom: calc(96px + env(safe-area-inset-bottom, 0px)) !important; }
+
+/* ---- Inicio: el saludo ya hace de título; el mes cabe en una línea ---- */
+html.tab-home #largeTitle { display: none; }
+[data-hero] > .flex.justify-between { flex-wrap: wrap; gap: 10px; }
+[data-hero] .capitalize { white-space: nowrap; font-size: 12px; }
+[data-hero] .rounded-2xl, [data-hero] .rounded-xl, [data-hero] [class*="bg-white/"] { border-radius: 22px; }
+[data-hero] b, .ac-hero b, .sv-hero b, .tc-card b { font-weight: 400; letter-spacing: -.02em; }
+[data-hero] b[data-cu="have"], [data-hero] b[data-cu="due"], [data-hero] b[data-cu="svt"] { font-size: 15px; }
+
+#appMain .rounded-\[20px\]:not(.yt-sec) :is(.bg-slate-50, .bg-slate-100, .dark\:bg-slate-800) { background: rgb(255 255 255 / .09) !important; color: #fff; }
+html:not(.dark) #appMain .sec-h, html:not(.dark) #appMain .sec-h *, html:not(.dark) #appMain > h3 { color: rgb(var(--n-900)); }
+html:not(.dark) #appMain .sec-h button { color: inherit; }

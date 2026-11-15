@@ -609,7 +609,7 @@ function quickUI() {
         <div class="qa-row" role="group" aria-label="Acciones rápidas">
             <button onclick="openMov(); setType('g')" class="qa-pill"><i class="fa-solid fa-arrow-up-right"></i>Gasto</button>
             <button onclick="openMov(); setType('i')" class="qa-pill"><i class="fa-solid fa-arrow-down-left"></i>Ingreso</button>
-            <button onclick="newTransfer()" class="qa-pill"><i class="fa-solid fa-right-left"></i>Transferir</button>
+            <button onclick="newTransfer()" class="qa-round" aria-label="Transferir entre cuentas" title="Transferir"><i class="fa-solid fa-right-left"></i></button>
         </div>
         <div class="wd-grid">
             <button onclick="goTab(N.indexOf('Cuentas'))" class="wd">

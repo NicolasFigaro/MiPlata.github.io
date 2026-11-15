@@ -109,7 +109,7 @@ function draw() {
         <button onclick="goTab(${i})" aria-label="${n}" ${tbOn(i) ? 'aria-current="page"' : ""} class="flex-1 flex flex-col items-center justify-center gap-0.5 pt-1.5 pb-1 min-h-[49px] transition-colors ${tbOn(i) ? "text-indigo-600 dark:text-indigo-400" : "text-slate-400 dark:text-slate-500"}">
             <i class="fa-solid ${ic} text-[21px] leading-6"></i><span class="text-[10px] font-medium leading-3">${n}</span>
         </button>`).join("");
-    document.getElementById("largeTitle").textContent = title;
+    document.getElementById("largeTitle").textContent = title; document.documentElement.classList.toggle("tab-home", tab == 0);
     document.getElementById("navTitle").textContent = title;
     document.getElementById("navBack").classList.toggle("hidden", !inMore);
 
