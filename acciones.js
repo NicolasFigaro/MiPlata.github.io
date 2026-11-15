@@ -705,7 +705,7 @@ function newWal2(t) {
     openCustomModal("Nueva cuenta · " + WTYPES[t][0], [
         { l: "Nombre", p: "Ej. Bancolombia, Nequi" },
         { l: "¿Cuánto dinero tiene hoy?", m: "numeric", p: "0" }
-    ].concat(walRendFields({})), v => {
+    ].concat(walRendFields({}, 2)), v => {
         const e = walErr(v[0]); if (e) return e;
         const a = { id: Date.now(), n: v[0], t, pk: [] };
         const er = walRendApply(a, v, 2); if (er) return er;
@@ -719,7 +719,7 @@ function editWal(id) {
     openCustomModal("Editar cuenta", [
         { l: "Nombre", v: esc(a.n) },
         { l: "Tipo", o: Object.keys(WTYPES).map(k => WTYPES[k][0]), v: WTYPES[a.t][0] }
-    ].concat(walRendFields(a)), v => {
+    ].concat(walRendFields(a, 2)), v => {
         if (v[0] != a.n) { const e = walErr(v[0], a.n); if (e) return e; }
         const er = walRendApply(a, v, 2); if (er) return er;
         if (v[0] != a.n) { renameWal(a.n, v[0]); a.n = v[0]; }

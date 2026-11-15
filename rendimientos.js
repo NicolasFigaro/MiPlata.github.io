@@ -140,18 +140,12 @@ function walBalAt(a, k) {
     return s;
 }
 const _wyC = {};
-function walYield(a) {
-    const r = walRate(a); if (!r) return null;
-    const td = today(), st = a.rs && a.rs <= td ? a.rs : td, key = a.id + "|" + r + "|" + st + "|" + td + "|" + S.items.length + "|" + (S.ini[a.n] || 0) + "|" + S.sv.length;
+// Núcleo: interés compuesto diario sobre (saldo del día + lo ya ganado). delta = { fecha: cambio del saldo } después de st; sale en la moneda de la cuenta.
+function yCore(key, r, st, startBal, delta, endBal) {
+    const td = today(); key += "|" + r + "|" + st + "|" + td + "|" + Object.keys(delta).length;
     if (_wyC[key]) return _wyC[key];
-    const dr = Math.pow(1 + r / 100, 1 / 365) - 1, delta = {};
-    const add = (d, v) => { if (d > st && d <= td) delta[d] = (delta[d] || 0) + v; };
-    for (const x of S.items) {
-        if (x.t == "tr" && x.to == a.n) add(x.d, x.a);
-        if (x.w == a.n) { if (x.t == "i") add(x.d, x.a); else if (!x.k) add(x.d, -x.a); }
-    }
-    for (const x of S.sv) if (x.w == a.n && !x.i) add(x.d, -(x.cp ?? x.v));
-    let cur = Math.max(0, walBalAt(a, st)), earned = 0, day = st, atPrev = 0; // atPrev = lo ganado al cierre del mes pasado
+    const dr = Math.pow(1 + r / 100, 1 / 365) - 1;
+    let cur = Math.max(0, startBal), earned = 0, day = st, atPrev = 0; // atPrev = lo ganado al cierre del mes pasado
     const m0 = td.slice(0, 8) + "01", prevEnd = yAddDays(m0, -1), pts = [{ d: st, v: 0 }];
     for (let i = 0; i < 4000 && day < td; i++) {
         day = yAddDays(day, 1);
@@ -159,14 +153,29 @@ function walYield(a) {
         pts.push({ d: day, v: earned });
         if (day == prevEnd) atPrev = earned;
     }
-    const bal = Math.max(0, walBalAt(a, td)), base = bal + earned;
-    const out = {
-        rate: r, pts, total: earned, start: st, bal,
-        month: earned - atPrev,
-        daily: base * dr, monthly: base * (Math.pow(1 + r / 100, 1 / 12) - 1), year: base * (r / 100)
-    };
-    for (const k in _wyC) delete _wyC[k]; _wyC[key] = out; // solo guarda la última cuenta calculada: basta para un dibujo
+    const bal = Math.max(0, endBal), base = bal + earned;
+    const out = { rate: r, pts, total: earned, start: st, bal, month: earned - atPrev, daily: base * dr, monthly: base * (Math.pow(1 + r / 100, 1 / 12) - 1), year: base * (r / 100) };
+    for (const k in _wyC) delete _wyC[k]; _wyC[key] = out; // solo guarda el último cálculo: basta para un dibujo
     return out;
+}
+const yStart = a => { const td = today(); return a.rs && a.rs <= td ? a.rs : td; };
+function walYield(a) {
+    const r = walRate(a); if (!r) return null;
+    const td = today(), st = yStart(a), delta = {};
+    const add = (d, v) => { if (d > st && d <= td) delta[d] = (delta[d] || 0) + v; };
+    for (const x of S.items) {
+        if (x.t == "tr" && x.to == a.n) add(x.d, x.a);
+        if (x.w == a.n) { if (x.t == "i") add(x.d, x.a); else if (!x.k) add(x.d, -x.a); }
+    }
+    for (const x of S.sv) if (x.w == a.n && !x.i) add(x.d, -(x.cp ?? x.v));
+    return yCore("w" + a.id + "|" + S.items.length + "|" + (S.ini[a.n] || 0) + "|" + S.sv.length, r, st, walBalAt(a, st), delta, walBalAt(a, td));
+}
+// Cuentas en dólares / euros: el rendimiento sale en su moneda (US$ o €) y se convierte a pesos con la tasa de la cuenta
+function fxYield(a) {
+    const r = walRate(a); if (!r) return null;
+    const td = today(), st = yStart(a), delta = {};
+    let b0 = 0; a.h.forEach(x => { if (x.d <= st) b0 += x.v; else if (x.d <= td) delta[x.d] = (delta[x.d] || 0) + x.v; });
+    return yCore("f" + a.id + "|" + a.h.length + "|" + fxBal(a), r, st, b0, delta, fxBal(a));
 }
 // Si todavía no hay historia (empezó hoy), se muestra una proyección a 30 días con la tasa actual
 function walYieldPts(y) {
@@ -175,11 +184,11 @@ function walYieldPts(y) {
     for (let i = 1; i <= 30; i++) { e += (y.bal + e) * dr; pts.push({ d: yAddDays(y.start, i), v: e }); }
     return { pts, est: true };
 }
-function walYieldPanelUI(a) {
-    const y = walYield(a);
+function walYieldPanelUI(a, fx) {
+    const y = fx ? fxYield(a) : walYield(a), mf = fx ? n => fxFmt(a.c, n) : fmt, edit = fx ? "fxRend" : "walRend";
     if (!y) {
         return `<div class="yr-off"><div><b>Rendimientos</b><small>Si esta cuenta te paga intereses (Nu, Lulo, un CDT, una fiducia…), actívalos y verás cuánto ganas.</small></div>
-            <button onclick="walRend(${a.id})" class="yr-btn">Activar</button></div>`;
+            <button onclick="${edit}(${a.id})" class="yr-btn">Activar</button></div>`;
     }
     const w = walYieldPts(y), a0 = w.pts[0], a1 = w.pts[w.pts.length - 1];
     const stat = (l, v, c) => `<div class="${c || ""}"><span class="sv-lbl">${l}</span><b>${v}</b></div>`;
@@ -187,19 +196,20 @@ function walYieldPanelUI(a) {
         <div class="yr-acc">
             <div class="flex items-center justify-between gap-2 mb-1">
                 <h4 class="sv-lbl !mb-0"><i class="fa-solid fa-arrow-trend-up mr-1.5"></i>Rendimientos · ${yPct(y.rate)}% E.A.</h4>
-                <button onclick="walRend(${a.id})" class="yr-link">Editar</button>
+                <button onclick="${edit}(${a.id})" class="yr-link">Editar</button>
             </div>
-            <div class="yr-chart sm">${yChart(w.pts, { id: "w" + a.id, h: 36, cls: "big", est: w.est, fmt: n => "+" + fmt(n), label: "Gráfica de rendimientos de la cuenta" })}</div>
+            <div class="yr-chart sm">${yChart(w.pts, { id: "w" + a.id, h: 36, cls: "big", est: w.est, fmt: n => "+" + mf(n), label: "Gráfica de rendimientos de la cuenta" })}</div>
             <div class="yr-axis"><span>${yDM(a0.d)}</span><span>${w.est ? "proyección a 30 días" : "ganado en total"}</span><span>${w.est ? yDM(a1.d) : "Hoy"}</span></div>
             <div class="sv-stats mt-3">
-                ${stat("Hoy", "+" + fmt(y.daily), "up")}${stat("Este mes", "+" + fmt(y.month), "up")}${stat(y.total >= 0.5 ? "Ganado" : "Al mes", "+" + fmt(y.total >= 0.5 ? y.total : y.monthly), "up")}
+                ${stat("Hoy", "+" + mf(y.daily), "up")}${stat("Este mes", "+" + mf(y.month), "up")}${stat(y.total >= (fx ? 0.005 : 0.5) ? "Ganado" : "Al mes", "+" + mf(y.total >= (fx ? 0.005 : 0.5) ? y.total : y.monthly), "up")}
             </div>
-            <p class="text-[11px] text-slate-400 mt-2">Estimado con la tasa y el saldo diario desde ${dmy(y.start)}${y.pts.length < 2 ? " (la cuenta empezó a rendir hoy)" : ""}. No se suma al saldo: si tu banco ya lo suma, usa «Ajustar saldo».</p>
+            <p class="text-[11px] text-slate-400 mt-2">Estimado con la tasa y el saldo diario desde ${dmy(y.start)}${y.pts.length < 2 ? " (la cuenta empezó a rendir hoy)" : ""}. ${fx && fxRateOf(a) > 0 ? "Ganado ≈ " + fmt(y.total * fxRateOf(a)) + " al cambio de hoy. " : ""}No se suma al saldo: si tu banco ya lo suma, usa «Ajustar saldo».</p>
         </div>`;
 }
 // Resumen de todas las cuentas que rinden (aparece arriba de la lista en Cuentas)
 function walYieldAllUI() {
-    const L = S.wal.filter(a => walRate(a) > 0 && !(S.hide || {})[a.n]).map(a => ({ a, y: walYield(a) })).filter(x => x.y);
+    const L = S.wal.filter(a => walRate(a) > 0 && !(S.hide || {})[a.n]).map(a => ({ a, y: walYield(a), k: 1 })).filter(x => x.y)
+        .concat(S.fx.filter(a => walRate(a) > 0 && fxRateOf(a) > 0).map(a => { const k = fxRateOf(a), y = fxYield(a); return { a, k, y: Object.assign({}, y, { pts: y.pts.map(p => ({ d: p.d, v: p.v * k })), total: y.total * k, daily: y.daily * k, monthly: y.monthly * k }) }; }));
     if (!L.length) return "";
     const td = today(), first = L.map(x => x.y.start).sort()[0], days = Math.min(400, dayDiff(first, td));
     let pts = [];
@@ -228,11 +238,12 @@ function walRend(id) {
     const a = S.wal.find(x => x.id == id); if (!a) return;
     openCustomModal("Rendimientos de " + esc(a.n), walRendFields(a), v => { const e = walRendApply(a, v); if (e) return e; save(); });
 }
-function walRendFields(a) {
+function walRendFields(a, o) {
+    o = o || 0; // posición del selector dentro del formulario: los campos de abajo solo se ven con «Sí»
     return [
         { l: "¿Esta cuenta tiene rendimientos?", o: ["No", "Sí"], v: walRate(a) ? "Sí" : "No" },
-        { l: "Tasa efectiva anual (%)", m: "decimal", p: "Ej. 9,5", v: walRate(a) ? tf(a.ry) : "", dep: [0, "Sí"] },
-        { l: "Rinde desde", t: "date", v: a.rs || today(), dep: [0, "Sí"] }
+        { l: "Tasa efectiva anual (%)", m: "decimal", p: "Ej. 9,5", v: walRate(a) ? tf(a.ry) : "", dep: [o, "Sí"] },
+        { l: "Rinde desde", t: "date", v: a.rs || today(), dep: [o, "Sí"] }
     ];
 }
 // Devuelve un texto si algo está mal (el modal lo muestra); si no, guarda en la cuenta.
@@ -243,4 +254,10 @@ function walRendApply(a, v, off) {
     if (!(r > 0) || r > 200) return "Escribe la tasa efectiva anual, por ejemplo 9,5.";
     if (v[o + 2] > today()) return "La fecha no puede ser futura.";
     a.ry = Math.round(r * 100) / 100; a.rs = v[o + 2] || today();
+}
+
+// Igual que walRend, para cuentas en dólares / euros
+function fxRend(id) {
+    const a = S.fx.find(x => x.id == id); if (!a) return;
+    openCustomModal("Rendimientos de " + esc(a.n), walRendFields(a), v => { const e = walRendApply(a, v); if (e) return e; save(); });
 }

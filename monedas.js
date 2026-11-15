@@ -23,7 +23,7 @@ function fxCard(a) {
     return `
         <button onclick="togFx(${a.id})" class="ac-row ${sel ? "on" : ""}" aria-expanded="${sel}">
             <span class="ac-ic lg" style="--c:${a.c == "EUR" ? "#2F55B0" : "#0B6B58"}"><i class="fa-solid ${C[2]}"></i></span>
-            <span class="ac-main"><b>${esc(a.n)}</b><small>${r > 0 ? "≈ " + fmt(b * r) : "Falta la tasa del euro"}</small>
+            <span class="ac-main"><b>${esc(a.n)}</b><small>${r > 0 ? "≈ " + fmt(b * r) : "Falta la tasa del euro"}${walRate(a) > 0 ? " · " + yPct(a.ry) + "% E.A." : ""}</small>
                 ${k && k.q > 0 && Math.abs(k.gain) >= 0.5 ? `<small class="font-semibold ${fxGcl(k.gain)}">${fxPlus(k.gain)} ${fxPct(k.gain, k.cost)}</small>` : ""}</span>
             <span class="ac-bal ${b < 0 ? "neg" : ""}">${fxFmt(a.c, b)}</span><i class="fa-solid fa-chevron-right ac-ch"></i>
         </button>`;
@@ -61,7 +61,8 @@ function fxPanel(a) {
                 ${box("Ganancia o pérdida", k.q > 0 ? fxPlus(k.gain) : "—", k.q > 0 ? fxGcl(k.gain) : "", k.q > 0 ? fxPct(k.gain, k.cost) : "")}
                 ${box("Ya cobrado", Math.abs(k.real) >= 0.5 ? fxPlus(k.real) : "—", Math.abs(k.real) >= 0.5 ? fxGcl(k.real) : "")}
             </div>`) : `<p class="text-[11px] text-amber-500 mb-2"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Escribe cuántos pesos vale 1 euro (botón «Editar») o actualiza las tasas para ver esta cuenta en pesos y sumarla a tu patrimonio.</p>`}
-            <div class="mb-3 text-[11px] text-slate-400">Cuenta en tu patrimonio y en «Disponible para gastar».${hq(`${k.q > 0 && r > 0 ? "La ganancia compara lo que vale hoy con la tasa de cada vez que metiste plata. " : ""}Esta plata suma a tu patrimonio y cuenta como «Disponible para gastar», ya convertida a pesos. Cuando gastes, anótalo con «Sacar».`)}</div>
+            ${walYieldPanelUI(a, true)}
+            <div class="mb-3 mt-3 text-[11px] text-slate-400">Cuenta en tu patrimonio y en «Disponible para gastar».${hq(`${k.q > 0 && r > 0 ? "La ganancia compara lo que vale hoy con la tasa de cada vez que metiste plata. " : ""}Esta plata suma a tu patrimonio y cuenta como «Disponible para gastar», ya convertida a pesos. Cuando gastes, anótalo con «Sacar».`)}</div>
             <div class="sv-act" style="border:0;padding:0;margin:0 0 14px">
                 <button onclick="fxMove(${a.id},1)" class="sv-btn in"><i class="fa-solid fa-plus"></i>Meter</button>
                 <button onclick="fxMove(${a.id},-1)" class="sv-btn out"><i class="fa-solid fa-minus"></i>Sacar</button>
@@ -110,8 +111,9 @@ function newFx() {
         { l: "Tasa a la que los compraste (pesos por 1 dólar o euro, opcional)", m: "decimal", p: "Si la dejas vacía, la de hoy" },
         { l: "Diferencia con la TRM en pesos (opcional, ej. -50 o 30)", m: "decimal", p: "0" },
         { l: "Si es en euros: pesos por 1 euro hoy", m: "decimal", v: S.eur ? tf(S.eur) : "", p: "Ej. 4600" }
-    ], v => {
+    ].concat(walRendFields({}, 6)), v => {
         const e = fxErr(v[0]); if (e) return e;
+        const ra = {}, er = walRendApply(ra, v, 6); if (er) return er;
         const c = fxCodeOf(v[1]), amt = fxR2(pr(v[2]));
         if (amt < 0) return "El saldo no puede ser negativo.";
         let eur = S.eur;
@@ -121,6 +123,7 @@ function newFx() {
         if (v[3] && !fxRateOk(r)) return "Escribe la tasa en pesos por unidad, por ejemplo 3950.";
         if (c == "EUR") S.eur = eur || 0;
         const a = { id: Date.now(), n: v[0], c, sp: s.sp, h: [] };
+        if (ra.ry) { a.ry = ra.ry; a.rs = ra.rs; }
         if (amt > 0) { if (!r) r = fxRateOf(a); a.h.push(Object.assign({ id: a.id + 1, d: today(), v: amt, n: "Saldo inicial" }, r > 0 ? { r } : {})); }
         S.fx.push(a); fxOpen = a.id; walOpen = null; save();
     });
@@ -129,11 +132,13 @@ function fxEdit(id) {
     const a = S.fx.find(x => x.id == id); if (!a) return;
     const fields = [{ l: "Nombre", v: esc(a.n) }, { l: a.c == "EUR" ? "Diferencia con la tasa del euro en pesos (ej. -50 o 30)" : "Diferencia con la TRM en pesos (ej. -50 o 30)", m: "decimal", v: a.sp ? tf(a.sp) : "" }];
     if (a.c == "EUR") fields.push({ l: "Pesos por 1 euro hoy", m: "decimal", v: S.eur ? tf(S.eur) : "" });
+    const off = fields.length; fields.push(...walRendFields(a, off));
     openCustomModal(a.c == "EUR" ? "Editar cuenta en euros" : "Editar cuenta en dólares", fields, v => {
         if (v[0] != a.n) { const e = fxErr(v[0], a.n); if (e) return e; }
         let eur = S.eur;
         if (a.c == "EUR") { const r = pr(v[2]); if (v[2] && !fxRateOk(r)) return "Escribe cuántos pesos vale 1 euro, por ejemplo 4600."; eur = v[2] ? fxR2(r) : 0; }
         const s = spOf(v[1], a.c == "EUR" ? eur : S.trm); if (s.e) return s.e;
+        const er = walRendApply(a, v, off); if (er) return er;
         a.n = v[0]; a.sp = s.sp; if (a.c == "EUR") S.eur = eur; save();
     });
 }
