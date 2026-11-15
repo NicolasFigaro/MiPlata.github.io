@@ -450,76 +450,78 @@ function vHome() {
         `<p class="text-xs text-slate-400 mt-0.5">${nMov} ${nMov == 1 ? "movimiento" : "movimientos"}</p>`,
         movBody);
     return `
-        <div class="hi">
-            <button class="hi-b" onclick="openAllMov()" aria-label="Buscar movimientos"><i class="fa-solid fa-magnifying-glass"></i></button>
-            <div class="hi-t"><b>Hola${(S.th.nm || "") ? ", " + esc(S.th.nm) : ""}</b><small>Hoy es un buen día para avanzar</small></div>
-            <button class="hi-b av" onclick="const n=prompt('¿Cómo te llamas?',S.th.nm||'');if(n!==null){S.th.nm=n.trim();save();draw()}" aria-label="Tu nombre">${esc(((S.th.nm || "").trim()[0] || "").toUpperCase()) || '<i class="fa-solid fa-user"></i>'}</button>
-        </div>
-        ${bkUI()}
-        ${recUI()}
-        <section data-hero class="relative overflow-hidden bg-gradient-to-b from-indigo-600 to-indigo-700 text-white p-6 rounded-[20px] shadow-sm flex flex-col justify-between">
-            <div class="flex justify-between items-start">
-                <div>
-                    <p class="text-xs font-medium uppercase tracking-wider text-indigo-200">Disponible para gastar</p>
-                    <h2 data-cu="disp" class="text-3xl font-extrabold mt-1 tracking-tight ${disp < 0 ? "text-rose-300" : ""}">${fmt(disp)}</h2>
+        <div class="mp-home">
+            <header class="mp-welcome">
+                <div class="mp-brandline">
+                    <span class="mp-mark"><i class="fa-solid fa-wallet"></i></span>
+                    <span class="mp-brandname">Mi Plata</span>
+                    <div class="mp-head-actions">
+                        <button class="mp-icon-btn" onclick="togMask()" aria-label="Ocultar o mostrar cifras"><i class="fa-regular fa-eye"></i></button>
+                        <button class="mp-icon-btn" onclick="openAllMov()" aria-label="Buscar movimientos"><i class="fa-solid fa-magnifying-glass"></i></button>
+                        <button class="mp-icon-btn" onclick="toggleDarkMode()" aria-label="Cambiar tema"><i class="fa-solid fa-circle-half-stroke"></i></button>
+                        <button class="mp-avatar" onclick="const n=prompt('¿Cómo te llamas?',S.th.nm||'');if(n!==null){S.th.nm=n.trim();save();draw()}" aria-label="Editar perfil">${esc(((S.th.nm || "").trim()[0] || "N").toUpperCase())}</button>
+                    </div>
                 </div>
-                <div class="flex items-center space-x-2">
-                    <button onclick="go(-1)" class="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-sm font-bold transition">‹</button>
-                    <span class="text-xs font-semibold capitalize">${cur.toLocaleDateString(DLOC, { month: "long", year: "numeric" })}</span>
-                    <button onclick="go(1)" class="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-sm font-bold transition">›</button>
+                <div class="mp-greeting">
+                    <div><h2>Hola${(S.th.nm || "") ? ", " + esc(S.th.nm) : ""}</h2><p>Tu dinero, bajo control.</p></div>
+                    <span class="mp-date">${new Date().toLocaleDateString(DLOC,{weekday:"short",day:"numeric",month:"short"})}</span>
                 </div>
-            </div>
-            ${dailyUI(disp)}
-            ${projUI(disp)}
-            <div class="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-white/10">
-                <div><small class="text-[10px] text-indigo-200 block uppercase">En mano</small><b data-cu="have" class="text-xs sm:text-sm font-bold">${fmt(have)}</b>${pk > 0 ? `<small class="text-[10px] text-indigo-200 block font-normal">${fmt(pk)} en bolsillos</small>` : ""}</div>
-                <div><small class="text-[10px] text-indigo-200 block uppercase">Tarjetas</small><b data-cu="due" class="text-xs sm:text-sm font-bold">${fmt(due)}</b>${due <= 0.5 && nm == ym(new Date()) ? (() => { const x = S.cards.filter(c => !(S.hide || {})[c.n]).reduce((s, c) => s + (cardNext(c).due || 0), 0); return x > 0.5 ? `<small class="text-[10px] text-indigo-200 block font-normal">próx. ${fmt(x)}</small>` : ""; })() : ""}</div>
-                <div><small class="text-[10px] text-indigo-200 block uppercase">Apartado</small><b data-cu="svt" class="text-xs sm:text-sm font-bold">${fmt(svt)}</b></div>
-            </div>
-        </section>
+            </header>
+            ${bkUI()}
+            ${recUI()}
 
-        ${nwUI()}
+            <section class="mp-balance" data-hero>
+                <div class="mp-balance-top">
+                    <div><span class="mp-eyebrow">Disponible para gastar</span><span class="mp-status"><i></i> Controlado</span></div>
+                    <div class="mp-month"><button onclick="go(-1)" aria-label="Mes anterior"><i class="fa-solid fa-chevron-left"></i></button><span>${cur.toLocaleDateString(DLOC,{month:"long",year:"numeric"})}</span><button onclick="go(1)" aria-label="Mes siguiente"><i class="fa-solid fa-chevron-right"></i></button></div>
+                </div>
+                <div class="mp-balance-value ${disp < 0 ? "is-negative" : ""}" data-cu="disp">${fmt(disp)}</div>
+                <div class="mp-balance-caption">Saldo disponible este mes</div>
+                <div class="mp-balance-divider"></div>
+                <div class="mp-budget-grid">
+                    <div class="mp-budget-icon"><i class="fa-regular fa-calendar"></i></div>
+                    <div class="mp-budget-copy">${dailyUI(disp)}</div>
+                </div>
+                <div class="mp-projection">${projUI(disp)}</div>
+            </section>
 
-        ${weekUI()}
+            <section class="mp-quick-grid" aria-label="Resumen de cuentas">
+                <button class="mp-quick-card" onclick="goTab(${N.indexOf("Cuentas")})"><span class="mp-quick-icon"><i class="fa-solid fa-wallet"></i></span><span class="mp-quick-label">En mano</span><b data-cu="have">${fmt(have)}</b>${pk > 0 ? `<small>${fmt(pk)} en bolsillos</small>` : `<small>Mis cuentas</small>`}<i class="fa-solid fa-chevron-right mp-quick-chevron"></i></button>
+                <button class="mp-quick-card" onclick="goTab(${N.indexOf("Tarjetas")})"><span class="mp-quick-icon"><i class="fa-regular fa-credit-card"></i></span><span class="mp-quick-label">Tarjetas</span><b data-cu="due">${fmt(due)}</b>${due <= 0.5 && nm == ym(new Date()) ? (() => { const x = S.cards.filter(c => !(S.hide || {})[c.n]).reduce((s, c) => s + (cardNext(c).due || 0), 0); return x > 0.5 ? `<small>Próximo ${fmt(x)}</small>` : `<small>Sin pagos pendientes</small>`; })() : `<small>Por pagar</small>`}<i class="fa-solid fa-chevron-right mp-quick-chevron"></i></button>
+                <button class="mp-quick-card" onclick="goTab(${N.indexOf("Ahorro")})"><span class="mp-quick-icon"><i class="fa-solid fa-vault"></i></span><span class="mp-quick-label">Apartado</span><b data-cu="svt">${fmt(svt)}</b><small>Ahorros reservados</small><i class="fa-solid fa-chevron-right mp-quick-chevron"></i></button>
+            </section>
 
-        ${yearTeaser()}
-        ${typeof closeTeaser == "function" ? closeTeaser() : ""}
+            ${weekUI()}
+            ${yearTeaser()}
+            ${typeof closeTeaser == "function" ? closeTeaser() : ""}
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div onclick="goTab(${N.indexOf("Ahorro")})" class="${CARD} p-4 cursor-pointer hover:border-indigo-500 transition lift">
-                <div class="flex justify-between items-center mb-1"><span class="text-xs font-semibold text-slate-500">Ahorros y Metas</span><i class="fa-solid fa-piggy-bank text-indigo-500"></i></div>
-                <h4 data-cu="totAcc" class="text-lg font-bold text-slate-800 dark:text-white mb-2">${fmt(totAcc)}</h4>
-                ${MT}
-            </div>
-            <div onclick="goTab(${N.indexOf("Inversión")})" class="${CARD} p-4 cursor-pointer hover:border-indigo-500 transition lift">
-                <div class="flex justify-between items-center mb-1"><span class="text-xs font-semibold text-slate-500">Inversiones</span><i class="fa-solid fa-chart-line text-emerald-500"></i></div>
-                <h4 class="text-lg font-bold text-slate-800 dark:text-white">${show(invT)}</h4>
-                <p class="text-xs ${invT >= invC ? "text-emerald-500" : "text-rose-500"} mt-1 font-semibold">${invT >= invC ? "+" : ""}${fmt(invT - invC)} sobre lo invertido${P.ann !== null ? " · " + pct1(P.ann) + " anual" : ""}</p>
-            </div>
+            <section class="mp-section-block">
+                <div class="mp-section-heading"><div><span class="mp-section-kicker">Tu patrimonio</span><h3>Ahorros e inversiones</h3></div><span class="mp-section-symbol"><i class="fa-solid fa-chart-pie"></i></span></div>
+                <div class="mp-wealth-grid">
+                    <button onclick="goTab(${N.indexOf("Ahorro")})" class="mp-wealth-card">
+                        <span class="mp-wealth-icon"><i class="fa-solid fa-bullseye"></i></span><span class="mp-wealth-title">Ahorros y metas</span><b data-cu="totAcc">${fmt(totAcc)}</b><span class="mp-wealth-detail">${S.acc.filter(a=>!a.f).length} ${S.acc.filter(a=>!a.f).length===1?"meta activa":"metas activas"}</span><i class="fa-solid fa-arrow-up-right-from-square mp-wealth-arrow"></i>
+                    </button>
+                    <button onclick="goTab(${N.indexOf("Inversión")})" class="mp-wealth-card">
+                        <span class="mp-wealth-icon"><i class="fa-solid fa-arrow-trend-up"></i></span><span class="mp-wealth-title">Inversiones</span><b>${show(invT)}</b><span class="mp-wealth-detail ${invT >= invC ? "positive" : "negative"}">${invT >= invC ? "+" : ""}${fmt(invT - invC)} sobre lo invertido${P.ann !== null ? " · " + pct1(P.ann) + " anual" : ""}</span><i class="fa-solid fa-arrow-up-right-from-square mp-wealth-arrow"></i>
+                    </button>
+                </div>
+                <div class="mp-goals-preview">${MT}</div>
+            </section>
+
+            <section class="mp-activity-section">
+                <div class="mp-section-heading"><div><span class="mp-section-kicker">Tu actividad</span><h3>Movimientos recientes</h3></div><button onclick="openAllMov()" class="mp-see-all">Ver todos <i class="fa-solid fa-chevron-right"></i></button></div>
+                <div class="mp-activity-card">${movListHTML(4)}</div>
+            </section>
+
+            ${movSec}
+            ${catsSec}
+            ${tipsUI(by)}
+            ${nwUI()}
+
+            <button onclick="openSim()" class="mp-simulator">
+                <span><i class="fa-solid fa-calculator"></i></span><span><b>¿Puedo permitírmelo?</b><small>Simula una compra antes de hacerla</small></span><i class="fa-solid fa-chevron-right"></i>
+            </button>
         </div>
-
-        <section class="${CARD} p-5">
-            <div class="flex items-center justify-between mb-1">
-                <h3 class="text-sm font-bold text-slate-800 dark:text-white">Últimos movimientos${S.items.length ? hq("Desliza para editar o borrar · mantén presionado para duplicar") : ""}</h3>
-                <button onclick="openAllMov()" class="text-xs font-semibold text-indigo-600 dark:text-indigo-400">Ver todos</button>
-            </div>
-            ${movListHTML(4)}
-        </section>
-
-        ${movSec}
-
-        ${catsSec}
-
-        ${tipsUI(by)}
-
-        <button onclick="openSim()" class="${CARD} w-full p-4 flex items-center gap-3 text-left hover:border-indigo-500 transition lift">
-            <div class="w-10 h-10 shrink-0 rounded-xl flex items-center justify-center bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400"><i class="fa-solid fa-circle-question"></i></div>
-            <div class="min-w-0 flex-1">
-                <p class="text-sm font-bold text-slate-800 dark:text-white">¿Puedo permitírmelo?</p>
-                <p class="text-[11px] text-slate-400 mt-0.5">Simula una compra y mira cómo cambia tu disponible antes de hacerla</p>
-            </div>
-            <i class="fa-solid fa-chevron-right text-xs text-slate-300"></i>
-        </button>
     `;
 }
 

@@ -1,0 +1,162 @@
+/* =========================================================
+   MI PLATA · WALLET INSPIRED iOS DESIGN SYSTEM
+   Visual layer only. Financial logic and data remain untouched.
+   ========================================================= */
+:root {
+  --mp-accent: #397cf6;
+  --mp-accent-soft: rgba(57,124,246,.12);
+  --mp-bg: #f5f5f7;
+  --mp-surface: #ffffff;
+  --mp-surface-2: #f0f1f4;
+  --mp-text: #111318;
+  --mp-muted: #858995;
+  --mp-line: rgba(20,25,35,.09);
+  --mp-shadow: 0 8px 28px rgba(18,25,38,.055);
+  --mp-radius: 24px;
+}
+html.dark {
+  --mp-bg: #050506;
+  --mp-surface: #111113;
+  --mp-surface-2: #1c1c1e;
+  --mp-text: #f5f5f7;
+  --mp-muted: #929298;
+  --mp-line: rgba(255,255,255,.085);
+  --mp-shadow: 0 12px 32px rgba(0,0,0,.24);
+}
+html, body { background:var(--mp-bg)!important; color:var(--mp-text); }
+body { font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text",system-ui,sans-serif; letter-spacing:-.012em; }
+button, input, select, textarea { font-family:inherit; }
+#appMain:has(.mp-home) { max-width:760px; padding-top:8px!important; padding-bottom:calc(112px + env(safe-area-inset-bottom))!important; }
+body:has(.mp-home) #topBar, body:has(.mp-home) #largeTitle { display:none!important; }
+body:has(.mp-home) { background:var(--mp-bg)!important; }
+.mp-home { display:flex; flex-direction:column; gap:20px; color:var(--mp-text); }
+.mp-welcome { padding:8px 2px 2px; }
+.mp-brandline { display:flex; align-items:center; gap:9px; min-height:42px; }
+.mp-mark { display:grid; place-items:center; width:32px;height:32px;border-radius:11px;background:var(--mp-accent);color:white;font-size:15px;box-shadow:0 5px 14px rgba(57,124,246,.25); }
+.mp-brandname { font-size:17px;font-weight:750;letter-spacing:-.04em; }
+.mp-head-actions { margin-left:auto;display:flex;align-items:center;gap:8px; }
+.mp-icon-btn,.mp-avatar { width:38px;height:38px;border:1px solid var(--mp-line);border-radius:50%;display:grid;place-items:center;background:var(--mp-surface-2);color:var(--mp-text);font-size:14px;transition:transform .18s ease,background .18s ease; }
+.mp-icon-btn:active,.mp-avatar:active { transform:scale(.94); }
+.mp-avatar { background:var(--mp-text);color:var(--mp-bg);font-weight:700;border:0; }
+.mp-greeting { display:flex;justify-content:space-between;align-items:end;gap:12px;margin-top:22px; }
+.mp-greeting h2 { margin:0;font-size:30px;line-height:1.08;font-weight:750;letter-spacing:-.055em;color:var(--mp-text); }
+.mp-greeting p { margin:7px 0 0;color:var(--mp-muted);font-size:14px; }
+.mp-date { color:var(--mp-muted);font-size:11px;text-transform:capitalize;white-space:nowrap;padding-bottom:3px; }
+
+/* Main balance: quiet black/white surface, blue only as a signal */
+.mp-balance { position:relative;overflow:hidden;padding:23px 22px 18px;border:1px solid var(--mp-line);border-radius:28px;background:var(--mp-surface);box-shadow:var(--mp-shadow); }
+.mp-balance:before { content:"";position:absolute;right:-90px;top:-145px;width:260px;height:260px;border-radius:50%;background:radial-gradient(circle,rgba(57,124,246,.12),transparent 68%);pointer-events:none; }
+.mp-balance-top { position:relative;display:flex;justify-content:space-between;align-items:center;gap:10px; }
+.mp-eyebrow { display:block;color:var(--mp-muted);font-size:12px;font-weight:600;letter-spacing:.005em; }
+.mp-status { display:inline-flex;align-items:center;gap:5px;margin-top:7px;color:#28a879;font-size:10px;font-weight:650; }
+.mp-status i { width:6px;height:6px;border-radius:50%;background:#32c98b;box-shadow:0 0 0 3px rgba(50,201,139,.12); }
+.mp-month { display:flex;align-items:center;gap:8px;padding:5px 7px;border:1px solid var(--mp-line);border-radius:999px;background:var(--mp-surface-2);color:var(--mp-text);font-size:11px;font-weight:650;text-transform:capitalize;white-space:nowrap; }
+.mp-month button { width:23px;height:23px;border-radius:50%;display:grid;place-items:center;color:var(--mp-muted);font-size:9px; }
+.mp-month button:active { background:var(--mp-accent-soft);color:var(--mp-accent); }
+.mp-balance-value { position:relative;margin-top:15px;font-size:clamp(38px,9vw,54px);line-height:1.02;font-weight:720;letter-spacing:-.065em;font-variant-numeric:tabular-nums;color:var(--mp-text);overflow-wrap:anywhere; }
+.mp-balance-value.is-negative { color:#ef6464; }
+.mp-balance-caption { margin-top:7px;color:var(--mp-muted);font-size:12px; }
+.mp-balance-divider { height:1px;background:var(--mp-line);margin:20px 0 14px; }
+.mp-budget-grid { display:grid;grid-template-columns:38px minmax(0,1fr);align-items:center;gap:12px; }
+.mp-budget-icon { width:38px;height:38px;border-radius:13px;background:var(--mp-accent-soft);color:var(--mp-accent);display:grid;place-items:center;font-size:15px; }
+.mp-budget-copy { min-width:0; }
+.mp-budget-copy > div { margin:0!important;padding:0!important;background:transparent!important;border:0!important;display:flex;align-items:center;justify-content:space-between;gap:12px; }
+.mp-budget-copy small { color:var(--mp-muted)!important;font-size:10px!important;letter-spacing:.02em; }
+.mp-budget-copy b { color:var(--mp-text)!important;font-size:19px!important;font-weight:700!important; }
+.mp-budget-copy > div > div:last-child { max-width:48%;color:var(--mp-muted)!important;font-size:10px!important;text-align:right; }
+.mp-projection { margin-top:13px; }
+.mp-projection > div { margin:0!important;padding:11px 12px!important;border-radius:14px!important;background:var(--mp-surface-2)!important;display:flex;align-items:center;justify-content:space-between;gap:12px; }
+.mp-projection small { color:var(--mp-muted)!important;font-size:9px!important; }
+.mp-projection b { color:var(--mp-text)!important;font-size:17px!important;font-weight:700!important; }
+.mp-projection > div > div:last-child { color:var(--mp-muted)!important;font-size:10px!important; }
+
+/* Wallet-like quick account tiles */
+.mp-quick-grid { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px; }
+.mp-quick-card { position:relative;min-width:0;min-height:132px;padding:14px 12px 13px;text-align:left;display:flex;flex-direction:column;align-items:flex-start;gap:5px;border:1px solid var(--mp-line);border-radius:20px;background:var(--mp-surface);box-shadow:var(--mp-shadow);transition:transform .18s ease,border-color .18s ease; }
+.mp-quick-card:active { transform:scale(.975); }
+.mp-quick-icon { width:31px;height:31px;border-radius:11px;background:var(--mp-accent-soft);color:var(--mp-accent);display:grid;place-items:center;font-size:14px;margin-bottom:4px; }
+.mp-quick-label { color:var(--mp-muted);font-size:11px;font-weight:550; }
+.mp-quick-card b { max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--mp-text);font-size:clamp(12px,3.2vw,15px);font-weight:720;letter-spacing:-.035em;font-variant-numeric:tabular-nums; }
+.mp-quick-card small { color:var(--mp-muted);font-size:9px;line-height:1.25; }
+.mp-quick-chevron { position:absolute;right:11px;top:17px;color:var(--mp-muted);font-size:9px; }
+
+/* Sections */
+.mp-section-block,.mp-activity-section { display:flex;flex-direction:column;gap:12px; }
+.mp-section-heading { display:flex;justify-content:space-between;align-items:center;gap:12px;padding:0 2px; }
+.mp-section-kicker { display:block;color:var(--mp-muted);font-size:10px;font-weight:650;text-transform:uppercase;letter-spacing:.09em;margin-bottom:4px; }
+.mp-section-heading h3 { margin:0;color:var(--mp-text);font-size:19px;font-weight:720;letter-spacing:-.045em; }
+.mp-section-symbol { width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:var(--mp-surface-2);color:var(--mp-muted);font-size:13px; }
+.mp-wealth-grid { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px; }
+.mp-wealth-card { position:relative;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:7px;padding:16px;border:1px solid var(--mp-line);border-radius:20px;background:var(--mp-surface);text-align:left;box-shadow:var(--mp-shadow); }
+.mp-wealth-icon { width:32px;height:32px;border-radius:11px;display:grid;place-items:center;background:var(--mp-accent-soft);color:var(--mp-accent);font-size:14px; }
+.mp-wealth-title { color:var(--mp-muted);font-size:11px;font-weight:550; }
+.mp-wealth-card b { color:var(--mp-text);font-size:clamp(15px,4vw,20px);font-weight:720;letter-spacing:-.04em;overflow-wrap:anywhere; }
+.mp-wealth-detail { color:var(--mp-muted);font-size:9px;line-height:1.35; }
+.mp-wealth-detail.positive { color:#29a879; }
+.mp-wealth-detail.negative { color:#e06464; }
+.mp-wealth-arrow { position:absolute;right:14px;top:17px;color:var(--mp-muted);font-size:10px; }
+.mp-goals-preview { padding:13px 15px;border:1px solid var(--mp-line);border-radius:17px;background:var(--mp-surface); }
+.mp-goals-preview .bar-seg { background:var(--mp-accent)!important; }
+.mp-activity-card { padding:7px 15px;border:1px solid var(--mp-line);border-radius:20px;background:var(--mp-surface);box-shadow:var(--mp-shadow); }
+.mp-activity-card .ios-row { border-color:var(--mp-line)!important; }
+.mp-see-all { color:var(--mp-accent);font-size:11px;font-weight:650;white-space:nowrap; }
+.mp-see-all i { margin-left:4px;font-size:9px; }
+.mp-simulator { display:flex;align-items:center;gap:12px;width:100%;padding:14px 16px;border:1px solid var(--mp-line);border-radius:18px;background:var(--mp-surface);text-align:left;box-shadow:var(--mp-shadow); }
+.mp-simulator>span:first-child { width:36px;height:36px;border-radius:12px;display:grid;place-items:center;background:var(--mp-accent-soft);color:var(--mp-accent); }
+.mp-simulator>span:nth-child(2) { flex:1;min-width:0;display:flex;flex-direction:column;gap:3px; }
+.mp-simulator b { color:var(--mp-text);font-size:12px; }
+.mp-simulator small { color:var(--mp-muted);font-size:10px; }
+.mp-simulator>i { color:var(--mp-muted);font-size:10px; }
+
+/* Existing native app sections inherit the same material */
+.mp-home section:not(.mp-balance):not(.mp-section-block):not(.mp-activity-section):not([data-hero]) { border-color:var(--mp-line)!important;box-shadow:var(--mp-shadow); }
+.mp-home .bg-white,.mp-home .dark\:bg-slate-900 { background:var(--mp-surface); }
+.mp-home [class*="rounded-[20px]"],.mp-home [class*="rounded-2xl"] { border-radius:19px; }
+.mp-home .text-slate-800,.mp-home .dark\:text-white { color:var(--mp-text); }
+.mp-home .text-slate-500,.mp-home .text-slate-400 { color:var(--mp-muted); }
+.mp-home .border-slate-100,.mp-home .dark\:border-slate-800 { border-color:var(--mp-line); }
+.mp-home .bg-slate-50,.mp-home .dark\:bg-slate-800\/50 { background:var(--mp-surface-2); }
+.mp-home .bg-indigo-600 { background:var(--mp-accent); }
+.mp-home .text-indigo-600,.mp-home .dark\:text-indigo-400 { color:var(--mp-accent); }
+
+/* Bottom navigation: floating, translucent, compact */
+#tabBar { left:12px;right:12px;bottom:calc(8px + env(safe-area-inset-bottom));width:auto;max-width:620px;margin:0 auto;padding:5px;border:1px solid rgba(130,140,160,.22);border-radius:25px;background:rgba(247,248,251,.86);backdrop-filter:blur(24px) saturate(1.5);-webkit-backdrop-filter:blur(24px) saturate(1.5);box-shadow:0 8px 32px rgba(0,0,0,.12); }
+html.dark #tabBar { background:rgba(24,24,27,.82);border-color:rgba(255,255,255,.12);box-shadow:0 10px 36px rgba(0,0,0,.38); }
+#tabItems { max-width:none!important; }
+#tabPill { display:none!important; }
+#tabBar button { min-height:53px!important;border-radius:19px!important; }
+#fab { right:22px!important;bottom:calc(82px + env(safe-area-inset-bottom))!important;width:52px!important;height:52px!important;border-radius:50%!important;background:var(--mp-accent)!important;box-shadow:0 7px 22px rgba(57,124,246,.32)!important; }
+#toast { bottom:calc(150px + env(safe-area-inset-bottom))!important; }
+
+/* Global iOS touch, sheets and form refinements */
+button { -webkit-tap-highlight-color:transparent; }
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible { outline:2px solid var(--mp-accent)!important;outline-offset:2px; }
+#generalModal>div { border-radius:26px!important; }
+@media (max-width:390px) {
+ .mp-home { gap:16px; }
+ .mp-balance { padding:19px 17px 16px;border-radius:24px; }
+ .mp-balance-value { font-size:38px; }
+ .mp-quick-grid { gap:7px; }
+ .mp-quick-card { min-height:124px;padding:12px 9px;border-radius:17px; }
+ .mp-quick-card b { font-size:12px; }
+ .mp-wealth-card { padding:13px;border-radius:17px; }
+ .mp-greeting h2 { font-size:27px; }
+}
+@media (prefers-reduced-motion:reduce) {
+ *,*::before,*::after { scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important; }
+}
+
+/* Cards screen: individual physical-card feel, like Apple Wallet */
+.tc-card { border-radius:22px!important;border:1px solid rgba(255,255,255,.14)!important;box-shadow:0 14px 28px rgba(0,0,0,.16)!important; }
+.tc-wrap:nth-child(3n+1) .tc-card { background:radial-gradient(85% 120% at 100% 0%,rgba(94,151,255,.24),transparent 62%),linear-gradient(135deg,#263d60,#111827 82%)!important; }
+.tc-wrap:nth-child(3n+2) .tc-card { background:radial-gradient(85% 120% at 100% 0%,rgba(255,255,255,.13),transparent 62%),linear-gradient(135deg,#50545c,#202226 82%)!important; }
+.tc-wrap:nth-child(3n) .tc-card { background:radial-gradient(85% 120% at 100% 0%,rgba(106,175,143,.2),transparent 62%),linear-gradient(135deg,#263b34,#101713 82%)!important; }
+.tc-card::after { border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.025)!important; }
+.tc-chip { background:rgba(255,255,255,.13)!important;border:1px solid rgba(255,255,255,.12); }
+.tc-amt { font-weight:650!important;letter-spacing:-.055em!important; }
+.tc-pay { border-radius:16px!important;background:var(--mp-surface-2)!important;border-color:var(--mp-line)!important; }
+
+/* Other tabs share the same restrained iOS surfaces */
+#appMain > section, #appMain .bg-white.rounded-\[20px\], #appMain .dark\:bg-slate-900.rounded-\[20px\] { border-color:var(--mp-line); }
+#appMain h3, #appMain h4 { letter-spacing:-.025em; }
+#appMain input:not([type="checkbox"]), #appMain select, #appMain textarea { border-radius:13px; }
