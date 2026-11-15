@@ -331,6 +331,7 @@ function aiContext() {
     if (S.cards.length) L.push("Tarjetas: " + S.cards.map(c => { const u = cardUse(c, mk); return `${c.n} (cupo $${f(c.c || 0)}, usado ${Math.round(u.raw)}%, cuota del mes $${f(cardDue(c, mk))})`; }).join("; "));
     const goals = S.acc.filter(a => !a.f); if (goals.length) L.push("Metas de ahorro: " + goals.map(a => `${a.n} $${f(goalAll(a))}${a.g ? " de $" + f(a.g) : ""}${a.dl ? " (límite " + a.dl + ")" : ""}${a.u ? " [USD]" : ""}`).join("; "));
     if (S.dbt.length) L.push("Deudas: " + S.dbt.map(d => `${d.n} debes $${f(Math.max(0, dbtLeft(d)))}`).join("; "));
+    if (S.owe && S.owe.length && oweTotal() > 0) L.push("Te deben: " + S.owe.filter(x => oweLeft(x) > 0).map(x => `${x.p} $${f(oweLeft(x))}`).join("; "));
     if (S.inv.length) { const P = invPortfolio(); L.push(`Inversiones: portafolio $${f(P.T)} (invertido $${f(P.C)}). ` + S.inv.map(x => `${x.n} ${x.c} valor ${f(x.v)} invertido ${f(x.i)}`).join("; ") + `. Dividendos recibidos $${f(S.invd.reduce((s, e) => s + cop(e.a, e.c), 0))}; ganancia realizada $${f(S.invs.reduce((s, e) => s + cop(e.gain, e.c), 0))}.`); }
     const last = S.items.slice().sort((a, b) => b.d.localeCompare(a.d) || b.id - a.id).slice(0, 25).map(x => `${x.d} ${x.t == "i" ? "ingreso" : x.t == "g" ? "gasto" : x.t == "p" ? "pago tarjeta" : "transferencia"} ${x.c}${x.n ? " «" + String(x.n).slice(0, 40) + "»" : ""} $${f(x.a)} (${x.k || x.w || "—"})`);
     L.push("Últimos movimientos:\n" + (last.join("\n") || "(ninguno)"));

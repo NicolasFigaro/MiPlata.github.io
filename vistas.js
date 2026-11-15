@@ -299,7 +299,7 @@ function recUI() {
 }
 
 // "Esta semana": lo que vence en los próximos 7 días (tarjetas, deudas y metas) y lo vencido hace poco. Se ve siempre, sin depender de notificaciones.
-const WEEK_ST = { c: ["fa-credit-card", "#FF9500", "Tarjetas"], d: ["fa-hand-holding-dollar", "#FF3B30", "Deudas"], g: ["fa-flag-checkered", "#34C759", "Ahorro"] };
+const WEEK_ST = { p: ["fa-gift", "#34C759", "Ajustes"], c: ["fa-credit-card", "#FF9500", "Tarjetas"], d: ["fa-hand-holding-dollar", "#FF3B30", "Deudas"], g: ["fa-flag-checkered", "#34C759", "Ahorro"] };
 function weekUI() {
     const E = weekEvents();
     if (!E.length) return "";
@@ -315,7 +315,7 @@ function weekUI() {
             </div>
             <div class="text-right shrink-0">
                 <b class="text-sm font-bold text-slate-800 dark:text-white block">${e.amt}</b>
-                ${e.k == "g" ? '<small class="text-[10px] text-slate-400 uppercase">faltan</small>' : '<small class="text-[10px] text-slate-400 uppercase">por pagar</small>'}
+                ${e.k == "g" ? '<small class="text-[10px] text-slate-400 uppercase">faltan</small>' : e.k == "p" ? '<small class="text-[10px] text-slate-400 uppercase">estimado</small>' : '<small class="text-[10px] text-slate-400 uppercase">por pagar</small>'}
             </div>
         </button>`;
     }).join("");
@@ -357,6 +357,7 @@ function movFormHTML() {
                 </div>
                 <p id="qeHint" class="text-[11px] text-indigo-500 font-semibold mt-1 empty:hidden"></p>
             </div>
+            <div id="tplRow" class="flex gap-2 overflow-x-auto -mx-1 px-1 empty:hidden">${tplInner()}</div>
             <div class="flex items-center justify-center py-1">
                 <div class="amt-wrap relative inline-flex items-center justify-center">
                 <span id="amtSym" class="amt-sym absolute right-full mr-1.5 text-3xl font-semibold text-slate-400 select-none pointer-events-none">${amtUsd ? "US$" : "$"}</span>
@@ -368,12 +369,13 @@ function movFormHTML() {
                     ${[["cop", "COP", !amtUsd], ["usd", "USD", amtUsd]].map(([k, l, on]) => `<button type="button" data-cur="${k}" onclick="setCur(${k == "usd"})" class="px-3.5 py-1 rounded-full transition ${on ? "bg-white dark:bg-slate-600 shadow-sm text-slate-900 dark:text-white" : "text-slate-500"}">${l}</button>`).join("")}
                 </div>
                 <p id="usdPrev" class="text-[11px] text-indigo-500 font-semibold empty:hidden"></p>
+                <div id="qkRow" class="flex flex-wrap justify-center gap-2 mt-1">${qkInner()}</div>
             </div>
             <select id="cat" onchange="catChange(this)" class="hidden" aria-hidden="true" tabindex="-1">${cats}</select>
             <div id="catGrid" class="grid grid-cols-4 gap-x-1 gap-y-3">${names.map(tile).join("")}${newTile}</div>
             ${type == "g" ? `
                 <div class="grid grid-cols-2 gap-2">
-                    <input id="date" type="date" value="${today()}" class="${sel}">
+                    <input id="date" type="date" value="${today()}" oninput="dateChips()" onchange="dateChips()" class="${sel}">
                     <select id="cardSel" onchange="togCardOpts()" class="${sel}">
                         <optgroup label="Cuenta">${WH.map(x => `<option>${esc(x)}</option>`).join("")}</optgroup>
                         ${S.cards.length ? `<optgroup label="Tarjeta">${S.cards.map(c => `<option>${esc(c.n)}</option>`).join("")}</optgroup>` : ""}
@@ -381,6 +383,7 @@ function movFormHTML() {
                         ${S.acc.filter(a => !a.f).length ? `<optgroup label="Meta de ahorro">${S.acc.filter(a => !a.f).map(a => `<option value="meta:${a.id}">🎯 ${esc(a.n)}</option>`).join("")}</optgroup>` : ""}
                     </select>
                 </div>
+                ${dqUI()}
                 <div id="cardOpts" class="space-y-3 hidden">
                     <input id="cq" inputmode="numeric" placeholder="Cuotas (ej. 3)" oninput="cuotaPreview()" class="${sel}">
                     <select id="ci" onchange="cuotaPreview()" class="${sel}"><option>Con la tasa de la tarjeta</option><option>Sin interés</option></select>
@@ -388,13 +391,14 @@ function movFormHTML() {
                 </div>
                 <p id="metaPrev" class="text-[11px] text-indigo-500 font-semibold empty:hidden"></p>` : `
                 <div class="grid grid-cols-2 gap-2">
-                    <input id="date" type="date" value="${today()}" class="${sel}">
+                    <input id="date" type="date" value="${today()}" oninput="dateChips()" onchange="dateChips()" class="${sel}">
                     <select id="whSel" class="${sel}">${WH.map(w => `<option>${w}</option>`).join("")}</select>
-                </div>${destUI()}`}
+                </div>${dqUI()}${destUI()}`}
             ${rcFormUI()}
             <input id="note" placeholder="Nota o descripción (opcional)" class="${sel}" autocomplete="off">
             <p class="text-rose-500 text-xs empty:hidden" id="msg"></p>
             <button onclick="addMov()" class="w-full py-3.5 rounded-[14px] bg-indigo-600 active:bg-indigo-700 text-white font-semibold text-base transition">Guardar ${type == "g" ? "gasto" : "ingreso"}</button>
+            <button type="button" onclick="tplSave()" class="w-full text-center text-xs font-semibold text-slate-500 dark:text-slate-400 py-1 -mt-2"><i class="fa-regular fa-star mr-1"></i>Guardar como plantilla</button>
         </div>
     `;
 }
@@ -427,7 +431,7 @@ function vHome() {
             
                 ${by.map(([c, v]) => {
                     const bi = budInfo(c, ym(cur)), b = bi.tot, r = b ? v / b : v / mx;
-                    return `<div class="text-xs cursor-pointer rounded-xl -mx-2 px-2 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition" role="button" tabindex="0" onclick="openCat('${esc(c)}')" onkeydown="if(event.key==='Enter')openCat('${esc(c)}')" title="Ver las compras de ${esc(c)}">
+                    return `<div class="text-xs cursor-pointer rounded-xl -mx-2 px-2 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition" role="button" tabindex="0" onclick="openCat('${jq(c)}')" onkeydown="if(event.key==='Enter')openCat('${jq(c)}')" title="Ver las compras de ${esc(c)}">
                       <div class="flex items-center gap-3">${catChip(c)}<div class="min-w-0 flex-1">
                         <div class="flex justify-between mb-1 font-medium"><span>${esc(c)}<i class="fa-solid fa-chevron-right text-[8px] text-slate-300 ml-1.5"></i></span><span>${fmt(v)}${b ? " de " + fmt(b) : ""}</span></div>
                         <div class="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden"><div class="bar-seg h-full rounded-full ${b && r >= 1 ? "bg-rose-500" : b && r >= 0.8 ? "bg-amber-500" : "bg-indigo-600"}" style="width:${Math.min(100, r * 100)}%"></div></div>${b && (bi.carry > 0 || bi.ov) ? `<div class="text-[10px] text-slate-400 mt-1">${[bi.ov ? "ajustado solo este mes" : "", bi.carry > 0 ? "incluye " + fmt(bi.carry) + " que sobraron del mes anterior" : ""].filter(Boolean).join(" · ")}</div>` : ""}
@@ -846,7 +850,7 @@ function rbResUI(ap) {
         else if (x.delta < -0.5) { act = "Vender " + fmt(-x.delta); cl = "text-rose-500"; }
         else { act = "En su objetivo ✓"; cl = "text-slate-400"; }
         return `<div class="flex items-center justify-between gap-2 py-2.5 border-b border-slate-100 dark:border-slate-800 last:border-0 text-xs">
-            <div class="min-w-0"><b class="text-slate-800 dark:text-white">${x.n}</b><small class="text-[11px] text-slate-400 block">${fmt(x.cur)} · hoy ${Math.round(x.pct)}% · objetivo ${tf(x.tgt)}%${r.ap > 0 ? " · quedaría " + Math.round(x.apct) + "%" : ""}</small></div>
+            <div class="min-w-0"><b class="text-slate-800 dark:text-white">${esc(x.n)}</b><small class="text-[11px] text-slate-400 block">${fmt(x.cur)} · hoy ${Math.round(x.pct)}% · objetivo ${tf(x.tgt)}%${r.ap > 0 ? " · quedaría " + Math.round(x.apct) + "%" : ""}</small></div>
             <b class="shrink-0 ${cl}">${act}</b></div>`;
     }).join("");
     return `${un}<div>${rows}</div>
@@ -915,7 +919,7 @@ function vGra() {
             <canvas id="chCmp"></canvas>
             <div class="mt-4 text-xs">
                 <div class="grid grid-cols-4 gap-2 pb-2 border-b border-slate-100 dark:border-slate-800 text-[10px] uppercase tracking-wider text-slate-400 font-bold"><span>Categoría</span><span class="text-right capitalize">${monLabel(ok)}</span><span class="text-right capitalize">${monLabel(mk)}</span><span class="text-right">Cambio</span></div>
-                ${rows.map(r => `<div onclick="openCat('${esc(r.c)}')" class="grid grid-cols-4 gap-2 py-2 border-b border-slate-100 dark:border-slate-800 items-center cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 transition"><span class="font-medium truncate">${esc(r.c)}</span><span class="text-right">${fmt(r.b)}</span><span class="text-right">${fmt(r.a)}</span><span class="text-right text-[11px]">${delta(r.a, r.b)}</span></div>`).join("")}
+                ${rows.map(r => `<div onclick="openCat('${jq(r.c)}')" class="grid grid-cols-4 gap-2 py-2 border-b border-slate-100 dark:border-slate-800 items-center cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 transition"><span class="font-medium truncate">${esc(r.c)}</span><span class="text-right">${fmt(r.b)}</span><span class="text-right">${fmt(r.a)}</span><span class="text-right text-[11px]">${delta(r.a, r.b)}</span></div>`).join("")}
                 <div class="grid grid-cols-4 gap-2 pt-2 font-bold items-center"><span>Total</span><span class="text-right">${fmt(tb)}</span><span class="text-right">${fmt(ta)}</span><span class="text-right text-[11px]">${delta(ta, tb)}</span></div>
             </div>` : '<p class="text-xs text-slate-400 text-center py-6">No hay gastos en esos dos meses para comparar.</p>'}`)}
 
@@ -1285,7 +1289,8 @@ function vDeu() {
     return `<section class="bg-gradient-to-b from-rose-500 to-rose-600 text-white p-6 rounded-[20px] shadow-sm mb-6"><small class="text-xs text-rose-100 font-medium uppercase tracking-wider">Total que debo</small><div class="text-3xl font-extrabold mt-1">${fmt(T)}</div></section>
         <div class="flex justify-between items-center mb-4"><h3 class="text-base font-bold">Mis Deudas</h3><button onclick="newDbt()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold shadow-md">+ Nueva deuda</button></div>
         ${L || emptyUI("fa-hand-holding-dollar", "#FF3B30", "Sin deudas anotadas", "Aquí van los préstamos y deudas que no son de tarjeta. Si no tienes ninguna, ¡mejor!", "Anotar una deuda", "newDbt()")}
-        ${planUI()}`;
+        ${planUI()}
+        ${oweUI()}`;
 }
 
 // ---------- Ajustes ----------
@@ -1373,7 +1378,8 @@ function vSet() {
               : np == "granted" ? '<p class="text-xs text-emerald-500 font-semibold">Avisos activados ✓</p><button onclick="testNotif()" class="px-4 py-2 bg-slate-800 dark:bg-slate-700 text-white font-semibold rounded-xl text-xs">Enviar aviso de prueba</button>'
               : np == "denied" ? '<p class="text-xs text-rose-500">Los bloqueaste en el navegador. Actívalos desde los permisos del sitio.</p>'
               : '<button onclick="askNotif()" class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-xl text-xs">Activar avisos</button>'}`), "Te avisa de metas (7 días antes), tarjetas y deudas con día de pago (3 días antes) y hasta 7 días después si siguen pendientes. Siempre lo ves también en los Consejos de Inicio.")}
-        ${setAcc("pin", "fa-lock", "#32ADE6", "Bloqueo con PIN", S.pin ? "Activo" : "Sin PIN", body(`<p class="text-xs text-slate-400">Bloquea la pantalla al abrir la app. No cifra los datos.</p><button onclick="setPin()" class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-xl text-xs">${S.pin ? "Cambiar o quitar PIN" : "Crear PIN"}</button>`))}
+        ${setAcc("pr", "fa-gift", "#34C759", "Prima y cesantías", prSub(), body(prBody()))}
+        ${setAcc("pin", "fa-lock", "#32ADE6", "Bloqueo con PIN", S.pin ? "Activo" + (S.bio ? " · Face ID" : "") : "Sin PIN", body(`<p class="text-xs text-slate-400">Pide el PIN al abrir la app${S.pin ? " y al volver a ella" : ""}. Es una barrera de pantalla: no cifra los datos guardados, así que mantén también el bloqueo de tu teléfono.</p><div class="flex flex-wrap gap-2"><button onclick="setPin()" class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-xl text-xs">${S.pin ? "Cambiar o quitar PIN" : "Crear PIN"}</button>${S.pin && window.PublicKeyCredential ? `<button onclick="${S.bio ? "bioOff()" : "bioOn()"}" class="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold rounded-xl text-xs"><i class="fa-solid fa-fingerprint mr-1"></i>${S.bio ? "Quitar Face ID / huella" : "Activar Face ID / huella"}</button>` : ""}</div>${S.pin ? `<label class="block text-xs text-slate-500 dark:text-slate-400">Volver a pedir el PIN<select onchange="setLockAfter(this.value)" class="${INP} mt-1">${LOCK_OPTS.map(([v, t]) => `<option value="${v}" ${lockLimit() == v ? "selected" : ""}>${t}</option>`).join("")}</select></label>` : ""}`))}
         ${setAcc("bk", "fa-cloud-arrow-down", "#30B0C7", "Copia de seguridad", bkS, body(`
             ${typeof rbUI == "function" ? rbUI() : ""}
             <p class="text-xs ${bkDue() ? "text-amber-500 font-semibold" : "text-slate-400"}">${S.bk ? "Última copia: " + dmy(S.bk) + " (hace " + bkDaysAgo() + " d). Te lo recuerdo cada " + BK_DAYS + " días." : "Aún no has hecho ninguna copia. Tus datos solo están en este celular."}</p>

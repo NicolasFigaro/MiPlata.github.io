@@ -1,0 +1,18 @@
+MI PLATA - guía rápida del proyecto
+
+ESTILOS (CSS)
+- Se cargan 3 archivos en este orden: base.css -> tailwind.css -> capas.css
+- base.css y capas.css se GENERAN juntando las hojas de la carpeta css-fuentes/.
+  Para cambiar estilos: edita el archivo que corresponda en css-fuentes/ y ejecuta
+      python3 construir-css.py
+- tailwind.css está precompilado (ver instrucciones al inicio de tailwind.config.js).
+  Si usas una clase de Tailwind nueva que no existe en tailwind.css, no se verá:
+  hay que regenerarlo o escribir esa regla a mano en css-fuentes/styles.css.
+
+AL SUBIR CAMBIOS
+- Cambia el número de versión en sw.js (const C = "miplata-vXX") para que los celulares
+  descarguen la versión nueva.
+
+PIN Y SEGURIDAD
+- El PIN es una barrera de pantalla; no cifra los datos guardados en el teléfono.
+- Los intentos fallidos se guardan aparte (miplata_pinlock), fuera de las copias de seguridad.

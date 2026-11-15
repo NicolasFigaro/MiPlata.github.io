@@ -355,8 +355,73 @@ function setCur(on, quiet) {
     amtUsd = on; a.value = ""; fitAmt(a); a.inputMode = on ? "decimal" : "numeric";
     const sym = document.getElementById("amtSym"); if (sym) sym.textContent = on ? "US$" : "$";
     document.querySelectorAll("[data-cur]").forEach(b => { const me = (b.dataset.cur == "usd") == on; b.classList.toggle("bg-white", me); b.classList.toggle("dark:bg-slate-600", me); b.classList.toggle("shadow-sm", me); b.classList.toggle("text-slate-900", me); b.classList.toggle("dark:text-white", me); b.classList.toggle("text-slate-500", !me); });
+    const qk = document.getElementById("qkRow"); if (qk) qk.innerHTML = qkInner();
     cuotaPreview(); metaPreview(); usdPrev(); if (!quiet) a.focus();
 }
+// ---------- Atajos del formulario: fecha rápida, montos rápidos y plantillas ----------
+const DQ_BASE = "px-3 py-1 rounded-full text-[11px] font-semibold transition ";
+const DQ_ON = "bg-indigo-600 text-white", DQ_OFF = "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400";
+const dayAgo = n => ymd(new Date(Date.now() - n * 864e5));
+function dqUI() { return `<div id="dqRow" class="flex gap-2 -mt-2">${[[0, "Hoy"], [1, "Ayer"]].map(([k, l]) => `<button type="button" data-dq="${k}" onclick="dateQuick(${k})" class="${DQ_BASE}${k == 0 ? DQ_ON : DQ_OFF}">${l}</button>`).join("")}</div>`; }
+function dateChips() {
+    const d = document.getElementById("date"); if (!d) return;
+    document.querySelectorAll("[data-dq]").forEach(b => { b.className = DQ_BASE + (d.value == dayAgo(+b.dataset.dq) ? DQ_ON : DQ_OFF); });
+}
+function dateQuick(n) { const d = document.getElementById("date"); if (!d) return; d.value = dayAgo(n); dateChips(); buzz(); }
+
+const QK_BASE = "px-3 py-1.5 rounded-full text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 active:scale-95 transition";
+function qkInner() {
+    const l = amtUsd ? [[1, "+1"], [5, "+5"], [10, "+10"], [50, "+50"]] : type == "i" ? [[100000, "+100 mil"], [500000, "+500 mil"], [1000000, "+1 millón"]] : [[10000, "+10 mil"], [50000, "+50 mil"], [100000, "+100 mil"]];
+    return l.map(([n, t]) => `<button type="button" onclick="qkAdd(${n})" class="${QK_BASE}">${t}</button>`).join("") + `<button type="button" onclick="qkAdd(0)" aria-label="Borrar monto" class="${QK_BASE}"><i class="fa-solid fa-delete-left"></i></button>`;
+}
+function qkAdd(n) {
+    const a = document.getElementById("amt"); if (!a) return;
+    if (!n) a.value = "";
+    else { const nv = Math.round(((amtUsd ? pr(a.value) : num(a.value)) + n) * 100) / 100; a.value = amtUsd ? String(nv).replace(".", ",") : String(nv); }
+    amtIn(a); buzz();
+}
+
+// Plantillas: un gasto o ingreso que repites (almuerzo, transporte, sueldo...) queda a un toque. Mantén pulsada una para borrarla.
+let _tplT = null, _tplLong = false;
+function tplInner() {
+    return (S.tpl || []).filter(t => t.t == type).map(t => `<button type="button" data-tpl="${t.id}" onclick="if(_tplLong){_tplLong=false;return}tplApply(${t.id})" class="shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"><i class="fa-regular fa-star mr-1"></i>${esc(t.n)} · ${fmt(t.a)}</button>`).join("");
+}
+function tplRefresh() { const r = document.getElementById("tplRow"); if (r) r.innerHTML = tplInner(); }
+function tplSave() {
+    const g = id => document.getElementById(id), er = t => { g("msg").textContent = t; };
+    const a = amtUsd ? Math.round(pr(g("amt").value) * curRate()) : num(g("amt").value);
+    if (!a) return er("Escribe un monto para guardar la plantilla.");
+    const cat = g("cat").value; if (!cat || cat == "__new") return er("Elige una categoría.");
+    const nt = g("note").value.trim(), w = (type == "g" ? g("cardSel") : g("whSel")).value;
+    const first = !(S.tpl || []).length;
+    S.tpl = (S.tpl || []).concat([{ id: Date.now(), t: type, n: (nt || cat).slice(0, 22), c: cat, a, w, nt }]).slice(-12);
+    save(); g("msg").textContent = ""; tplRefresh(); buzz();
+    showToast(first ? "Plantilla guardada. Mantén pulsada una plantilla para borrarla" : "Plantilla guardada");
+}
+function tplApply(id) {
+    const t = (S.tpl || []).find(x => x.id == id); if (!t) return;
+    const g = x => document.getElementById(x);
+    if (type != t.t) setType(t.t);
+    if (amtUsd) setCur(false, true);
+    g("amt").value = Number(t.a).toLocaleString("es-CO"); amtIn(g("amt"));
+    const c = g("cat"); if ([...c.options].some(o => o.value == t.c)) { c.value = t.c; syncCatGrid(); }
+    const sel = g(type == "g" ? "cardSel" : "whSel");
+    if (sel && [...sel.options].some(o => o.value == t.w)) { sel.value = t.w; if (type == "g" && typeof togCardOpts == "function") togCardOpts(); }
+    g("note").value = t.nt || ""; g("amt").blur(); buzz();
+}
+function tplDel(id) {
+    const i = (S.tpl || []).findIndex(x => x.id == id); if (i < 0) return;
+    const t = S.tpl[i]; S.tpl.splice(i, 1); save(); tplRefresh();
+    undoQ.push(() => { S.tpl.splice(Math.min(i, S.tpl.length), 0, t); save(); tplRefresh(); });
+    showUndo("Plantilla borrada");
+}
+document.addEventListener("pointerdown", e => {
+    const b = e.target.closest && e.target.closest("[data-tpl]"); if (!b) return;
+    _tplLong = false; clearTimeout(_tplT);
+    _tplT = setTimeout(() => { _tplLong = true; buzz(); tplDel(+b.dataset.tpl); }, 600);
+});
+["pointerup", "pointercancel"].forEach(ev => document.addEventListener(ev, () => clearTimeout(_tplT)));
+
 function openMov() {
     amtUsd = false; rcPend = null;
     const modal = document.getElementById("generalModal"), container = document.getElementById("modalContainer");
@@ -1296,27 +1361,116 @@ function exportCsv() {
 }
 
 // ---------- PIN ----------
-const hashPin = async p => [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode("miplata" + p)))].map(b => b.toString(16).padStart(2, "0")).join("");
+// ---------- PIN, bloqueo y Face ID ----------
+// Formato nuevo del PIN: "v2$largo$sal$hash" (PBKDF2, 150 000 vueltas, sal aleatoria por teléfono).
+// Los PIN viejos (SHA-256 con sal fija) siguen funcionando y se convierten solos al primer desbloqueo.
+const hashPin = async p => [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode("miplata" + p)))].map(b => b.toString(16).padStart(2, "0")).join(""); // formato viejo
+const toHex = u => [...u].map(b => b.toString(16).padStart(2, "0")).join("");
+const fromHex = h => new Uint8Array((h.match(/../g) || []).map(x => parseInt(x, 16)));
+async function pinDerive(p, saltHex) {
+    const k = await crypto.subtle.importKey("raw", new TextEncoder().encode(p), "PBKDF2", false, ["deriveBits"]);
+    return toHex(new Uint8Array(await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: fromHex(saltHex), iterations: 150000 }, k, 256)));
+}
+async function pinMake(p) { const salt = toHex(crypto.getRandomValues(new Uint8Array(16))); return "v2$" + p.length + "$" + salt + "$" + await pinDerive(p, salt); }
+async function pinCheck(p) {
+    if (!S.pin) return true;
+    if (S.pin.startsWith("v2$")) { const a = S.pin.split("$"); return await pinDerive(p, a[2]) === a[3]; }
+    return await hashPin(p) === S.pin;
+}
+const pinLen = () => (S.pin && S.pin.startsWith("v2$")) ? +S.pin.split("$")[1] : 0;
+// Intentos fallidos: se guardan aparte de los datos (no viajan en las copias de seguridad)
+const PL_KEY = "miplata_pinlock";
+const plGet = () => { try { return JSON.parse(localStorage.getItem(PL_KEY)) || { n: 0, until: 0 }; } catch (e) { return { n: 0, until: 0 }; } };
+const plSet = o => { try { localStorage.setItem(PL_KEY, JSON.stringify(o)); } catch (e) {} };
+const plWait = n => n < 5 ? 0 : Math.min(900, 30 * Math.pow(2, n - 5)); // segundos: 5 fallos → 30 s, luego 1, 2, 4, 8 y máx. 15 min
+const LOCK_OPTS = [[3, "Siempre que salga de la app"], [60, "Tras 1 minuto fuera"], [300, "Tras 5 minutos fuera"], [-1, "Solo al abrir la app"]];
+const lockLimit = () => S.lk === undefined ? 60 : S.lk;
+function setLockAfter(v) { S.lk = Number(v); save(); showToast("Listo"); }
+
 function setPin() {
     if (!window.crypto || !crypto.subtle) return showToast("El PIN necesita abrir la app por https");
     openCustomModal("PIN de 4 a 6 dígitos", [{ l: "Nuevo PIN (vacío = quitar)", m: "numeric" }], v => {
         if (v[0] && !/^\d{4,6}$/.test(v[0])) return "Usa de 4 a 6 números.";
-        if (!v[0]) { delete S.pin; save(); return; }
-        hashPin(v[0]).then(h => { S.pin = h; save(); showToast("PIN guardado"); });
+        if (!v[0]) { delete S.pin; delete S.bio; save(); draw(); return; }
+        pinMake(v[0]).then(h => { S.pin = h; save(); showToast("PIN guardado"); draw(); });
     });
 }
-function lockScreen() {
-    if (!S.pin || !window.crypto || !crypto.subtle) return;
-    const d = document.createElement("div");
-    d.className = "fixed inset-0 z-[60] bg-slate-950 flex flex-col items-center justify-center gap-4 p-6";
-    d.innerHTML = '<i class="fa-solid fa-lock text-3xl text-indigo-400"></i><input type="password" inputmode="numeric" maxlength="6" placeholder="PIN" class="w-40 text-center text-2xl tracking-widest px-4 py-3 rounded-2xl bg-slate-800 text-white"><p class="text-rose-400 text-xs min-h-[16px]"></p>';
-    document.body.appendChild(d);
-    const i = d.querySelector("input"), e = d.querySelector("p"); i.focus();
-    i.oninput = async () => {
-        if (i.value.length >= 4 && await hashPin(i.value) == S.pin) d.remove();
-        else if (i.value.length >= 6) { e.textContent = "PIN incorrecto"; i.value = ""; }
-    };
+
+// Face ID / huella: usa el desbloqueo del propio teléfono (WebAuthn). Es un atajo; el PIN siempre queda como respaldo.
+const b64 = u => btoa(String.fromCharCode(...u)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+const unb64 = t => Uint8Array.from(atob(t.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
+async function bioOn() {
+    if (!S.pin) return showToast("Primero crea un PIN", true);
+    if (!window.PublicKeyCredential || !navigator.credentials) return showToast("Este teléfono o navegador no lo permite", true);
+    try {
+        const c = await navigator.credentials.create({ publicKey: {
+            challenge: crypto.getRandomValues(new Uint8Array(32)), rp: { name: "Mi Plata" },
+            user: { id: crypto.getRandomValues(new Uint8Array(16)), name: "miplata", displayName: "Mi Plata" },
+            pubKeyCredParams: [{ type: "public-key", alg: -7 }, { type: "public-key", alg: -257 }],
+            authenticatorSelection: { authenticatorAttachment: "platform", userVerification: "required", residentKey: "discouraged" },
+            timeout: 60000, attestation: "none" } });
+        S.bio = b64(new Uint8Array(c.rawId)); save(); draw(); showToast("Face ID / huella activado");
+    } catch (e) { showToast("No se pudo activar. Puedes seguir usando el PIN", true); }
 }
+function bioOff() { delete S.bio; save(); draw(); showToast("Desactivado"); }
+async function bioCheck() {
+    if (!S.bio) return false;
+    try {
+        await navigator.credentials.get({ publicKey: { challenge: crypto.getRandomValues(new Uint8Array(32)),
+            allowCredentials: [{ type: "public-key", id: unb64(S.bio), transports: ["internal"] }], userVerification: "required", timeout: 60000 } });
+        return true;
+    } catch (e) { return false; }
+}
+
+function lockScreen() {
+    if (!S.pin || !window.crypto || !crypto.subtle || document.getElementById("lockScr")) return;
+    const cov = document.getElementById("privCov"); if (cov) cov.remove();
+    const d = document.createElement("div"); d.id = "lockScr";
+    d.className = "fixed inset-0 z-[60] bg-slate-950 flex flex-col items-center justify-center gap-4 p-6";
+    d.innerHTML = '<i class="fa-solid fa-lock text-3xl text-indigo-400"></i><input type="password" inputmode="numeric" maxlength="6" placeholder="PIN" autocomplete="off" aria-label="PIN" class="w-40 text-center text-2xl tracking-widest px-4 py-3 rounded-2xl bg-slate-800 text-white"><p class="text-rose-400 text-xs min-h-[16px] text-center" role="alert"></p>' +
+        (S.bio ? '<button type="button" class="px-4 py-2 rounded-xl bg-slate-800 text-indigo-400 text-sm font-semibold"><i class="fa-solid fa-fingerprint mr-1.5"></i>Usar Face ID / huella</button>' : "");
+    document.body.appendChild(d);
+    const i = d.querySelector("input"), e = d.querySelector("p"), bb = d.querySelector("button");
+    let busy = false, tm = null;
+    const unlock = () => { clearInterval(tm); plSet({ n: 0, until: 0 }); d.remove(); };
+    const tick = () => {
+        const left = Math.ceil((plGet().until - Date.now()) / 1000);
+        if (left > 0) { i.disabled = true; i.value = ""; e.textContent = "Demasiados intentos. Espera " + (left >= 60 ? Math.ceil(left / 60) + " min" : left + " s"); return true; }
+        if (i.disabled) { i.disabled = false; e.textContent = ""; i.focus(); }
+        return false;
+    };
+    if (tick()) tm = setInterval(tick, 1000);
+    const tryBio = async () => { if (await bioCheck()) unlock(); };
+    if (bb) bb.onclick = tryBio;
+    i.oninput = async () => {
+        if (busy || i.disabled) return;
+        const v = i.value, need = pinLen();
+        if (need ? v.length < need : v.length < 4) return;
+        busy = true; let ok = false; try { ok = await pinCheck(v); } catch (x) {} busy = false;
+        if (ok) { if (!S.pin.startsWith("v2$")) { try { S.pin = await pinMake(v); save(); } catch (x) {} } return unlock(); }
+        if (need || v.length >= 6) {
+            const st = plGet(), n = st.n + 1, w = plWait(n);
+            plSet({ n, until: w ? Date.now() + w * 1000 : 0 });
+            i.value = ""; e.textContent = "PIN incorrecto";
+            if (w) { clearInterval(tm); tick(); tm = setInterval(tick, 1000); }
+        }
+    };
+    if (!tick()) { i.focus(); if (S.bio) setTimeout(tryBio, 350); }
+}
+// Al salir de la app: se tapa la pantalla (para que no se vea en el selector de apps) y al volver se pide el PIN si pasó el tiempo elegido
+let _hidAt = 0;
+function privCover(on) {
+    let c = document.getElementById("privCov");
+    if (on && !c && !document.getElementById("lockScr")) { c = document.createElement("div"); c.id = "privCov"; c.className = "fixed inset-0 bg-slate-950 flex items-center justify-center"; c.style.zIndex = "58"; c.innerHTML = '<i class="fa-solid fa-lock text-3xl text-slate-700"></i>'; document.body.appendChild(c); }
+    else if (!on && c) c.remove();
+}
+document.addEventListener("visibilitychange", () => {
+    if (!S.pin) return;
+    if (document.hidden) { _hidAt = Date.now(); privCover(true); return; }
+    const lim = lockLimit();
+    if (_hidAt && lim >= 0 && Date.now() - _hidAt >= lim * 1000) lockScreen();
+    privCover(false); _hidAt = 0;
+});
 
 // ---------- Arranque ----------
 window.addEventListener("DOMContentLoaded", () => {

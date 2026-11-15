@@ -155,6 +155,8 @@ html.dark[data-theme="ios"] :is(.text-rose-500, .text-rose-600, .dark\:text-rose
 
 /* Formulario de movimiento: monto grande y cuadrícula de categorías */
 #amt.amt-big { font-size: 44px !important; line-height: 1.1; text-align: center; padding: 0 !important; margin: 0; box-sizing: content-box; font-variant-numeric: tabular-nums; }
+/* El monto va sin recuadro (las reglas generales de campos de los modales lo pintaban; esta es más específica a propósito) */
+html #modalContainer #amt.amt-big { background: transparent !important; box-shadow: none !important; border: 0 !important; outline: 0 !important; }
 /* El símbolo ($ / US$) cuelga a la izquierda del número: así el número queda centrado de verdad */
 .amt-wrap { max-width: 100%; }
 .amt-sym { position: absolute; right: 100%; margin-right: 6px; line-height: 1.1; white-space: nowrap; }

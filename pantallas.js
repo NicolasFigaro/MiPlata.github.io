@@ -28,7 +28,7 @@ function vCal() {
     const evs = reminderEvents().filter(e => e.k != "r" && e.date && e.date.startsWith(nm));
     const evD = {}; evs.forEach(e => { (evD[e.date] = evD[e.date] || []).push(e); });
     const ing = sum(its, x => x.t == "i"), gas = sum(its, x => x.t == "g");
-    const evIc = { g: "fa-flag-checkered", c: "fa-credit-card", d: "fa-hand-holding-dollar" };
+    const evIc = { p: "fa-gift", g: "fa-flag-checkered", c: "fa-credit-card", d: "fa-hand-holding-dollar" };
 
     const dirCls = calDir > 0 ? "cal-in-r" : calDir < 0 ? "cal-in-l" : ""; calDir = 0;
     let cells = "";

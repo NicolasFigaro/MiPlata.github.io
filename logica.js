@@ -20,7 +20,10 @@ const WTYPES = {
 const KEY = "miplata_advanced_v2"; // misma clave: tus datos actuales siguen funcionando
 
 // ---------- Utilidades ----------
-const esc = s => String(s || "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const esc = s => String(s || "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+// Para meter texto del usuario dentro de un texto JS entre comillas simples en un onclick="...('${jq(x)}')":
+// esc() solo no basta, porque el navegador deshace el &#39; antes de ejecutar el JS y la comilla rompe el código.
+const jq = s => esc(String(s == null ? "" : s).replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/\r?\n/g, " "));
 // Modo incógnito: con S.th.mask activo, todas las cifras en pesos y dólares salen ocultas
 const masked = () => !!(S.th && S.th.mask);
 const fmt = n => masked() ? "$ ••••" : (n < 0 ? "-" : "") + "$" + Math.abs(Math.round(n || 0)).toLocaleString("es-CO");
@@ -80,6 +83,8 @@ S.th = S.th || { m: "auto", p: 0, pv: false };
 S.hide = S.hide || {};
 S.ini = S.ini || {};
 S.nwh = S.nwh || {};   // historial del patrimonio neto (una foto por mes)
+S.tpl = Array.isArray(S.tpl) ? S.tpl : [];
+S.owe = Array.isArray(S.owe) ? S.owe : [];     // lo que te deben (compartidos.js)   // plantillas de movimientos
 S.nt = S.nt || {};     // avisos ya mostrados (para no repetir el mismo día)
 S.rb = S.rb || { v: 50, f: 30, e: 20 }; // objetivo del portafolio en %: renta variable, renta fija, efectivo
 S.dp = S.dp || {};     // plan de deudas: { b: lo que puedes pagar al mes }
@@ -176,10 +181,26 @@ let anim = true;
 let charts = [];
 const lastPct = {}, lastOk = {};
 
+// Si el teléfono no deja guardar (almacenamiento lleno o bloqueado), antes no pasaba nada y se perdían datos sin avisar.
+let _saveWarnAt = 0;
+function saveFail(e) {
+    const n = Date.now(); if (n - _saveWarnAt < 60000) return; _saveWarnAt = n;
+    const full = e && (e.name == "QuotaExceededError" || e.code == 22 || e.code == 1014);
+    const emergency = () => { // descarga directa, sin pasar por save() para no repetir el error
+        try {
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(new Blob([JSON.stringify(S)], { type: "application/json" }));
+            a.download = "mi-plata-copia-urgente-" + today() + ".json"; a.click();
+        } catch (x) {}
+    };
+    try { showToast(full ? "Sin espacio: tus últimos cambios NO se guardaron" : "No se pudieron guardar tus cambios", true, { label: "Descargar copia", ic: "fa-triangle-exclamation text-amber-400", fn: emergency }); } catch (x) {}
+}
+// Pide al navegador que no borre los datos si el teléfono se queda sin espacio (iOS/Android lo respetan si la app está instalada)
+try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {}); } catch (e) {}
 const save = () => {
     try { invSnap(); } catch (e) {} // foto diaria del portafolio (nuevas.js)
     try { S.nwh[ym(new Date())] = Math.round(netWorth().tot); } catch (e) {}
-    try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {}
+    try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { saveFail(e); }
     try { mirrorEvents(); } catch (e) {}
     try { goalCheck(); } catch (e) {} // confeti si una meta se acaba de lograr (pantallas.js)
     try { if (typeof budgetAlerts == "function") setTimeout(budgetAlerts, 60); } catch (e) {} // avisos de presupuesto 80 % / 100 % (nuevas.js)
@@ -693,6 +714,7 @@ function reminderEvents() {
     (S.rec || []).filter(r => r.vr && r.last != nm).forEach(r => {
         E.push({ key: "r" + r.id, title: "Mi Plata · " + r.n, what: "Tu gasto fijo", k: "r", date: payDate(r.day), win: 0, extra: "Confirma cuánto llegó este mes (el último fue " + fmt(r.a) + ")." });
     });
+    try { if (typeof prEvents == "function") E.push(...prEvents()); } catch (e) {} // prima y cesantías (prestaciones.js)
     return E;
 }
 // Gastos fijos de monto variable a los que ya les llegó la fecha y aún no confirmas el valor de este mes
@@ -702,7 +724,7 @@ const remindBody = (e, days) => e.what + " " + dueTxt(days) + ". " + e.extra;
 // Es lo mismo que avisan las notificaciones, pero siempre visible: en iPhone no hay avisos en segundo plano.
 function weekEvents() {
     return reminderEvents().filter(e => e.k != "r").map(e => Object.assign({ days: daysTo(e.date) }, e))
-        .filter(e => e.days <= 7 && e.days >= (e.k == "g" ? -7 : -30)).sort((a, b) => a.days - b.days);
+        .filter(e => e.days <= 7 && e.days >= (e.k == "g" || e.k == "p" ? -7 : -30)).sort((a, b) => a.days - b.days);
 }
 
 // ---------- Consejos automáticos ----------

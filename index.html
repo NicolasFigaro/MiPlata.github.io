@@ -12,20 +12,10 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="format-detection" content="telephone=no">
     <link rel="apple-touch-icon" href="icon-192.png">
-    <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="mejoras.css">
-    <link rel="stylesheet" href="pantallas.css">
-    <link rel="stylesheet" href="estetica.css">
-    <!-- Tailwind ya compilado (antes se compilaba en el celular en cada apertura con cdn.tailwindcss.com). Va al final, igual que antes, para que sus utilidades ganen en la cascada -->
+    <link rel="stylesheet" href="base.css">
+    <!-- Tailwind ya compilado (antes se compilaba en el celular en cada apertura con cdn.tailwindcss.com). Va después de base.css y antes de capas.css, igual que antes, para que sus utilidades ganen donde deben -->
     <link rel="stylesheet" href="tailwind.css">
-    <link rel="stylesheet" href="diseno.css">
-    <link rel="stylesheet" href="fluido.css">
-    <link rel="stylesheet" href="ahorro-cuentas.css">
-    <link rel="stylesheet" href="serio.css">
-    <link rel="stylesheet" href="cristal.css">
-    <link rel="stylesheet" href="summit.css">
-    <link rel="stylesheet" href="claro.css">
-    <link rel="stylesheet" href="rendimientos.css">
+    <link rel="stylesheet" href="capas.css">
     <!-- Temas de color: se aplica antes de pintar para que no parpadee -->
     <script src="tema.js"></script>
     <script src="zoom.js"></script>
@@ -111,5 +101,7 @@
     <script src="monedas.js"></script>
     <script src="nuevas.js"></script>
     <script src="herramientas.js"></script>
+    <script src="prestaciones.js"></script>
+    <script src="compartidos.js"></script>
 </body>
 </html>

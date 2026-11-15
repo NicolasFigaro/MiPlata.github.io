@@ -1,0 +1,418 @@
+/* ===== styles.css ===== */
+/* ===== Mi Plata · styles.css ===== */
+
+/* Colores del tema "Índigo" (los originales de Tailwind). tema.js los reemplaza al elegir otro tema.
+   --p = principal (indigo), --s = secundario (violet), --n = neutros (slate). Formato: "R G B". */
+:root {
+    --p-50: 238 242 255; --p-100: 224 231 255; --p-200: 199 210 254; --p-300: 165 180 252; --p-400: 129 140 248; --p-500: 99 102 241;
+    --p-600: 79 70 229; --p-700: 67 56 202; --p-800: 55 48 163; --p-900: 49 46 129; --p-950: 30 27 75;
+    --s-50: 245 243 255; --s-100: 237 233 254; --s-200: 221 214 254; --s-300: 196 181 253; --s-400: 167 139 250; --s-500: 139 92 246;
+    --s-600: 124 58 237; --s-700: 109 40 217; --s-800: 91 33 182; --s-900: 76 29 149; --s-950: 46 16 101;
+    --n-50: 248 250 252; --n-100: 241 245 249; --n-200: 226 232 240; --n-300: 203 213 225; --n-400: 148 163 184; --n-500: 100 116 139;
+    --n-600: 71 85 105; --n-700: 51 65 85; --n-800: 30 41 59; --n-900: 15 23 42; --n-950: 2 6 23;
+}
+/* Tipografía del sistema: San Francisco en iPhone/Mac, Roboto en Android, Segoe UI en Windows (no descarga fuentes) */
+html { -webkit-text-size-adjust: 100%; background: rgb(var(--n-50)); }
+html.dark { background: rgb(var(--n-950)); }
+body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, system-ui, "Helvetica Neue", sans-serif; -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent; }
+button, a, label, select { touch-action: manipulation; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { scrollbar-width: none; }
+input, select, textarea, button { font-family: inherit; }
+
+/* Entrada de vista */
+@keyframes enter { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+#appMain.enter > * { animation: enter .4s cubic-bezier(.22, 1, .36, 1) both; }
+#appMain.enter > *:nth-child(2) { animation-delay: .05s; }
+#appMain.enter > *:nth-child(3) { animation-delay: .1s; }
+#appMain.enter > *:nth-child(4) { animation-delay: .15s; }
+#appMain.enter > *:nth-child(n+5) { animation-delay: .2s; }
+
+/* Tarjetas con elevación al pasar el mouse */
+.lift { transition: transform .2s ease, box-shadow .2s ease; }
+.lift:hover { transform: translateY(-2px); }
+
+/* Consejos */
+#appMain.enter .tip { animation: enter .45s cubic-bezier(.22, 1, .36, 1) both; animation-delay: calc(var(--i, 0) * 70ms); }
+@keyframes pulseRing { 0% { box-shadow: 0 0 0 0 rgba(244, 63, 94, .45); } 70% { box-shadow: 0 0 0 9px rgba(244, 63, 94, 0); } 100% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0); } }
+.pulse-ring { animation: pulseRing 2s infinite; }
+
+/* Secciones colapsables de Inicio: se pliegan en el mismo lugar, sin redibujar la pantalla */
+.col-chev { transform: rotate(180deg); transition: transform .3s ease; }
+.col-closed .col-chev { transform: none; }
+.col-body { display: grid; grid-template-rows: 1fr; transition: grid-template-rows .34s cubic-bezier(.22, 1, .36, 1), opacity .25s ease; }
+.col-closed .col-body { grid-template-rows: 0fr; opacity: 0; visibility: hidden; transition: grid-template-rows .34s cubic-bezier(.22, 1, .36, 1), opacity .2s ease, visibility 0s .34s; }
+.col-inner { overflow: hidden; min-height: 0; contain: paint; }
+/* Al plegar una sección el navegador no debe "saltar" el scroll para compensar el cambio de altura */
+#appMain { overflow-anchor: none; }
+/* Táctil: sin :hover pegado y sin el círculo animado con blur (pesado para el GPU del celular y causa parpadeos) */
+@media (hover: none) {
+    .lift:hover { transform: none; }
+    .float-slow { animation: none; }
+}
+.col-pad { padding: 12px 6px 6px; margin: 0 -6px -6px; }
+.col-peek { max-height: 0; opacity: 0; overflow: hidden; transition: max-height .3s ease, opacity .25s ease; }
+.col-closed .col-peek { max-height: 3rem; opacity: 1; }
+
+/* Barras */
+.bar-seg { transition: width .8s cubic-bezier(.22, 1, .36, 1); }
+.cupo-bar { transition: width .9s cubic-bezier(.22, 1, .36, 1), background-color .3s; }
+
+/* Marcador "dónde deberías ir hoy" en las metas */
+.goal-marker { position: absolute; top: -2px; bottom: -2px; width: 2px; border-radius: 2px; background: rgb(var(--p-500)); box-shadow: 0 0 0 1px rgba(255, 255, 255, .6); }
+
+/* "Pagada ✓" */
+@keyframes pop { 0% { transform: scale(.6); opacity: 0; } 60% { transform: scale(1.25); } 100% { transform: scale(1); opacity: 1; } }
+.pop { display: inline-block; animation: pop .5s ease; }
+
+/* Círculo decorativo flotante */
+@keyframes floatSlow { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
+.float-slow { animation: floatSlow 6s ease-in-out infinite; }
+
+/* Chips de tarjetas */
+.subchips { padding-left: 2px; }
+
+
+/* Modo incógnito: los campos con montos se desenfocan hasta que los tocas */
+body.mask :is(#appMain, #modalContainer) :is(input[inputmode="numeric"], input[inputmode="decimal"], textarea):not(:focus):not(#cq):not(#sQ):not(.pct) { filter: blur(6px); }
+
+/* Accesibilidad: sin animaciones si el usuario lo prefiere */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+/* ===== Estilo iOS ===== */
+
+/* Barra superior: transparente arriba; al bajar se vuelve translúcida con línea fina (como las apps de iPhone) */
+header { padding-top: env(safe-area-inset-top, 0px); }
+.ios-nav { transition: background-color .2s ease, border-color .2s ease; border-bottom: .5px solid transparent; }
+.ios-nav.scrolled { background: rgb(var(--n-50) / .8); -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px); border-bottom-color: rgb(var(--n-300) / .6); }
+.dark .ios-nav.scrolled { background: rgb(var(--n-950) / .72); border-bottom-color: rgb(var(--n-700) / .6); }
+.nav-btn { width: 36px; height: 36px; border-radius: 9999px; display: flex; align-items: center; justify-content: center; background: rgb(var(--n-200) / .6); color: rgb(var(--p-600)); transition: background-color .15s, transform .1s; }
+.nav-btn:active { transform: scale(.92); }
+.dark .nav-btn { background: rgb(var(--n-800)); color: rgb(var(--p-400)); }
+
+/* Barra de pestañas inferior translúcida */
+#tabBar { background: rgb(var(--n-50) / .82); -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px); border-top: .5px solid rgb(var(--n-300) / .7); padding-bottom: env(safe-area-inset-bottom, 0px); }
+.dark #tabBar { background: rgb(var(--n-900) / .8); border-top-color: rgb(var(--n-700) / .6); }
+#fab { bottom: calc(49px + 14px + env(safe-area-inset-bottom, 0px)); }
+#toast { bottom: calc(49px + 84px + env(safe-area-inset-bottom, 0px)); }
+body { padding-bottom: calc(49px + 28px + env(safe-area-inset-bottom, 0px)); }
+
+/* Filas de lista con línea separadora fina que empieza después del icono */
+.ios-row { position: relative; }
+.ios-row:not(:last-child)::after { content: ""; position: absolute; left: 48px; right: 0; bottom: 0; height: .5px; background: rgb(var(--n-200)); }
+.dark .ios-row:not(:last-child)::after { background: rgb(var(--n-800)); }
+
+/* Interruptor estilo iOS (reemplaza las casillas de verificación) */
+.ios-switch { -webkit-appearance: none; appearance: none; flex-shrink: 0; position: relative; width: 51px; height: 31px; border-radius: 9999px; background: rgb(var(--n-300)); cursor: pointer; transition: background-color .25s ease; outline-offset: 2px; }
+.ios-switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 27px; height: 27px; border-radius: 9999px; background: #fff; box-shadow: 0 2px 4px rgba(0, 0, 0, .25); transition: transform .25s cubic-bezier(.3, .7, .4, 1); }
+.ios-switch:checked { background: #34C759; }
+.ios-switch:checked::after { transform: translateX(20px); }
+.ios-switch.sm { width: 42px; height: 26px; }
+.ios-switch.sm::after { width: 22px; height: 22px; }
+.ios-switch.sm:checked::after { transform: translateX(16px); }
+.dark .ios-switch:not(:checked) { background: rgb(var(--n-700)); }
+
+/* Hojas inferiores en el celular: los formularios suben desde abajo con un "agarre" arriba */
+@media (max-width: 639px) {
+    #generalModal { align-items: flex-end; padding: 0; }
+    #modalContainer { position: relative; max-width: none; max-height: 92vh; border: 0; border-radius: 20px 20px 0 0; padding-top: 30px; padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px)); transition: transform .35s cubic-bezier(.32, .72, 0, 1); }
+    #modalContainer.scale-95 { transform: translateY(100%); }
+    #modalContainer.scale-100 { transform: none; }
+    #modalContainer::before { content: ""; position: absolute; top: 8px; left: 50%; width: 36px; height: 5px; margin-left: -18px; border-radius: 3px; background: rgb(var(--n-300)); }
+    .dark #modalContainer::before { background: rgb(var(--n-600)); }
+}
+
+/* iPhone/touch: con menos de 16px Safari hace zoom al tocar un campo. Se sube el tamaño solo en pantallas táctiles. */
+@media (pointer: coarse) {
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]), select, textarea { font-size: 16px !important; }
+}
+
+/* Tema iOS: verde y rojo de sistema (en texto sobre claro se usan versiones más oscuras para que se lean) */
+html[data-theme="ios"] :is(.bg-emerald-500, .bg-emerald-600) { background-color: #34C759; }
+html[data-theme="ios"] :is(.bg-rose-500, .bg-rose-600) { background-color: #FF3B30; }
+html[data-theme="ios"] :is(.text-emerald-500, .text-emerald-600) { color: #248A3D; }
+html[data-theme="ios"] :is(.text-rose-500, .text-rose-600) { color: #D70015; }
+html.dark[data-theme="ios"] :is(.text-emerald-500, .text-emerald-600, .dark\:text-emerald-400) { color: #30D158; }
+html.dark[data-theme="ios"] :is(.text-rose-500, .text-rose-600, .dark\:text-rose-400) { color: #FF453A; }
+
+/* Filas deslizables: Editar / Borrar quedan detrás y aparecen al arrastrar a la izquierda */
+.swipe { position: relative; overflow: hidden; }
+.swipe-act { position: absolute; top: 0; right: 0; bottom: 0; display: flex; }
+.swipe-act button { width: 72px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: #fff; font-size: 12px; font-weight: 600; }
+.swipe-in { position: relative; transition: transform .28s cubic-bezier(.3, .7, .4, 1); touch-action: pan-y; }
+.swipe:not(:last-child) > .swipe-in::after { content: ""; position: absolute; left: 48px; right: 0; bottom: 0; height: .5px; background: rgb(var(--n-200)); }
+.dark .swipe:not(:last-child) > .swipe-in::after { background: rgb(var(--n-800)); }
+/* En pantallas táctiles se usa el gesto; los iconos de lápiz y papelera quedan para el mouse */
+@media (pointer: coarse) { .mv-btns { display: none; } }
+
+/* Transición al entrar/salir de una pantalla dentro de "Más" (como el push de iOS) */
+@keyframes slideFwd { from { opacity: 0; transform: translateX(36px); } to { opacity: 1; transform: none; } }
+@keyframes slideBack { from { opacity: 0; transform: translateX(-36px); } to { opacity: 1; transform: none; } }
+#appMain.nav-fwd { animation: slideFwd .38s cubic-bezier(.32, .72, 0, 1) both; }
+#appMain.nav-back { animation: slideBack .38s cubic-bezier(.32, .72, 0, 1) both; }
+[data-col] { scroll-margin-top: calc(60px + env(safe-area-inset-top, 0px)); }
+
+/* Formulario de movimiento: monto grande y cuadrícula de categorías */
+#amt.amt-big { font-size: 44px !important; line-height: 1.1; text-align: center; padding: 0 !important; margin: 0; box-sizing: content-box; font-variant-numeric: tabular-nums; }
+/* El monto va sin recuadro (las reglas generales de campos de los modales lo pintaban; esta es más específica a propósito) */
+html #modalContainer #amt.amt-big { background: transparent !important; box-shadow: none !important; border: 0 !important; outline: 0 !important; }
+/* El símbolo ($ / US$) cuelga a la izquierda del número: así el número queda centrado de verdad */
+.amt-wrap { max-width: 100%; }
+.amt-sym { position: absolute; right: 100%; margin-right: 6px; line-height: 1.1; white-space: nowrap; }
+.cat-tile { -webkit-tap-highlight-color: transparent; }
+.cat-tile .cat-ic { transition: transform .15s ease, box-shadow .15s ease; }
+.cat-tile:active .cat-ic { transform: scale(.92); }
+.cat-tile.on .cat-ic { box-shadow: 0 0 0 3px rgb(var(--n-50)), 0 0 0 5px rgb(var(--p-500)); }
+.dark .cat-tile.on .cat-ic { box-shadow: 0 0 0 3px rgb(var(--n-900)), 0 0 0 5px rgb(var(--p-400)); }
+.cat-tile.on .cat-nm { color: rgb(var(--p-600)); font-weight: 600; }
+.dark .cat-tile.on .cat-nm { color: rgb(var(--p-400)); }
+
+/* La hoja no pasa el scroll a la página de atrás */
+#modalContainer { overscroll-behavior: contain; }
+/* Fecha del formulario: alineada a la izquierda y con la misma altura que el selector */
+#cardSel, #whSel { min-width: 0; }
+/* Campos de fecha (en todos los modales): nunca se salen del contenedor y quedan alineados */
+input[type="date"], input[type="month"], input[type="time"] { -webkit-appearance: none; appearance: none; display: block; width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; text-align: left; min-height: 44px; }
+input[type="date"]::-webkit-date-and-time-value, input[type="month"]::-webkit-date-and-time-value { text-align: left; margin: 0; min-width: 0; }
+#modalContainer { overflow-x: hidden; }
+#modalContainer input, #modalContainer select, #modalContainer textarea { max-width: 100%; box-sizing: border-box; }
+
+/* Sin zoom: la app se siente como app, no como página web */
+html { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+html, body { overscroll-behavior-x: none; }
+body { -webkit-touch-callout: none; }
+input, textarea, select, [contenteditable] { -webkit-user-select: text; user-select: text; }
+
+/* ===== mejoras.css ===== */
+/* ===== Mi Plata · mejoras.css =====
+   Estilos de las mejoras de la versión 8. Va aparte de styles.css para no tocarlo. Se carga después de styles.css. */
+
+/* ---- Aviso con botón "Deshacer" ----
+   Mientras está escondido no debe tapar toques (antes quedaba invisible encima de la barra de pestañas). */
+#toast { max-width: calc(100vw - 2.5rem); }
+#toast.opacity-0 { pointer-events: none; }
+#toast .toast-act { flex-shrink: 0; padding: 2px 4px; font-weight: 700; white-space: nowrap; color: rgb(var(--p-300)); }
+.dark #toast .toast-act { color: rgb(var(--p-600)); }
+#toast .toast-act:active { opacity: .6; }
+
+/* ---- Deslizar el mes en la tarjeta de disponible ---- */
+[data-hero] { touch-action: pan-y; }
+@keyframes heroR { from { opacity: .35; transform: translateX(28px); } to { opacity: 1; transform: none; } }
+@keyframes heroL { from { opacity: .35; transform: translateX(-28px); } to { opacity: 1; transform: none; } }
+.hero-r { animation: heroR .3s cubic-bezier(.22, 1, .36, 1); }
+.hero-l { animation: heroL .3s cubic-bezier(.22, 1, .36, 1); }
+
+/* ---- Mantener presionado un movimiento para duplicarlo ---- */
+.swipe-in { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+@keyframes lpHold { to { opacity: .45; } }
+.swipe-in.lp-hold { animation: lpHold .43s ease-out forwards; }
+/* La pista solo tiene sentido en pantallas táctiles */
+@media (hover: hover) and (pointer: fine) { .mv-hint { display: none; } }
+
+/* ---- Tamaño de letra del sistema (Dynamic Type de iOS) ----
+   tema.js calcula --fs (1 = tamaño normal de iOS) y aquí solo se escalan los TEXTOS, no los espacios.
+   Los tamaños en px de Tailwind no escalan solos, por eso se redefinen con la variable.
+   (html delante = más prioridad que las clases que genera Tailwind.) */
+html .text-xs { font-size: calc(.75rem * var(--fs, 1)); }
+html .text-sm { font-size: calc(.875rem * var(--fs, 1)); }
+html .text-base { font-size: calc(1rem * var(--fs, 1)); }
+html .text-lg { font-size: calc(1.125rem * var(--fs, 1)); }
+html .text-xl { font-size: calc(1.25rem * var(--fs, 1)); }
+html .text-2xl { font-size: calc(1.5rem * var(--fs, 1)); }
+html .text-3xl { font-size: calc(1.875rem * var(--fs, 1)); }
+html .text-xs:not([class*="leading-"]) { line-height: calc(1rem * var(--fs, 1)); }
+html .text-sm:not([class*="leading-"]) { line-height: calc(1.25rem * var(--fs, 1)); }
+html .text-base:not([class*="leading-"]) { line-height: calc(1.5rem * var(--fs, 1)); }
+html .text-lg:not([class*="leading-"]), html .text-xl:not([class*="leading-"]) { line-height: calc(1.75rem * var(--fs, 1)); }
+html .text-2xl:not([class*="leading-"]) { line-height: calc(2rem * var(--fs, 1)); }
+html .text-3xl:not([class*="leading-"]) { line-height: calc(2.25rem * var(--fs, 1)); }
+html .text-\[7px\] { font-size: calc(7px * var(--fs, 1)); }
+html .text-\[8px\] { font-size: calc(8px * var(--fs, 1)); }
+html .text-\[10px\] { font-size: calc(10px * var(--fs, 1)); }
+html .text-\[11px\] { font-size: calc(11px * var(--fs, 1)); }
+html .text-\[17px\] { font-size: calc(17px * var(--fs, 1)); }
+html .text-\[21px\] { font-size: calc(21px * var(--fs, 1)); }
+html .text-\[34px\] { font-size: calc(34px * var(--fs, 1)); }
+html .leading-\[41px\] { line-height: calc(41px * var(--fs, 1)); }
+@media (min-width: 640px) {
+    html .sm\:text-sm { font-size: calc(.875rem * var(--fs, 1)); }
+    html .sm\:text-sm:not([class*="leading-"]) { line-height: calc(1.25rem * var(--fs, 1)); }
+}
+/* La barra de pestañas se queda con su tamaño (como en iOS) para que no se desarme */
+html #tabBar .text-\[10px\] { font-size: 10px; }
+html #tabBar .text-\[21px\] { font-size: 21px; }
+
+/* Micrófono de "Anotar rápido": late en rojo mientras escucha */
+#qeMic.qe-rec { background: #FF3B30; color: #fff; animation: qePulse 1.1s ease-in-out infinite; }
+@keyframes qePulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(255,59,48,.5); } 50% { box-shadow: 0 0 0 8px rgba(255,59,48,0); } }
+
+/* ---- Interfaz más limpia: ⋯, ?, plegables ---- */
+details.mx { display: inline-block; position: relative; }
+details.mx > summary { list-style: none; cursor: pointer; padding: 6px 14px; border-radius: 12px; font-size: 14px; font-weight: 700; line-height: 1.2; background: rgb(241 245 249); color: rgb(100 116 139); }
+html.dark details.mx > summary { background: rgb(30 41 59); color: rgb(148 163 184); }
+details.mx > summary::-webkit-details-marker, details.hq > summary::-webkit-details-marker, details.sdet > summary::-webkit-details-marker { display: none; }
+details.mx[open] > summary { background: rgb(224 231 255); color: rgb(79 70 229); }
+details.mx .mx-b { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+details.mx[open] { display: block; flex-basis: 100%; }
+details.hq { display: inline-block; vertical-align: middle; margin-left: 6px; }
+details.hq > summary { list-style: none; cursor: pointer; width: 18px; height: 18px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; background: rgb(226 232 240); color: rgb(100 116 139); }
+html.dark details.hq > summary { background: rgb(51 65 85); color: rgb(203 213 225); }
+details.hq[open] { display: block; margin: 6px 0 0; }
+details.hq > p { font-size: 11px; line-height: 1.45; color: rgb(100 116 139); margin-top: 6px; font-weight: 400; text-transform: none; letter-spacing: 0; }
+details.sdet { margin-bottom: 12px; }
+details.sdet > summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; font-size: 12px; font-weight: 600; color: rgb(100 116 139); padding: 8px 2px; }
+details.sdet > summary::after { content: "›"; font-size: 18px; line-height: 1; transition: transform .15s; }
+details.sdet[open] > summary::after { transform: rotate(90deg); }
+details.sdet > .sdet-b { padding-top: 4px; }
+.theme-strip { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px; scroll-snap-type: x proximity; }
+.theme-strip > * { flex: 0 0 84px; scroll-snap-align: start; }
+details.sdh > summary { font-size: 14px; font-weight: 700; color: inherit; padding: 0; }
+
+/* ===== pantallas.css ===== */
+/* ===== Mi Plata · pantallas.css =====
+   Estilos de las pantallas nuevas (Calendario, Resumen del año), la guía de bienvenida y el confeti. Se carga después de mejoras.css. */
+
+/* ---- Calendario ---- */
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; }
+.cal-day { aspect-ratio: 1 / 1; min-height: 40px; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: rgb(var(--n-800)); transition: background-color .15s, transform .1s; }
+.dark .cal-day { color: rgb(var(--n-100)); }
+.cal-day:active { transform: scale(.92); }
+.cal-today { background: rgb(var(--p-500) / .14); color: rgb(var(--p-600)); font-weight: 700; }
+.dark .cal-today { color: rgb(var(--p-300)); }
+.cal-sel { background: rgb(var(--p-600)); color: #fff !important; }
+.cal-dots { display: flex; gap: 3px; height: 5px; }
+.cal-dots i { width: 5px; height: 5px; border-radius: 9999px; display: block; }
+.cal-sel .cal-dots i { box-shadow: 0 0 0 1px rgba(255, 255, 255, .85); }
+.cal-lg { display: inline-block; width: 8px; height: 8px; border-radius: 9999px; margin-right: 5px; }
+
+/* ---- Resumen del año: tarjetas que se deslizan ---- */
+.yr-row { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; padding: 2px 2px 14px; margin: 0 -2px; }
+.yr-card { scroll-snap-align: center; flex: 0 0 82%; max-width: 22rem; min-height: 340px; border-radius: 28px; padding: 24px; color: #fff; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 10px 24px rgba(0, 0, 0, .14); }
+.yr-ic { width: 48px; height: 48px; border-radius: 16px; background: rgba(255, 255, 255, .22); display: inline-flex; align-items: center; justify-content: center; font-size: 20px; }
+.yr-big { font-size: 40px; line-height: 1.05; font-weight: 800; letter-spacing: -.02em; word-break: break-word; }
+@media (min-width: 640px) { .yr-card { flex-basis: 22rem; } }
+
+/* ---- Confeti ---- */
+.confetti { position: fixed; inset: 0; pointer-events: none; z-index: 70; overflow: hidden; }
+.confetti i { position: absolute; top: -16px; width: 8px; height: 14px; border-radius: 2px; animation: confall 2.1s cubic-bezier(.2, .6, .4, 1) forwards; }
+@keyframes confall { to { transform: translate(var(--dx), 108vh) rotate(var(--r)); opacity: .85; } }
+
+/* ---- Tarjeta "Tu año" en Inicio (plegable: usa colSec) ---- */
+section.yt-sec.yt-sec { color: #fff; border-color: transparent; background: radial-gradient(120% 140% at 100% 0%, rgb(var(--p-500) / .55), transparent 55%), linear-gradient(135deg, #1c1c1e, #2c2c2e); box-shadow: 0 8px 22px rgba(0, 0, 0, .18); }
+.yt-sec [role="button"] > span:last-child { background: rgba(255, 255, 255, .16); color: #fff; }
+.yt-body { display: flex; align-items: center; justify-content: space-between; gap: 8px; cursor: pointer; }
+.yt-body:active { opacity: .85; }
+.yt-txt { min-width: 0; flex: 1; }
+.yt-chip { display: inline-block; padding: 3px 9px; border-radius: 9999px; background: rgba(255, 255, 255, .16); font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.yt-title { font-size: 21px; line-height: 1.15; font-weight: 800; letter-spacing: -.02em; margin-top: 10px; }
+.yt-sub { font-size: 12px; line-height: 1.45; opacity: .82; margin-top: 4px; }
+.yt-bits { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.yt-bits span { padding: 3px 9px; border-radius: 9999px; background: rgba(255, 255, 255, .12); font-size: 11px; font-weight: 600; white-space: nowrap; }
+.yt-go { display: inline-flex; align-items: center; gap: 6px; margin-top: 12px; font-size: 12px; font-weight: 700; color: rgb(var(--p-200)); }
+.yt-stack { position: relative; flex: 0 0 116px; height: 124px; }
+.yt-stack i { position: absolute; width: 64px; height: 94px; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 20px; color: #fff; box-shadow: 0 8px 16px rgba(0, 0, 0, .35); transform: rotate(var(--r)); animation: ytFloat 4.5s ease-in-out infinite; }
+.yt-stack i:nth-child(2) { animation-delay: -1.5s; }
+.yt-stack i:nth-child(3) { animation-delay: -3s; }
+@keyframes ytFloat { 0%, 100% { transform: rotate(var(--r)) translateY(0); } 50% { transform: rotate(var(--r)) translateY(-6px); } }
+@media (max-width: 360px) { .yt-stack { display: none; } }
+
+/* ===== estetica.css ===== */
+/* ===== Mi Plata · estetica.css =====
+   Anillos, mini gráficas, selectores de emoji/color, esqueletos, números tabulares, ilustraciones y el show del Resumen del año.
+   Se carga al final (después de pantallas.css). */
+
+/* ---- Cifras: números tabulares para que no "bailen" y más peso en las grandes ---- */
+body { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1, "lnum" 1; }
+h2.text-3xl, div.text-3xl, .yr-big, .yt-title { font-weight: 800; letter-spacing: -.035em; }
+div.text-2xl.font-extrabold, h4.text-lg { letter-spacing: -.025em; }
+[data-hero] h2 { font-size: calc(2.5rem * var(--fs, 1)); line-height: 1.05; }
+[data-hero] [data-cu] { font-variant-numeric: tabular-nums; }
+input, textarea { font-variant-numeric: tabular-nums; }
+
+/* ---- Anillos de progreso ---- */
+.ring { position: relative; display: inline-block; flex-shrink: 0; }
+.ring svg { width: 100%; height: 100%; display: block; overflow: visible; }
+.ring-track { stroke: rgb(var(--n-200)); }
+.dark .ring-track { stroke: rgb(var(--n-800)); }
+.ring-fg { stroke-dashoffset: var(--o); animation: ringIn 1s cubic-bezier(.22, 1, .36, 1) both; }
+@keyframes ringIn { from { stroke-dashoffset: var(--c); } to { stroke-dashoffset: var(--o); } }
+.ring-mark { fill: #fff; stroke: rgb(var(--n-500)); stroke-width: 1.6; }
+.dark .ring-mark { fill: rgb(var(--n-900)); stroke: rgb(var(--n-300)); }
+.ring-in { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; line-height: 1; text-align: center; }
+.ring-pct { font-size: calc(19px * var(--fs, 1)); font-weight: 800; letter-spacing: -.03em; }
+.ring-sub { font-size: calc(9px * var(--fs, 1)); color: rgb(var(--n-400)); margin-top: 2px; font-weight: 600; }
+.goal-tint { border-radius: 9999px; display: flex; align-items: center; justify-content: center; }
+
+/* ---- Mini gráfica ---- */
+.spark { display: block; overflow: visible; }
+.spark-line { stroke-dasharray: 1; stroke-dashoffset: 0; animation: sparkIn 1.1s cubic-bezier(.22, 1, .36, 1) both; }
+@keyframes sparkIn { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+.spark-dot { animation: dotIn .4s ease .9s both; }
+@keyframes dotIn { from { opacity: 0; transform: scale(0); transform-box: fill-box; transform-origin: center; } to { opacity: 1; transform: scale(1); transform-box: fill-box; transform-origin: center; } }
+.nw-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+.nw-trend { display: inline-flex; align-items: center; gap: 4px; font-size: calc(11px * var(--fs, 1)); font-weight: 700; margin-top: 2px; }
+
+/* ---- Bolsillos ---- */
+.pk-tile { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.pk-mini { display: flex; margin-top: 8px; }
+.pk-mini .pk-tile { box-shadow: 0 0 0 2px rgb(var(--n-50)); margin-left: -5px; }
+.pk-mini .pk-tile:first-child { margin-left: 0; }
+.dark .pk-mini .pk-tile { box-shadow: 0 0 0 2px rgb(var(--n-900)); }
+.pk-mini .pk-more { font-size: 10px; align-self: center; margin-left: 6px; color: rgb(var(--n-400)); font-weight: 600; }
+
+/* ---- Selector de muestras en los formularios ---- */
+.sw-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(40px, 1fr)); gap: 8px; }
+.sw-opt { height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 19px; line-height: 1; background: rgb(var(--n-100)); color: rgb(var(--n-600)); transition: transform .12s ease, box-shadow .15s ease; }
+.dark .sw-opt { background: rgb(var(--n-800)); color: rgb(var(--n-300)); }
+.sw-opt:active { transform: scale(.9); }
+.sw-opt .fa-solid { font-size: 15px; }
+.sw-opt.on { box-shadow: 0 0 0 2px rgb(var(--n-50)), 0 0 0 4px rgb(var(--p-500)); }
+.dark .sw-opt.on { box-shadow: 0 0 0 2px rgb(var(--n-900)), 0 0 0 4px rgb(var(--p-400)); }
+.sw-opt[style*="background"] { color: #fff; }
+
+/* ---- Esqueletos de carga ---- */
+.sk { display: inline-block; border-radius: 7px; background: linear-gradient(90deg, rgb(var(--n-200)) 25%, rgb(var(--n-100)) 50%, rgb(var(--n-200)) 75%); background-size: 200% 100%; animation: skShine 1.1s linear infinite; vertical-align: middle; }
+.dark .sk { background: linear-gradient(90deg, rgb(var(--n-800)) 25%, rgb(var(--n-700)) 50%, rgb(var(--n-800)) 75%); background-size: 200% 100%; }
+@keyframes skShine { to { background-position: -200% 0; } }
+
+/* ---- Calendario: el mes entra deslizando hacia el lado al que avanzas ---- */
+@keyframes calR { from { opacity: 0; transform: translateX(26px); } to { opacity: 1; transform: none; } }
+@keyframes calL { from { opacity: 0; transform: translateX(-26px); } to { opacity: 1; transform: none; } }
+.cal-in-r { animation: calR .32s cubic-bezier(.22, 1, .36, 1) both; }
+.cal-in-l { animation: calL .32s cubic-bezier(.22, 1, .36, 1) both; }
+
+/* ---- Estados vacíos con ilustración ---- */
+.empty-ill { position: relative; width: 168px; height: 112px; margin-bottom: 6px; display: flex; align-items: center; justify-content: center; }
+.empty-ill.compact { width: 132px; height: 88px; }
+.empty-ill svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.empty-ill .ei-circle { position: relative; z-index: 1; border-radius: 9999px; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 18px -6px var(--ec); }
+.ei-float { animation: eiFloat 5s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+.ei-float.b { animation-delay: -1.7s; }
+.ei-float.c { animation-delay: -3.2s; }
+@keyframes eiFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+
+/* ---- Resumen del año: más show ---- */
+.yr-card { position: relative; overflow: hidden; isolation: isolate; }
+.yr-card > * { position: relative; z-index: 2; }
+.yr-card::before { content: ""; position: absolute; z-index: 0; top: -70px; right: -60px; width: 230px; height: 230px; border-radius: 9999px; background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, .34), rgba(255, 255, 255, 0) 70%); animation: yrDrift 9s ease-in-out infinite; }
+.yr-card::after { content: ""; position: absolute; z-index: 0; bottom: -80px; left: -50px; width: 210px; height: 210px; border-radius: 42% 58% 55% 45% / 50% 45% 55% 50%; background: rgba(255, 255, 255, .11); animation: yrDrift 11s ease-in-out infinite reverse; }
+@keyframes yrDrift { 0%, 100% { transform: translate(0, 0) rotate(0); } 50% { transform: translate(-14px, 12px) rotate(12deg); } }
+.yr-shapes { position: absolute !important; inset: 0; z-index: 1 !important; pointer-events: none; }
+.yr-shapes i { position: absolute; display: block; }
+.yr-shapes .s1 { width: 14px; height: 14px; border-radius: 9999px; border: 3px solid rgba(255, 255, 255, .5); top: 26%; right: 18%; }
+.yr-shapes .s2 { width: 20px; height: 20px; border-radius: 6px; background: rgba(255, 255, 255, .22); transform: rotate(18deg); top: 44%; right: 9%; }
+.yr-shapes .s3 { width: 9px; height: 9px; border-radius: 9999px; background: rgba(255, 255, 255, .55); bottom: 38%; left: 12%; }
+.yr-deco { position: absolute !important; z-index: 1 !important; right: -18px; bottom: 54px; font-size: 150px; line-height: 1; color: rgba(255, 255, 255, .13); transform: rotate(-12deg); pointer-events: none; }
+.yr-big { font-variant-numeric: tabular-nums; }
+.yr-card .yr-ic { backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.yr-end { background: radial-gradient(120% 90% at 100% 0%, rgb(var(--p-500) / .6), transparent 60%), linear-gradient(160deg, #1c1c1e, #000); }
+.yr-end .yr-big { font-size: 34px; }
+.yr-end-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 14px 0; }
+.yr-end-grid div { background: rgba(255, 255, 255, .1); border-radius: 14px; padding: 10px 12px; min-width: 0; }
+.yr-end-grid small { display: block; font-size: 10px; opacity: .7; }
+.yr-end-grid b { display: block; font-size: 15px; font-weight: 800; letter-spacing: -.02em; overflow-wrap: anywhere; }
+.yr-end-btn { width: 100%; padding: 12px; border-radius: 14px; background: #fff; color: #1c1c1e; font-weight: 700; font-size: 14px; }
+.yr-end-btn:active { transform: scale(.98); }
+@media (prefers-reduced-motion: reduce) { .ring-fg, .spark-line, .spark-dot { animation: none !important; } }
