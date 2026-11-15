@@ -357,9 +357,11 @@ function movFormHTML() {
                 </div>
                 <p id="qeHint" class="text-[11px] text-indigo-500 font-semibold mt-1 empty:hidden"></p>
             </div>
-            <div class="flex items-center justify-center gap-1.5 py-1">
-                <span id="amtSym" class="text-3xl font-semibold text-slate-400">${amtUsd ? "US$" : "$"}</span>
+            <div class="flex items-center justify-center py-1">
+                <div class="amt-wrap relative inline-flex items-center justify-center">
+                <span id="amtSym" class="amt-sym absolute right-full mr-1.5 text-3xl font-semibold text-slate-400 select-none pointer-events-none">${amtUsd ? "US$" : "$"}</span>
                 <input id="amt" inputmode="${amtUsd ? "decimal" : "numeric"}" enterkeyhint="done" placeholder="0" oninput="amtIn(this)" onkeydown="if(event.key==='Enter')this.blur()" style="width:1ch" class="amt-big min-w-0 max-w-full bg-transparent border-0 p-0 text-center font-bold tracking-tight text-slate-800 dark:text-white focus:ring-0 focus:outline-none" autocomplete="off">
+                </div>
             </div>
             <div class="flex flex-col items-center gap-1 -mt-2">
                 <div class="inline-flex p-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-[11px] font-semibold">

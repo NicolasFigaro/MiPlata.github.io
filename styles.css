@@ -154,7 +154,10 @@ html.dark[data-theme="ios"] :is(.text-rose-500, .text-rose-600, .dark\:text-rose
 [data-col] { scroll-margin-top: calc(60px + env(safe-area-inset-top, 0px)); }
 
 /* Formulario de movimiento: monto grande y cuadrícula de categorías */
-#amt.amt-big { font-size: 44px !important; line-height: 1.1; }
+#amt.amt-big { font-size: 44px !important; line-height: 1.1; text-align: center; padding: 0 !important; margin: 0; box-sizing: content-box; font-variant-numeric: tabular-nums; }
+/* El símbolo ($ / US$) cuelga a la izquierda del número: así el número queda centrado de verdad */
+.amt-wrap { max-width: 100%; }
+.amt-sym { position: absolute; right: 100%; margin-right: 6px; line-height: 1.1; white-space: nowrap; }
 .cat-tile { -webkit-tap-highlight-color: transparent; }
 .cat-tile .cat-ic { transition: transform .15s ease, box-shadow .15s ease; }
 .cat-tile:active .cat-ic { transform: scale(.92); }
