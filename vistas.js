@@ -478,10 +478,9 @@ function vHome() {
             </div>
         </section>
 
-        ${weekUI()}
+        ${nwUI()}
 
-        ${yearTeaser()}
-        ${typeof closeTeaser == "function" ? closeTeaser() : ""}
+        ${weekUI()}
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div onclick="goTab(${N.indexOf("Ahorro")})" class="${CARD} p-4 cursor-pointer hover:border-indigo-500 transition lift">
@@ -496,6 +495,9 @@ function vHome() {
             </div>
         </div>
 
+        ${yearTeaser()}
+        ${typeof closeTeaser == "function" ? closeTeaser() : ""}
+
         <section class="${CARD} p-5">
             <div class="flex items-center justify-between mb-1">
                 <h3 class="text-sm font-bold text-slate-800 dark:text-white">Últimos movimientos${S.items.length ? hq("Desliza para editar o borrar · mantén presionado para duplicar") : ""}</h3>
@@ -509,8 +511,6 @@ function vHome() {
         ${catsSec}
 
         ${tipsUI(by)}
-
-        ${nwUI()}
 
         <button onclick="openSim()" class="${CARD} w-full p-4 flex items-center gap-3 text-left hover:border-indigo-500 transition lift">
             <div class="w-10 h-10 shrink-0 rounded-xl flex items-center justify-center bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400"><i class="fa-solid fa-circle-question"></i></div>
