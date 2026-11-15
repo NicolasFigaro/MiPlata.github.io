@@ -13,12 +13,18 @@ html:not(.dark) {
   --sm-hi: rgb(255 255 255 / .95);
   --cl-ink: rgb(var(--n-900));
   --cl-mute: rgb(var(--n-500));
-  --cl-shadow: 0 14px 30px -20px rgb(var(--n-900) / .38), 0 2px 6px -3px rgb(var(--n-900) / .1);
+  --cl-shadow: 0 18px 34px -22px rgb(var(--p-700) / .5), 0 2px 8px -4px rgb(var(--p-800) / .14);
 }
 
-/* ---------- Fondo: metal claro, con un toque del color del tema ---------- */
+/* ---------- Fondo: metal "perla" — los mismos haces de luz del oscuro, pero claros, con brillos del color del tema ---------- */
 html:not(.dark) body::before {
-  background-image: linear-gradient(rgb(var(--p-50) / .72), rgb(var(--n-100) / .9)), linear-gradient(var(--sm-tint), var(--sm-tint)), url(metal.jpg) !important;
+  background-color: rgb(var(--p-100)) !important;
+  background-image:
+    radial-gradient(80% 36% at 0% 0%, rgb(var(--p-300) / .55), transparent 66%),
+    radial-gradient(70% 38% at 100% 30%, rgb(var(--p-200) / .6), transparent 68%),
+    radial-gradient(95% 44% at 50% 112%, rgb(var(--p-400) / .38), transparent 64%),
+    url(metal.jpg) !important;
+  background-size: cover !important; background-position: center top !important; background-blend-mode: normal, normal, normal, overlay !important;
 }
 
 /* ---------- Botones redondos de arriba (buscar, perfil, ver cifras, ⋯, tema) ---------- */
@@ -34,7 +40,7 @@ html:not(.dark) #topBar .fa-sun, html.dark #topBar .fa-moon { display: none !imp
 
 /* ---------- Tarjetas de vidrio claro ---------- */
 html:not(.dark) #appMain .rounded-\[20px\].bg-white {
-  background: linear-gradient(160deg, rgb(255 255 255 / .86), rgb(255 255 255 / .55)) !important;
+  background: linear-gradient(160deg, rgb(255 255 255 / .74), rgb(255 255 255 / .4)) !important;
   border: 1px solid rgb(255 255 255 / .75) !important; color: var(--cl-ink);
   box-shadow: inset 0 1px 0 var(--sm-hi), 0 0 0 1px rgb(var(--n-900) / .05), var(--cl-shadow) !important;
 }
@@ -46,12 +52,12 @@ html:not(.dark) #appMain .rounded-\[20px\] .bg-slate-100.text-slate-600,
 html:not(.dark) #appMain .rounded-\[20px\] .bg-slate-100.dark\:text-slate-300 { color: rgb(var(--n-700)) !important; }
 html:not(.dark) #appMain .swipe-in { background: rgb(var(--n-50)) !important; }
 html:not(.dark) #appMain .rounded-\[20px\] .swipe-in { border-color: rgb(var(--n-900) / .06); }
-html:not(.dark) .yt-sec { background: linear-gradient(160deg, rgb(255 255 255 / .86), rgb(255 255 255 / .55)), var(--sm-glass) !important; color: var(--cl-ink); }
+html:not(.dark) .yt-sec { background: linear-gradient(160deg, rgb(255 255 255 / .74), rgb(255 255 255 / .4)), var(--sm-glass) !important; color: var(--cl-ink); }
 html:not(.dark) #appMain h3.text-sm, html:not(.dark) #appMain .sec-h h3 { color: var(--cl-ink); }
 
 /* ---------- Cabeceras grandes: el color del tema, con texto blanco ---------- */
 html:not(.dark) :is([data-hero], .sv-hero, .ac-hero, #appMain section[class*="bg-gradient-to-b"]) {
-  background: radial-gradient(120% 90% at 100% 0%, rgb(var(--p-300) / .5), transparent 58%), linear-gradient(155deg, rgb(var(--p-600)), rgb(var(--p-800))) !important;
+  background: linear-gradient(180deg, rgb(255 255 255 / .26), transparent 30%), radial-gradient(120% 90% at 100% 0%, rgb(var(--p-300) / .55), transparent 58%), linear-gradient(155deg, rgb(var(--p-600)), rgb(var(--p-800))) !important;
   border: 1px solid rgb(255 255 255 / .38) !important; color: #fff;
   box-shadow: inset 0 1px 0 rgb(255 255 255 / .4), 0 26px 40px -26px rgb(var(--p-700) / .85) !important;
   -webkit-backdrop-filter: none; backdrop-filter: none;
@@ -65,7 +71,7 @@ html:not(.dark) .tc-card { color: #fff; }
 
 /* ---------- Acciones rápidas y widgets ---------- */
 html:not(.dark) .qa-pill, html:not(.dark) .wd {
-  background: linear-gradient(160deg, rgb(255 255 255 / .88), rgb(255 255 255 / .56)) !important; color: var(--cl-ink);
+  background: linear-gradient(160deg, rgb(255 255 255 / .74), rgb(255 255 255 / .4)) !important; color: var(--cl-ink);
   border: 1px solid rgb(255 255 255 / .8); box-shadow: inset 0 1px 0 #fff, 0 0 0 1px rgb(var(--n-900) / .05), var(--cl-shadow);
 }
 html:not(.dark) .qa-pill i { color: rgb(var(--p-600)) !important; }
@@ -74,7 +80,7 @@ html:not(.dark) .wd-l, html:not(.dark) .wd-s { color: var(--cl-mute); }
 html:not(.dark) .wd-v { color: var(--cl-ink); }
 
 /* ---------- Cuentas ---------- */
-html:not(.dark) .ac-row { background: linear-gradient(160deg, rgb(255 255 255 / .88), rgb(255 255 255 / .56)) !important; color: var(--cl-ink); border-color: rgb(255 255 255 / .8) !important; box-shadow: inset 0 1px 0 #fff, 0 0 0 1px rgb(var(--n-900) / .05), var(--cl-shadow); }
+html:not(.dark) .ac-row { background: linear-gradient(160deg, rgb(255 255 255 / .74), rgb(255 255 255 / .4)) !important; color: var(--cl-ink); border-color: rgb(255 255 255 / .8) !important; box-shadow: inset 0 1px 0 #fff, 0 0 0 1px rgb(var(--n-900) / .05), var(--cl-shadow); }
 html:not(.dark) .ac-row.on { background: linear-gradient(160deg, rgb(var(--p-100) / .9), rgb(255 255 255 / .6)) !important; }
 html:not(.dark) .ac-row .ac-main b { color: rgb(var(--n-800)); }
 html:not(.dark) .ac-row .ac-main small { color: var(--cl-mute) !important; }

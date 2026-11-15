@@ -564,6 +564,7 @@ function walPanel(a) {
                 ${qa("", `editWal(${a.id})`, "fa-pen", "Editar")}
                 ${qa("danger", `delWal(${a.id})`, "fa-trash", "Borrar")}
             </div>
+            ${walYieldPanelUI(a)}
             <div class="flex justify-between items-center mt-5 mb-1">
                 <h4 class="sv-lbl !mb-0">Bolsillos</h4>
                 <button onclick="newPk(${a.id})" class="px-3 py-1.5 bg-indigo-600 text-white rounded-xl text-xs font-semibold shadow-md">+ Nuevo bolsillo</button>
@@ -592,6 +593,7 @@ function vCue() {
                 <span><i class="dot" style="background:rgb(255 255 255/.4)"></i><em>En bolsillos</em><b>${fmt(held)}</b>${AG > 0.5 ? `<small>incluye ${fmt(AG)} de metas</small>` : ""}</span>
             </div>
         </section>
+        ${walYieldAllUI()}
         <div class="sec-h"><h3>Mis Cuentas</h3></div>
         <div class="${CARD} ac-group">
             ${S.wal.map(a => walRow(a) + (open && open.id == a.id ? walPanel(a) : "")).join("")}
@@ -612,11 +614,7 @@ function quickUI() {
             <button onclick="newTransfer()" class="qa-round" aria-label="Transferir entre cuentas" title="Transferir"><i class="fa-solid fa-right-left"></i></button>
         </div>
         <div class="wd-grid">
-            <button onclick="goTab(N.indexOf('Cuentas'))" class="wd">
-                <span class="wd-l">Dólar hoy</span>
-                <b class="wd-v">${fmtD(S.trm)}</b>
-                <span class="wd-s">COP por US$1</span>
-            </button>
+            ${invWidgetUI()}
             <button onclick="goTab(N.indexOf('Ahorro'))" class="wd wd-yield">
                 <span class="wd-l">Ahorro rinde</span>
                 <span class="wd-ch" aria-hidden="true">
@@ -639,7 +637,7 @@ function walRow(a) {
     return `
         <button onclick="togW(${a.id})" class="ac-row ${sel ? "on" : ""} ${hid ? "dim" : ""}" aria-expanded="${sel}">
             <span class="ac-ic lg" style="--c:${WCOL[a.t] || WCOL.other}"><i class="fa-solid ${T[1]}"></i></span>
-            <span class="ac-main"><b>${esc(a.n)}</b><small>${hid ? "Oculta del resumen" : pk > 0 ? fmt(pk) + " en bolsillos" : T[0]}</small>
+            <span class="ac-main"><b>${esc(a.n)}</b><small>${hid ? "Oculta del resumen" : pk > 0 ? fmt(pk) + " en bolsillos" : T[0]}${walRate(a) > 0 ? " · " + yPct(a.ry) + "% E.A." : ""}</small>
                 ${a.pk.length ? `<span class="pk-mini">${a.pk.slice(0, 5).map(p => pkTile(p, p.m ? S.acc.find(x => x.id == p.m) : null, 1)).join("")}${a.pk.length > 5 ? `<span class="pk-more">+${a.pk.length - 5}</span>` : ""}</span>` : ""}</span>
             <span class="ac-bal ${b < 0 ? "neg" : ""}">${fmt(b)}</span><i class="fa-solid fa-chevron-right ac-ch"></i>
         </button>`;
@@ -811,6 +809,7 @@ function vInv() {
             <p class="text-xs text-purple-100 mt-1">${P.T >= P.C ? "+" : ""}${fmt(P.T - P.C)} sobre lo invertido${P.ann !== null ? ` · ≈ ${pct1(P.ann)} anual (estimado)` : ""}</p>
             <button onclick="togUsd()" class="mt-3 px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-xl text-xs font-semibold">Ver en ${usd ? "COP" : "USD"}</button>
         </section>
+        ${invYieldUI()}
         <div class="flex justify-between items-center mb-3"><span class="text-[11px] text-slate-400 min-w-0 pr-2 truncate">${S.pxAt ? "Precios: hace " + Math.max(1, Math.round((Date.now() - S.pxAt) / 60000)) + " min" : "Precios sin actualizar"}</span><button onclick="refreshPrices(true)" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold shrink-0"><i class="fa-solid fa-rotate mr-1.5"></i>Actualizar precios</button></div>
         <div class="flex justify-between items-center mb-4"><h3 class="text-base font-bold">Mis Inversiones</h3><button onclick="newInv()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold shadow-md">+ Nueva Inversión</button></div>
         ${R || emptyUI("fa-chart-line", "#34C759", "Aún no tienes inversiones", "Registra tus ETFs, acciones o CDT para ver cuánto rinden y cómo está repartido tu portafolio.", "Agregar la primera inversión", "newInv()")}

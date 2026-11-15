@@ -228,7 +228,7 @@ function openCustomModal(title, fields, onSubmitCallback, onCancel) {
         </div>
         <form id="customForm" class="space-y-3">
             ${fields.map((f, i) => `
-                <div>
+                <div ${f.dep ? `data-dep="${f.dep[0]}" data-depv="${f.dep[1]}"` : ""}>
                     <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1 uppercase tracking-wider">${f.l}</label>
                     ${f.sw ? swHTML(f, i) : f.o ? `
                         <select name="f${i}" class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-800 dark:text-white focus:ring-2 focus:ring-indigo-500 text-sm">
@@ -249,6 +249,9 @@ function openCustomModal(title, fields, onSubmitCallback, onCancel) {
     modal.classList.remove("hidden");
     setTimeout(() => { modal.classList.remove("opacity-0"); container.classList.remove("scale-95"); container.classList.add("scale-100"); }, 10);
 
+    // Campos que solo se ven según otro (f.dep = [posición del campo, valor que lo muestra])
+    const depForm = document.getElementById("customForm"), depSync = () => depForm.querySelectorAll("[data-dep]").forEach(el => { const c = depForm.elements["f" + el.dataset.dep]; el.classList.toggle("hidden", !c || c.value != el.dataset.depv); });
+    if (depForm.querySelector("[data-dep]")) { depForm.addEventListener("change", depSync); depSync(); }
     document.getElementById("customForm").onsubmit = e => {
         e.preventDefault();
         const form = document.getElementById("customForm");
@@ -702,9 +705,10 @@ function newWal2(t) {
     openCustomModal("Nueva cuenta · " + WTYPES[t][0], [
         { l: "Nombre", p: "Ej. Bancolombia, Nequi" },
         { l: "¿Cuánto dinero tiene hoy?", m: "numeric", p: "0" }
-    ], v => {
+    ].concat(walRendFields({})), v => {
         const e = walErr(v[0]); if (e) return e;
         const a = { id: Date.now(), n: v[0], t, pk: [] };
+        const er = walRendApply(a, v, 2); if (er) return er;
         S.wal.push(a);
         if (num(v[1])) S.ini[a.n] = num(v[1]);
         syncWH(); walOpen = a.id; save();
@@ -715,8 +719,10 @@ function editWal(id) {
     openCustomModal("Editar cuenta", [
         { l: "Nombre", v: esc(a.n) },
         { l: "Tipo", o: Object.keys(WTYPES).map(k => WTYPES[k][0]), v: WTYPES[a.t][0] }
-    ], v => {
-        if (v[0] != a.n) { const e = walErr(v[0], a.n); if (e) return e; renameWal(a.n, v[0]); a.n = v[0]; }
+    ].concat(walRendFields(a)), v => {
+        if (v[0] != a.n) { const e = walErr(v[0], a.n); if (e) return e; }
+        const er = walRendApply(a, v, 2); if (er) return er;
+        if (v[0] != a.n) { renameWal(a.n, v[0]); a.n = v[0]; }
         a.t = walTypeKey(v[1]);
         syncWH(); save();
     });
