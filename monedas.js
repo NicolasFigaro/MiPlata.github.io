@@ -327,10 +327,10 @@ function sdet(title, inner, cls) {
 }
 
 // Tasas y precios: antes estaban en Inversión, ahora viven en Ajustes
-function ratesUI(card) {
+function ratesUI(card) { return `<section class="${card}"><h3 class="text-base font-bold">Tasas y precios</h3>${ratesBody()}</section>`; }
+function ratesBody() {
     const inpc = "w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs";
     return `
-        <section class="${card}"><h3 class="text-base font-bold">Tasas y precios${hq("Cada cuenta en dólares o euros puede tener su propia diferencia en pesos. Puedes escribir los decimales con coma o con punto.")}</h3>
             <div>
                 <label class="block text-[11px] font-semibold text-slate-500 mb-1">Pesos por 1 dólar (TRM)</label>
                 <div class="flex gap-2"><input id="trmInput" inputmode="decimal" value="${tf(S.trm)}" placeholder="Ej. 3221,56" onkeydown="if(event.key==='Enter')setTrmVal()" class="${inpc}" autocomplete="off"><button onclick="setTrmVal()" class="px-4 bg-indigo-600 text-white font-semibold rounded-xl text-xs shrink-0">Guardar</button></div>
@@ -344,8 +344,7 @@ function ratesUI(card) {
             <div class="pt-3 border-t border-slate-100 dark:border-slate-800">
                 <button onclick="fkModal()" class="w-full py-2.5 bg-slate-100 dark:bg-slate-800 font-semibold rounded-xl text-xs"><i class="fa-solid fa-key mr-1.5"></i>Clave API de precios en vivo</button>
                 <p class="text-[11px] text-slate-400 mt-1.5">Pon ticker y cantidad en cada inversión (lápiz) y pega tu clave gratis de finnhub.io.</p>
-            </div>
-        </section>`;
+            </div>`;
 }
 
 // Tarjeta plegable que recuerda si la dejaste abierta (se usa en Gráficas)

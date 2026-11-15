@@ -507,18 +507,15 @@ async function aiGo(text) {
 /* =====================================================================
    Ajustes: tarjetas de «Importar extracto» y «Asistente»
    ===================================================================== */
-function setNuevas(card) {
+function setNuevas(acc) {
     const has = !!aiKey();
-    return `
-        <section class="${card}"><h3 class="text-base font-bold">Importar extracto del banco</h3>
+    return acc("imp", "fa-file-csv", "#34C759", "Importar extracto del banco", "Archivo .csv del banco", `<div class="space-y-4">
             <p class="text-xs text-slate-400">Sube el archivo .csv que descargas de la página de tu banco o de Nequi. La app detecta las columnas, sugiere categorías (aprende de tus cambios) y te deja revisar antes de importar. Lo que ya tienes registrado no se duplica.</p>
-            <input type="file" accept=".csv,.txt,.tsv,text/csv,text/plain" onchange="csvPick(this)" class="block w-full text-xs text-slate-500 file:mr-3 file:px-4 file:py-2 file:rounded-xl file:border-0 file:bg-slate-800 file:text-white file:font-semibold file:text-xs">
-        </section>
-        <section class="${card}"><h3 class="text-base font-bold">Asistente con IA</h3>
+            <input type="file" accept=".csv,.txt,.tsv,text/csv,text/plain" onchange="csvPick(this)" class="block w-full text-xs text-slate-500 file:mr-3 file:px-4 file:py-2 file:rounded-xl file:border-0 file:bg-slate-800 file:text-white file:font-semibold file:text-xs"></div>`)
+    + acc("ai", "fa-wand-magic-sparkles", "#5856D6", "Asistente con IA", has ? "Activo" : "Sin configurar", `<div class="space-y-4">
             <p class="text-xs text-slate-400">${has ? "Activo con " + AI_PROV[aiProv()].who + ". La clave está solo en este celular y no entra en las copias de seguridad." : "Un chat que responde sobre tus finanzas y te resume el mes. Gratis con una clave de Gemini (aistudio.google.com → Get API key) o de pago con una de Anthropic (console.anthropic.com)."}</p>
             <div class="flex flex-wrap gap-2"><button onclick="aiSetup()" class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-xl text-xs">${has ? "Cambiar clave o proveedor" : "Poner mi clave"}</button>
-            <button onclick="goTab(N.indexOf('Asistente'))" class="px-4 py-2 bg-slate-800 dark:bg-slate-700 text-white font-semibold rounded-xl text-xs">Abrir el chat</button></div>
-        </section>`;
+            <button onclick="goTab(N.indexOf('Asistente'))" class="px-4 py-2 bg-slate-800 dark:bg-slate-700 text-white font-semibold rounded-xl text-xs">Abrir el chat</button></div></div>`);
 }
 
 
@@ -590,14 +587,14 @@ function vSubs() {
 /* =====================================================================
    4) NOVEDADES: aviso de «lo nuevo», se muestra una sola vez por versión
    ===================================================================== */
-const NEWS_VER = "12";
+const NEWS_VER = "13";
 const NEWS = [
-    ["fa-wand-magic-sparkles", "#AF52DE", "Más novedades en Mi Plata", "Cinco mejoras nuevas. Te las cuento rápido."],
-    ["fa-bell", "#FF9500", "Alertas de presupuesto", "La app te avisa cuando una categoría llega al 80 % de su presupuesto y cuando se pasa, también si el gasto entró por una importación o por un gasto fijo."],
-    ["fa-repeat", "#FF2D55", "Suscripciones", "En Más → Suscripciones ves tus cobros repetidos (Netflix, Spotify…), cuánto suman al mes y al año, y cuándo toca el próximo."],
-    ["fa-dollar-sign", "#34C759", "Gastos en dólares", "Al anotar un movimiento elige COP o USD. En dólares puedes escribir decimales (12,50) y se guarda con su equivalente en pesos a la TRM del día."],
-    ["fa-pen", "#007AFF", "Editar, ahora de verdad", "Cambia las cuotas y los intereses de un gasto con tarjeta, y la categoría o el medio de pago de un gasto fijo."],
-    ["fa-comment-dots", "#32ADE6", "El asistente crea cosas", "Pídele «propón un presupuesto» o «crea una meta para un viaje de 5 millones» y te deja el botón para confirmarlo."]
+    ["fa-wand-magic-sparkles", "#AF52DE", "Nuevo diseño en Mi Plata", "Cinco cambios nuevos. Te los cuento rápido."],
+    ["fa-sun", "#FF9500", "Modo claro renovado", "El modo claro ahora tiene su propio cristal líquido: tarjetas claras y translúcidas, barra inferior y botones adaptados, y las cabeceras toman el color de tu tema."],
+    ["fa-chart-line", "#34C759", "Ahorro rinde, sin enredos", "La gráfica del widget «Ahorro rinde» ya no se monta sobre la cifra: tiene su propio espacio y se ve bien en claro y en oscuro."],
+    ["fa-chart-pie", "#FF2D55", "Gráficas más bonitas y ligeras", "Segmentos redondeados, barras con degradado y un selector de mes más cómodo. Además se dibujan solo al llegar a ellas, así el celular trabaja menos."],
+    ["fa-sliders", "#007AFF", "Ajustes más ordenados", "Cada sección de Ajustes se pliega y te muestra un resumen de lo que hay dentro (idioma, tasa del dólar, PIN…). Abre solo lo que necesitas."],
+    ["fa-bolt", "#32ADE6", "Más fluida al deslizar", "Menos desenfoque en las tarjetas grandes: el scroll se siente más suave, sobre todo en celulares con varios años."]
 ];
 let newsI = 0;
 function paintNews() {

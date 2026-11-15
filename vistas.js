@@ -5,7 +5,7 @@ const N = ["Inicio", "Cuentas", "Ahorro", "Inversión", "Gráficas", "Tarjetas",
 const V = [vHome, vCue, vAho, vInv, vGra, vTar, vDeu, vCal, vYear, vSet]; // vCal y vYear viven en pantallas.js
 // Pestañas que viven dentro del menú "Más" de la barra inferior (índices de N)
 const MORE = [3, 4, 6, 7, 8, 9];
-const APP_VER = "12";
+const APP_VER = "13";
 const MORE_IC = { "Inversión": ["fa-chart-line", "#34C759"], "Gráficas": ["fa-chart-pie", "#FF9500"], "Deudas": ["fa-hand-holding-dollar", "#FF3B30"], "Calendario": ["fa-calendar-days", "#007AFF"], "Resumen": ["fa-wand-magic-sparkles", "#AF52DE"], "Ajustes": ["fa-gear", "#8E8E93"] };
 function vMore() {
     return `
@@ -617,11 +617,18 @@ function quickUI() {
                 <b class="wd-v">${fmtD(S.trm)}</b>
                 <span class="wd-s">COP por US$1</span>
             </button>
-            <button onclick="goTab(N.indexOf('Ahorro'))" class="wd">
+            <button onclick="goTab(N.indexOf('Ahorro'))" class="wd wd-yield">
                 <span class="wd-l">Ahorro rinde</span>
+                <span class="wd-ch" aria-hidden="true">
+                    <svg class="wd-sp" viewBox="0 0 100 32" preserveAspectRatio="none">
+                        <defs><linearGradient id="wdSpG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="currentColor" stop-opacity=".34"/><stop offset="1" stop-color="currentColor" stop-opacity="0"/></linearGradient></defs>
+                        <path d="M0 27 C14 25 20 15 34 17 S54 11 66 14 S86 6 100 3 L100 32 L0 32 Z" fill="url(#wdSpG)" stroke="none"/>
+                        <path d="M0 27 C14 25 20 15 34 17 S54 11 66 14 S86 6 100 3" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <i class="wd-dot"></i>
+                </span>
                 <b class="wd-v">${D > 0.5 ? "+" + fmt(D) : "—"}</b>
                 <span class="wd-s">${Y > 0.5 ? fmt(Y) + " ganado en total" : "hoy"}</span>
-                <svg class="wd-spark" viewBox="0 0 100 28" aria-hidden="true" preserveAspectRatio="none"><path d="M0 24 C14 22 20 12 34 14 S54 8 66 11 S86 4 100 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
             </button>
         </div>`;
 }
@@ -897,9 +904,9 @@ function vGra() {
     const hasNW = Object.keys(S.nwh).length >= 2;
     return `
         <section class="${CARD} p-5">
-            <div class="flex justify-between items-center mb-4"><h3 class="text-sm font-bold">Gastos por categoría</h3>
-            <div class="flex items-center space-x-2"><button onclick="go(-1)" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800">‹</button><span class="text-xs font-semibold capitalize">${cur.toLocaleDateString(DLOC, { month: "long", year: "numeric" })}</span><button onclick="go(1)" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800">›</button></div></div>
-            <div class="max-w-xs mx-auto"><canvas id="chCat"></canvas></div>
+            <div class="gr-head"><h3 class="text-sm font-bold">Gastos por categoría</h3>
+            <div class="gr-pager"><button onclick="go(-1)" aria-label="Mes anterior">‹</button><span>${(m => m.charAt(0).toUpperCase() + m.slice(1))(cur.toLocaleDateString(DLOC, { month: "long", year: "numeric" }))}</span><button onclick="go(1)" aria-label="Mes siguiente">›</button></div></div>
+            <div class="gr-donut"><canvas id="chCat"></canvas></div>
             <p class="text-[11px] text-slate-400 text-center mt-2">Toca una porción para ver esas compras</p>
         </section>
 
@@ -951,7 +958,18 @@ function ensureChart(cb) {
     });
     chartLoad.then(cb).catch(() => {});
 }
+// Las gráficas de más abajo se dibujan cuando están por aparecer en pantalla (antes se dibujaban todas de una vez, y eso pesa en el celular)
+let chObs = [];
+function lazyChart(id, make) {
+    const el = document.getElementById(id); if (!el) return;
+    const go = () => { el.removeAttribute("data-lz"); if (el.isConnected) { try { make(el); } catch (e) {} } };
+    if (typeof IntersectionObserver == "undefined" || !el.getBoundingClientRect().width || el.getBoundingClientRect().top < innerHeight + 120) return go();
+    el.setAttribute("data-lz", "1");
+    const o = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) { o.disconnect(); go(); } }, { rootMargin: "260px 0px" });
+    o.observe(el); chObs.push(o);
+}
 function drawCharts() {
+    chObs.forEach(o => o.disconnect()); chObs = [];
     charts.forEach(c => c.destroy()); charts = [];
     if (typeof Chart == "undefined") { ensureChart(() => { if (N[tab] == "Gráficas") drawCharts(); }); return; }
     const dark = document.documentElement.classList.contains("dark");
@@ -964,31 +982,36 @@ function drawCharts() {
         D.elements.bar.borderRadius = 6; D.elements.bar.borderSkipped = false;
         D.plugins.legend.labels.usePointStyle = true; D.plugins.legend.labels.boxWidth = 8; D.plugins.legend.labels.boxHeight = 8;
         D.scales.category.grid.display = false; D.scales.linear.border.display = false;
+        // Rendimiento: 2x de resolución es de sobra (en iPhone el 3x casi triplica los píxeles) y la animación más corta se siente igual
+        D.devicePixelRatio = Math.min(window.devicePixelRatio || 1, 2); D.animation.duration = mphOn ? 450 : 0; D.animation.easing = "easeOutQuart";
+        D.plugins.legend.labels.padding = 14;
     } catch (e) {}
+    // Degradados verticales de las barras y del área (efecto «líquido»)
+    const grad = (c1, c2) => cx => { const ch = cx.chart, a = ch.chartArea; if (!a) return c1; const g = ch.ctx.createLinearGradient(0, a.top, 0, a.bottom); g.addColorStop(0, c1); g.addColorStop(1, c2); return g; };
     const GREEN = ios ? "#34C759" : "#10b981", PAL = ios ? [accent(500), "#34C759", "#FF9500", "#FF3B30", "#5AC8FA", "#AF52DE", "#FF2D55", "#8E8E93", "#A2845E", "#30B0C7", "#5856D6", "#FFCC00", "#64D2FF", "#BF5AF2", "#FF6482", "#AC8E68"] : null;
     // Modo incógnito: sin cifras en los ejes ni en los globos al tocar
     Chart.defaults.plugins.tooltip.enabled = !masked();
     const hy = masked() ? { scales: { y: { ticks: { display: false } } } } : {};
     const m = mon(), by = G.map(([c]) => [c, sum(m, x => x.t == "g" && x.c == c && !x.s)]).filter(x => x[1] > 0);
-    charts.push(new Chart(document.getElementById("chCat"), { type: "doughnut", plugins: [donutCenter(by)], options: { cutout: "68%", plugins: { tooltip: { enabled: false } }, onClick: (ev, els) => { if (els.length) openCat(by[els[0].index][0]); } }, data: { labels: by.map(x => x[0]), datasets: [{ data: by.map(x => x[1]), backgroundColor: by.map((_, i) => (PAL || [accent(500), accent(500, 1, "s"), "#10b981", "#f59e0b", "#ef4444", "#06b6d4", "#ec4899", "#64748b", "#84cc16", "#f97316", "#14b8a6", "#a855f7", "#0ea5e9", "#e11d48", "#65a30d", "#78716c"])[i % 16]), borderWidth: 0 }] } }));
+    charts.push(new Chart(document.getElementById("chCat"), { type: "doughnut", plugins: [donutCenter(by)], options: { cutout: "70%", layout: { padding: 4 }, plugins: { tooltip: { enabled: false }, legend: { position: "bottom" } }, onClick: (ev, els) => { if (els.length) openCat(by[els[0].index][0]); } }, data: { labels: by.map(x => x[0]), datasets: [{ data: by.map(x => x[1]), backgroundColor: by.map((_, i) => (PAL || [accent(500), accent(500, 1, "s"), "#10b981", "#f59e0b", "#ef4444", "#06b6d4", "#ec4899", "#64748b", "#84cc16", "#f97316", "#14b8a6", "#a855f7", "#0ea5e9", "#e11d48", "#65a30d", "#78716c"])[i % 16]), borderWidth: 0, spacing: 3, borderRadius: 7, hoverOffset: 5 }] } }));
 
     const cc = document.getElementById("chCmp");
     if (cc) {
         const mk = ym(cur), ok = monthKey(cmp), A = catTotals(mk), B = catTotals(ok);
         const idx = G.map((_, i) => i).filter(i => A[i][1] > 0 || B[i][1] > 0);
-        charts.push(new Chart(cc, { type: "bar", options: hy, data: { labels: idx.map(i => G[i][0]), datasets: [{ label: monLabel(ok), data: idx.map(i => B[i][1]), backgroundColor: "#94a3b8" }, { label: monLabel(mk), data: idx.map(i => A[i][1]), backgroundColor: accent(500) }] } }));
+        charts.push(new Chart(cc, { type: "bar", options: hy, data: { labels: idx.map(i => G[i][0]), datasets: [{ label: monLabel(ok), data: idx.map(i => B[i][1]), backgroundColor: dark ? "rgba(148,163,184,.55)" : "#cbd5e1", maxBarThickness: 24 }, { label: monLabel(mk), data: idx.map(i => A[i][1]), backgroundColor: grad(accent(400), accent(700)), maxBarThickness: 24 }] } }));
     }
 
     const ms = [...Array(6)].map((_, i) => ym(new Date(cur.getFullYear(), cur.getMonth() - 5 + i, 1)));
     const tot = (k, t) => S.items.filter(x => x.d.startsWith(k) && x.t == t && vis(x)).reduce((s, x) => s + x.a, 0);
-    charts.push(new Chart(document.getElementById("chMon"), { type: "bar", options: hy, data: { labels: ms, datasets: [{ label: "Ingresos", data: ms.map(k => tot(k, "i")), backgroundColor: GREEN }, { label: "Gastos", data: ms.map(k => tot(k, "g")), backgroundColor: accent(500) }] } }));
+    const G2 = ios ? ["#6EE08B", "#34C759"] : ["#34d399", "#059669"];
+    lazyChart("chMon", el => charts.push(new Chart(el, { type: "bar", options: hy, data: { labels: ms, datasets: [{ label: "Ingresos", data: ms.map(k => tot(k, "i")), backgroundColor: grad(G2[0], G2[1]), maxBarThickness: 22 }, { label: "Gastos", data: ms.map(k => tot(k, "g")), backgroundColor: grad(accent(400), accent(700)), maxBarThickness: 22 }] } })));
 
-    const nw = document.getElementById("chNW");
-    if (nw) {
+    lazyChart("chNW", nw => {
         const ks = Object.keys(S.nwh).sort().slice(-12);
-        charts.push(new Chart(nw, { type: "line", options: hy, data: { labels: ks, datasets: [{ label: "Patrimonio neto", data: ks.map(k => S.nwh[k]), borderColor: accent(500), backgroundColor: accent(500, .15), fill: true, tension: .3 }] } }));
-    }
-    drawInvChart(hy, GREEN); // evolución del portafolio (nuevas.js)
+        charts.push(new Chart(nw, { type: "line", options: hy, data: { labels: ks, datasets: [{ label: "Patrimonio neto", data: ks.map(k => S.nwh[k]), borderColor: accent(500), borderWidth: 2.5, backgroundColor: grad(accent(500, .38), accent(500, 0)), fill: true, tension: .35, pointRadius: 0, pointHoverRadius: 5 }] } }));
+    });
+    lazyChart("chInv", () => drawInvChart(hy, GREEN)); // evolución del portafolio (nuevas.js)
 }
 
 // ---------- Tarjetas ----------
@@ -1275,8 +1298,6 @@ function themeUI() {
     const sw = t => `<button onclick="setTheme('${t.id}')" class="p-2.5 rounded-2xl border-2 transition text-center ${cur == t.id ? on : off}"><span class="block h-9 rounded-xl" style="background:linear-gradient(135deg,${t.p},${t.s})"></span><span class="block text-[11px] font-semibold mt-1.5 text-slate-700 dark:text-slate-200">${t.n}</span></button>`;
     const ct = customTheme(S.th.c);
     return `
-        <section class="${CARD} p-6 space-y-4">
-            <div><h3 class="text-base font-bold">Apariencia${hq("Elige claro u oscuro y el tema de color de toda la app. Se guarda en este dispositivo.")}</h3></div>
             <div class="flex gap-0.5 p-0.5 rounded-[10px] bg-slate-100 dark:bg-slate-800">${mb("auto", "Automático", "fa-circle-half-stroke")}${mb("light", "Claro", "fa-sun")}${mb("dark", "Oscuro", "fa-moon")}</div>
             <div class="theme-strip">
                 ${THEMES.map(sw).join("")}
@@ -1285,20 +1306,21 @@ function themeUI() {
                     <span class="block text-[11px] font-semibold mt-1.5 text-slate-700 dark:text-slate-200">Tu color</span>
                     <input type="color" value="${S.th.c || "#4f46e5"}" oninput="previewCustom(this.value)" onchange="setCustom(this.value)" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" aria-label="Elegir un color propio">
                 </label>
-            </div>
-        </section>`;
+            </div>`;
 }
 
 // Idioma de la app (la lista y el cambio viven en idioma.js)
 function langUI() {
     let dn = null; try { dn = new Intl.DisplayNames([LANG], { type: "language" }); } catch (e) {}
     return `
-        <section class="${CARD} p-6 space-y-3">
-            <div><h3 class="text-base font-bold"><i class="fa-solid fa-globe text-indigo-500 mr-2"></i>Idioma</h3></div>
             <div class="flex flex-wrap gap-2" role="radiogroup" translate="no">
                 ${LANGS.map(l => `<button onclick="setLang('${l.id}')" role="radio" aria-checked="${LANG == l.id}" class="flex items-center gap-2 px-3 py-2 rounded-2xl border-2 text-sm font-semibold transition ${LANG == l.id ? "border-indigo-500 bg-indigo-50/60 dark:bg-indigo-500/10" : "border-transparent bg-slate-50 dark:bg-slate-800/60"}"><span class="text-[20px] leading-none">${l.f}</span>${l.n}</button>`).join("")}
-            </div>
-        </section>`;
+            </div>`;
+}
+
+// Sección plegable de Ajustes: icono + título + resumen de lo que hay dentro. Recuerda si la dejaste abierta.
+function setAcc(key, ic, col, title, sub, body, help) {
+    return `<section class="${CARD} set-acc"><details class="sdet set-d" ${sdOpen["s:" + key] ? "open" : ""} ontoggle="sdOpen['s:${key}']=this.open?1:0"><summary><span class="set-ic" style="--c:${col}"><i class="fa-solid ${ic}"></i></span><span class="set-t"><b>${title}</b>${sub ? `<small>${sub}</small>` : ""}</span></summary><div class="set-b">${help ? `<p class="set-help">${help}</p>` : ""}${body}</div></details></section>`;
 }
 
 function vSet() {
@@ -1320,30 +1342,42 @@ function vSet() {
     const np = typeof Notification == "undefined" ? "no" : Notification.permission;
     const bgOk = typeof ServiceWorkerRegistration != "undefined" && "periodicSync" in ServiceWorkerRegistration.prototype;
     const cats = S.cat.map(c => `<div class="flex justify-between items-center text-xs py-1"><span class="flex items-center gap-2.5 min-w-0">${catChip(c.n, 1)}<span class="truncate">${esc(c.n)} · <span class="text-slate-400">${c.k == "n" ? "Necesidad" : "Gusto"}</span></span></span><span class="flex gap-3"><button onclick="editCat(${c.id})" class="text-indigo-600 font-semibold">Editar</button><button onclick="delCat(${c.id})" class="text-rose-500 font-semibold">Borrar</button></span></div>`).join("") || '<p class="text-xs text-slate-400">Aún no has creado categorías propias.</p>';
+    const nBud = G.filter(g => g[0] != "Ahorro" && S.bud[g[0]] > 0).length, nHide = hideNames().filter(n => S.hide[n]).length;
+    const mdL = { auto: "Automático", light: "Claro", dark: "Oscuro" }[S.th.m || "auto"] || "Automático";
+    const thN = S.th.t == "custom" ? "Tu color" : (THEMES.find(x => x.id == (S.th.t || "ios")) || THEMES[0]).n;
+    const lgN = (LANGS.find(l => l.id == LANG) || LANGS[0]).n;
+    const npS = { granted: "Activados", denied: "Bloqueados", default: "Desactivados" }[np] || "No disponible";
+    const bkS = S.bk ? "Última copia: hace " + bkDaysAgo() + " d" : "Aún sin copias";
+    const body = h => `<div class="space-y-4">${h}</div>`;
     return `
-        ${themeUI()}
-        ${langUI()}
-        ${ratesUI(card)}
-        <section class="${card}"><div class="flex justify-between items-center"><h3 class="text-base font-bold">Mis categorías${hq("Además de las 8 de siempre. El tipo (necesidad o gusto) define en qué parte de la regla 50/30/20 cuenta. También puedes crearlas desde Inicio, al anotar un gasto.")}</h3><button onclick="newCat()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold">+ Nueva</button></div>
-            ${cats}</section>
-        <section class="${card}"><h3 class="text-base font-bold">Presupuestos mensuales${hq(`El valor de arriba se repite cada mes. «Solo ${mlab}» lo cambia únicamente este mes. «Acumular» suma al mes siguiente lo que no gastes (si te pasas, no se descuenta).`)}</h3>${bud}</section>
-        <section class="${card}"><div class="flex justify-between items-center"><h3 class="text-base font-bold">Gastos fijos</h3><button onclick="newRec()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold">+ Agregar</button></div>${rec}</section>
-        <section class="${card}"><h3 class="text-base font-bold">Saldos iniciales${hq("Lo que ya tenías en cada cuenta antes de empezar a anotar. Para corregir un saldo de hoy usa «Ajustar saldo» en la pestaña Cuentas.")}</h3>${ini}</section>
-        <section class="${card}"><h3 class="text-base font-bold">Ocultar del resumen${hq("Lo que ocultes no suma en “En mano” ni en “Tarjetas”, y sus gastos no salen en el resumen ni en las gráficas.")}</h3>${hidUI()}</section>
-        <section class="${card}"><h3 class="text-base font-bold">Avisos de metas${hq("Te avisa de metas (7 días antes), tarjetas y deudas con día de pago (3 días antes) y hasta 7 días después si siguen pendientes. Siempre lo ves también en los Consejos de Inicio.")}</h3>
+        <h4 class="set-grp">Personalización</h4>
+        ${setAcc("ap", "fa-palette", "#AF52DE", "Apariencia", thN + " · " + mdL, body(themeUI()), "Elige claro u oscuro y el tema de color de toda la app. Se guarda en este dispositivo.")}
+        ${setAcc("id", "fa-globe", "#007AFF", "Idioma", lgN, langUI())}
+
+        <h4 class="set-grp">Dinero</h4>
+        ${setAcc("fx", "fa-dollar-sign", "#34C759", "Tasas y precios", fmtD(S.trm) + " por dólar", body(ratesBody()), "Cada cuenta en dólares o euros puede tener su propia diferencia en pesos. Puedes escribir los decimales con coma o con punto.")}
+        ${setAcc("cat", "fa-tags", "#FF9500", "Mis categorías", S.cat.length ? "Propias: " + S.cat.length : "Solo las de siempre", `<div class="flex justify-end"><button onclick="newCat()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold">+ Nueva</button></div>${cats}`, "Además de las 8 de siempre. El tipo (necesidad o gusto) define en qué parte de la regla 50/30/20 cuenta. También puedes crearlas desde Inicio, al anotar un gasto.")}
+        ${setAcc("bud", "fa-gauge-high", "#FF3B30", "Presupuestos mensuales", nBud ? "Con límite: " + nBud : "Sin límites", body(bud), `El valor de arriba se repite cada mes. «Solo ${mlab}» lo cambia únicamente este mes. «Acumular» suma al mes siguiente lo que no gastes (si te pasas, no se descuenta).`)}
+        ${setAcc("rec", "fa-repeat", "#FF2D55", "Gastos fijos", S.rec.length ? "Anotados: " + S.rec.length : "Ninguno aún", `<div class="flex justify-end"><button onclick="newRec()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold">+ Agregar</button></div>${rec}`)}
+        ${setAcc("ini", "fa-flag-checkered", "#5856D6", "Saldos iniciales", "Antes de empezar a anotar", body(ini), "Lo que ya tenías en cada cuenta antes de empezar a anotar. Para corregir un saldo de hoy usa «Ajustar saldo» en la pestaña Cuentas.")}
+        ${setAcc("hid", "fa-eye-slash", "#8E8E93", "Ocultar del resumen", nHide ? "Ocultas: " + nHide : "Todo visible", hidUI(), "Lo que ocultes no suma en “En mano” ni en “Tarjetas”, y sus gastos no salen en el resumen ni en las gráficas.")}
+
+        <h4 class="set-grp">Herramientas</h4>
+        ${typeof setNuevas == "function" ? setNuevas(setAcc) : ""}
+
+        <h4 class="set-grp">Seguridad y datos</h4>
+        ${setAcc("avi", "fa-bell", "#FF9500", "Avisos de metas", npS, body(`
             <p class="text-xs text-slate-400">${bgOk ? "Si instalaste la app en Chrome (Android), también intenta avisarte en segundo plano sin que la abras. El sistema decide cuándo, así que no es exacto ni está garantizado." : "En este navegador los avisos solo llegan cuando abres la app (en iPhone no hay avisos en segundo plano). Por eso en Inicio tienes la tarjeta «Esta semana» con lo que vence."}</p>
             ${np == "no" ? '<p class="text-xs text-slate-400">Este navegador no permite notificaciones.</p>'
               : np == "granted" ? '<p class="text-xs text-emerald-500 font-semibold">Avisos activados ✓</p><button onclick="testNotif()" class="px-4 py-2 bg-slate-800 dark:bg-slate-700 text-white font-semibold rounded-xl text-xs">Enviar aviso de prueba</button>'
               : np == "denied" ? '<p class="text-xs text-rose-500">Los bloqueaste en el navegador. Actívalos desde los permisos del sitio.</p>'
-              : '<button onclick="askNotif()" class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-xl text-xs">Activar avisos</button>'}
-        </section>
-        <section class="${card}"><h3 class="text-base font-bold">Bloqueo con PIN</h3><p class="text-xs text-slate-400">Bloquea la pantalla al abrir la app. No cifra los datos.</p><button onclick="setPin()" class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-xl text-xs">${S.pin ? "Cambiar o quitar PIN" : "Crear PIN"}</button></section>
-        ${typeof setNuevas == "function" ? setNuevas(card) : ""}
-        <section class="${card}"><h3 class="text-base font-bold">Copia de seguridad</h3>
+              : '<button onclick="askNotif()" class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-xl text-xs">Activar avisos</button>'}`), "Te avisa de metas (7 días antes), tarjetas y deudas con día de pago (3 días antes) y hasta 7 días después si siguen pendientes. Siempre lo ves también en los Consejos de Inicio.")}
+        ${setAcc("pin", "fa-lock", "#32ADE6", "Bloqueo con PIN", S.pin ? "Activo" : "Sin PIN", body(`<p class="text-xs text-slate-400">Bloquea la pantalla al abrir la app. No cifra los datos.</p><button onclick="setPin()" class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-xl text-xs">${S.pin ? "Cambiar o quitar PIN" : "Crear PIN"}</button>`))}
+        ${setAcc("bk", "fa-cloud-arrow-down", "#30B0C7", "Copia de seguridad", bkS, body(`
             ${typeof rbUI == "function" ? rbUI() : ""}
             <p class="text-xs ${bkDue() ? "text-amber-500 font-semibold" : "text-slate-400"}">${S.bk ? "Última copia: " + dmy(S.bk) + " (hace " + bkDaysAgo() + " d). Te lo recuerdo cada " + BK_DAYS + " días." : "Aún no has hecho ninguna copia. Tus datos solo están en este celular."}</p>
-            <button onclick="downloadBackup()" class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-xl text-xs">Descargar copia (.json)</button>
-            <button onclick="exportCsv()" class="px-4 py-2 bg-slate-800 dark:bg-slate-700 text-white font-semibold rounded-xl text-xs">Descargar CSV</button>
+            <div class="flex flex-wrap gap-2"><button onclick="downloadBackup()" class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-xl text-xs">Descargar copia (.json)</button>
+            <button onclick="exportCsv()" class="px-4 py-2 bg-slate-800 dark:bg-slate-700 text-white font-semibold rounded-xl text-xs">Descargar CSV</button></div>
             <label class="block text-xs font-semibold text-slate-500 uppercase pt-2">Restaurar desde archivo</label>
             <input type="file" accept=".json,application/json" onchange="importFile(this)" class="block w-full text-xs text-slate-500 file:mr-3 file:px-4 file:py-2 file:rounded-xl file:border-0 file:bg-slate-800 file:text-white file:font-semibold file:text-xs">
             <details class="pt-2"><summary class="text-xs font-semibold text-slate-500 cursor-pointer">Copiar o pegar como texto</summary>
@@ -1354,7 +1388,5 @@ function vSet() {
                     <textarea id="imp" rows="3" class="${inp}"></textarea>
                     <button onclick="importBackup()" class="px-4 py-2 bg-slate-800 dark:bg-slate-700 text-white font-semibold rounded-xl text-xs">Restaurar</button>
                 </div>
-            </details>
-        </section>`;
+            </details>`))}`;
 }
-
