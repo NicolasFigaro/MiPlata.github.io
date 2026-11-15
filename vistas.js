@@ -225,34 +225,24 @@ function dailyUI(disp) {
         sub = "≈ " + fmt(dy.perDay) + " por día · " + (dy.left == 1 ? "último día del mes" : "quedan " + dy.left + " días");
     }
     return `
-        <div class="mt-4 p-3 rounded-2xl bg-white/10 flex items-center justify-between gap-3">
-            <div class="min-w-0">
-                <small class="text-[10px] text-indigo-200 block uppercase">${lbl}</small>
-                <b data-cu="day" class="text-xl font-extrabold ${red ? "text-rose-300" : ""}">${val}</b>
-            </div>
-            <div class="text-right text-[11px] text-indigo-200 leading-snug">${sub}${dy.fixed > 0 ? `<br>ya descontados ${fmt(dy.fixed)} de gastos fijos por venir` : ""}</div>
+        <div class="hg-day">
+            <small>${lbl}</small>
+            <b data-cu="day" class="${red ? "over" : ""}">${val}</b>
+            <p>${sub}${dy.fixed > 0 ? ` · ya descontados ${fmt(dy.fixed)} de gastos fijos por venir` : ""}</p>
         </div>`;
 }
 
 function projUI(disp) {
     const p = monthProjection(disp);
     if (!p) return "";
-    const box = "mt-3 p-3 rounded-2xl bg-white/10 flex items-center justify-between gap-3";
-    if (p.few) return `<div class="${box}"><div class="text-[11px] text-indigo-200 leading-snug"><i class="fa-solid fa-chart-line mr-1.5"></i>Proyección del mes: registra tus gastos unos días más y te diré cómo vas a cerrar.</div></div>`;
+    if (p.few) return `<p class="hg-proj"><i class="fa-solid fa-chart-line"></i><span>Proyección del mes: registra tus gastos unos días más y te diré cómo vas a cerrar.</span></p>`;
     const bad = p.end < 0;
     let sub;
     if (p.left == 0) sub = "Hoy es el último día del mes";
     else if (p.room <= 0) sub = "Ya no te alcanza para lo que resta del mes, ni sin gastar más";
-    else if (bad) sub = "Gastas ≈ " + fmt(p.pace) + " por día. Para cerrar en $0 baja a ≈ " + fmt(p.fit) + " por día";
-    else sub = "Gastas ≈ " + fmt(p.pace) + " por día · tu tope es ≈ " + fmt(p.fit) + " por día";
-    return `
-        <div class="${box}">
-            <div class="min-w-0">
-                <small class="text-[10px] text-indigo-200 block uppercase"><i class="fa-solid fa-chart-line mr-1"></i>${bad ? "Te faltarían para cerrar el mes" : "A este ritmo terminas el mes con"}</small>
-                <b class="text-xl font-extrabold ${bad ? "text-rose-300" : ""}">${fmt(bad ? -p.end : p.end)}</b>
-            </div>
-            <div class="text-right text-[11px] text-indigo-200 leading-snug">${sub}<br><span class="opacity-80">sin contar compras con tarjeta${p.fixed > 0 ? "; ya descontados " + fmt(p.fixed) + " de gastos fijos por venir" : ""}</span></div>
-        </div>`;
+    else if (bad) sub = "Gastas ≈ " + fmt(p.pace) + " por día; para cerrar en $0 baja a ≈ " + fmt(p.fit);
+    else sub = "Gastas ≈ " + fmt(p.pace) + " por día · tu tope es ≈ " + fmt(p.fit);
+    return `<p class="hg-proj" title="${esc(sub)}"><i class="fa-solid fa-chart-line"></i><span>${bad ? "Te faltarían" : "A este ritmo cierras con"} <b class="${bad ? "over" : ""}">${fmt(bad ? -p.end : p.end)}</b>${bad ? " para cerrar el mes" : ""} · ${sub}</span></p>`;
 }
 
 // Barra de gasto del mes con la marca de "hoy deberías ir en X %" (días transcurridos / días del mes). Solo en el mes actual.
@@ -442,11 +432,11 @@ function vHome() {
             <div class="hi-t"><b>Hola${(S.th.nm || "") ? ", " + esc(S.th.nm) : ""}</b><small>Hoy es un buen día para avanzar</small></div>
             <button class="hi-b av" onclick="const n=prompt('¿Cómo te llamas?',S.th.nm||'');if(n!==null){S.th.nm=n.trim();save();draw()}" aria-label="Tu nombre">${esc(((S.th.nm || "").trim()[0] || "").toUpperCase()) || '<i class="fa-solid fa-user"></i>'}</button>
         </div>
-        <section data-hero class="relative overflow-hidden bg-gradient-to-b from-indigo-600 to-indigo-700 text-white p-6 rounded-[20px] shadow-sm flex flex-col justify-between">
+        <section data-hero class="hg relative overflow-hidden bg-gradient-to-b from-indigo-600 to-indigo-700 text-white p-6 rounded-[20px] shadow-sm flex flex-col justify-between">
             <div class="flex justify-between items-start">
                 <div>
-                    <p class="text-xs font-medium uppercase tracking-wider text-indigo-200">Disponible para gastar</p>
-                    <h2 data-cu="disp" class="text-3xl font-extrabold mt-1 tracking-tight ${disp < 0 ? "text-rose-300" : ""}">${fmt(disp)}</h2>
+                    <p class="hg-k">Disponible para gastar</p>
+                    <h2 data-cu="disp" class="hg-disp ${disp < 0 ? "over" : ""}">${fmt(disp)}</h2>
                 </div>
                 <div class="flex items-center space-x-2">
                     <button onclick="go(-1)" class="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-sm font-bold transition">‹</button>
@@ -455,8 +445,8 @@ function vHome() {
                 </div>
             </div>
             ${dailyUI(disp)}
-            ${projUI(disp)}
             ${paceUI(gas, disp)}
+            ${projUI(disp)}
             <div class="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-white/10">
                 <div><small class="text-[10px] text-indigo-200 block uppercase">En mano</small><b data-cu="have" class="text-xs sm:text-sm font-bold">${fmt(have)}</b>${pk > 0 ? `<small class="text-[10px] text-indigo-200 block font-normal">${fmt(pk)} en bolsillos</small>` : ""}</div>
                 <div><small class="text-[10px] text-indigo-200 block uppercase">Tarjetas</small><b data-cu="due" class="text-xs sm:text-sm font-bold">${fmt(due)}</b>${due <= 0.5 && nm == ym(new Date()) ? (() => { const x = S.cards.filter(c => !(S.hide || {})[c.n]).reduce((s, c) => s + (cardNext(c).due || 0), 0); return x > 0.5 ? `<small class="text-[10px] text-indigo-200 block font-normal">próx. ${fmt(x)}</small>` : ""; })() : ""}</div>
@@ -471,12 +461,12 @@ function vHome() {
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div onclick="goTab(${N.indexOf("Ahorro")})" class="${CARD} p-4 cursor-pointer hover:border-indigo-500 transition lift">
-                <div class="flex justify-between items-center mb-1"><span class="text-xs font-semibold text-slate-500">Ahorros y Metas</span><i class="fa-solid fa-piggy-bank text-indigo-500"></i></div>
+                <div class="flex justify-between items-center mb-1"><span class="text-xs font-semibold text-slate-500">Ahorros y Metas</span><span class="orb"><i class="fa-solid fa-piggy-bank"></i></span></div>
                 <h4 data-cu="totAcc" class="text-lg font-bold text-slate-800 dark:text-white mb-2">${fmt(totAcc)}</h4>
                 ${MT}
             </div>
             <div onclick="goTab(${N.indexOf("Inversión")})" class="${CARD} p-4 cursor-pointer hover:border-indigo-500 transition lift">
-                <div class="flex justify-between items-center mb-1"><span class="text-xs font-semibold text-slate-500">Inversiones</span><i class="fa-solid fa-chart-line text-emerald-500"></i></div>
+                <div class="flex justify-between items-center mb-1"><span class="text-xs font-semibold text-slate-500">Inversiones</span><span class="orb"><i class="fa-solid fa-chart-line"></i></span></div>
                 <h4 class="text-lg font-bold text-slate-800 dark:text-white">${show(invT)}</h4>
                 <p class="text-xs ${invT >= invC ? "text-emerald-500" : "text-rose-500"} mt-1 font-semibold">${invT >= invC ? "+" : ""}${fmt(invT - invC)} sobre lo invertido${P.ann !== null ? " · " + pct1(P.ann) + " anual" : ""}</p>
             </div>
