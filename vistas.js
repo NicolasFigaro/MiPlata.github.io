@@ -244,19 +244,19 @@ function dailyUI(disp) {
         sub = "≈ " + fmt(dy.perDay) + " por día · " + (dy.left == 1 ? "último día del mes" : "quedan " + dy.left + " días");
     }
     return `
-        <div class="mt-4 p-3 rounded-2xl bg-white/10 flex items-center justify-between gap-3">
+        <div class="mp-budget-item mp-daily-item">
             <div class="min-w-0">
-                <small class="text-[10px] text-indigo-200 block uppercase">${lbl}</small>
+                <small class="mp-budget-label">${lbl}</small>
                 <b data-cu="day" class="text-xl font-extrabold ${red ? "text-rose-300" : ""}">${val}</b>
             </div>
-            <div class="text-right text-[11px] text-indigo-200 leading-snug">${sub}${dy.fixed > 0 ? `<br>ya descontados ${fmt(dy.fixed)} de gastos fijos por venir` : ""}</div>
+            <div class="mp-budget-note">${sub}${dy.fixed > 0 ? `<br>ya descontados ${fmt(dy.fixed)} de gastos fijos por venir` : ""}</div>
         </div>`;
 }
 
 function projUI(disp) {
     const p = monthProjection(disp);
     if (!p) return "";
-    const box = "mt-3 p-3 rounded-2xl bg-white/10 flex items-center justify-between gap-3";
+    const box = "mp-budget-item mp-projection-item";
     if (p.few) return `<div class="${box}"><div class="text-[11px] text-indigo-200 leading-snug"><i class="fa-solid fa-chart-line mr-1.5"></i>Proyección del mes: registra tus gastos unos días más y te diré cómo vas a cerrar.</div></div>`;
     const bad = p.end < 0;
     let sub;
@@ -267,10 +267,10 @@ function projUI(disp) {
     return `
         <div class="${box}">
             <div class="min-w-0">
-                <small class="text-[10px] text-indigo-200 block uppercase"><i class="fa-solid fa-chart-line mr-1"></i>${bad ? "Te faltarían para cerrar el mes" : "A este ritmo terminas el mes con"}</small>
+                <small class="mp-budget-label"><i class="fa-solid fa-chart-line mr-1"></i>${bad ? "Te faltarían para cerrar el mes" : "A este ritmo terminas el mes con"}</small>
                 <b class="text-xl font-extrabold ${bad ? "text-rose-300" : ""}">${fmt(bad ? -p.end : p.end)}</b>
             </div>
-            <div class="text-right text-[11px] text-indigo-200 leading-snug">${sub}<br><span class="opacity-80">sin contar compras con tarjeta${p.fixed > 0 ? "; ya descontados " + fmt(p.fixed) + " de gastos fijos por venir" : ""}</span></div>
+            <div class="mp-budget-note">${sub}<br><span>sin contar compras con tarjeta${p.fixed > 0 ? "; ya descontados " + fmt(p.fixed) + " de gastos fijos por venir" : ""}</span></div>
         </div>`;
 }
 
@@ -451,66 +451,72 @@ function vHome() {
         movBody);
     return `
         <div class="mp-home">
-            <header class="mp-welcome">
-                <div class="mp-brandline">
-                    <span class="mp-mark"><i class="fa-solid fa-wallet"></i></span>
-                    <span class="mp-brandname">Mi Plata</span>
-                    <div class="mp-head-actions">
-                        <button class="mp-icon-btn" onclick="togMask()" aria-label="Ocultar o mostrar cifras"><i class="fa-regular fa-eye"></i></button>
-                        <button class="mp-icon-btn" onclick="openAllMov()" aria-label="Buscar movimientos"><i class="fa-solid fa-magnifying-glass"></i></button>
-                        <button class="mp-icon-btn" onclick="toggleDarkMode()" aria-label="Cambiar tema"><i class="fa-solid fa-circle-half-stroke"></i></button>
-                        <button class="mp-avatar" onclick="const n=prompt('¿Cómo te llamas?',S.th.nm||'');if(n!==null){S.th.nm=n.trim();save();draw()}" aria-label="Editar perfil">${esc(((S.th.nm || "").trim()[0] || "N").toUpperCase())}</button>
-                    </div>
-                </div>
+            <div class="mp-home-head">
+                <div class="mp-brand-mark" aria-hidden="true"><i class="fa-solid fa-wallet"></i></div>
                 <div class="mp-greeting">
-                    <div><h2>Hola${(S.th.nm || "") ? ", " + esc(S.th.nm) : ""}</h2><p>Tu dinero, bajo control.</p></div>
-                    <span class="mp-date">${new Date().toLocaleDateString(DLOC,{weekday:"short",day:"numeric",month:"short"})}</span>
+                    <span class="mp-eyebrow">TU ESPACIO FINANCIERO</span>
+                    <b>Hola${(S.th.nm || "") ? ", " + esc(S.th.nm) : ""}</b>
+                    <small>Un vistazo a tu dinero.</small>
                 </div>
-            </header>
+                <div class="mp-head-actions">
+                    <button class="mp-avatar" onclick="const n=prompt('¿Cómo te llamas?',S.th.nm||'');if(n!==null){S.th.nm=n.trim();save();draw()}" aria-label="Editar perfil">${esc(((S.th.nm || "").trim()[0] || "").toUpperCase()) || '<i class="fa-solid fa-user"></i>'}</button>
+                </div>
+            </div>
             ${bkUI()}
             ${recUI()}
 
-            <section class="mp-balance" data-hero>
+            <section data-hero class="mp-balance-card">
                 <div class="mp-balance-top">
-                    <div><span class="mp-eyebrow">Disponible para gastar</span><span class="mp-status"><i></i> Controlado</span></div>
-                    <div class="mp-month"><button onclick="go(-1)" aria-label="Mes anterior"><i class="fa-solid fa-chevron-left"></i></button><span>${cur.toLocaleDateString(DLOC,{month:"long",year:"numeric"})}</span><button onclick="go(1)" aria-label="Mes siguiente"><i class="fa-solid fa-chevron-right"></i></button></div>
+                    <div>
+                        <span class="mp-eyebrow">DISPONIBLE PARA GASTAR</span>
+                        <h2 data-cu="disp" class="mp-balance-amount ${disp < 0 ? "is-negative" : ""}">${fmt(disp)}</h2>
+                        <span class="mp-balance-caption">Saldo disponible estimado</span>
+                    </div>
+                    <div class="mp-month-switch">
+                        <button onclick="go(-1)" aria-label="Mes anterior"><i class="fa-solid fa-chevron-left"></i></button>
+                        <span>${cur.toLocaleDateString(DLOC, { month: "short", year: "numeric" })}</span>
+                        <button onclick="go(1)" aria-label="Mes siguiente"><i class="fa-solid fa-chevron-right"></i></button>
+                    </div>
                 </div>
-                <div class="mp-balance-value ${disp < 0 ? "is-negative" : ""}" data-cu="disp">${fmt(disp)}</div>
-                <div class="mp-balance-caption">Saldo disponible este mes</div>
-                <div class="mp-balance-divider"></div>
-                <div class="mp-budget-grid">
-                    <div class="mp-budget-icon"><i class="fa-regular fa-calendar"></i></div>
-                    <div class="mp-budget-copy">${dailyUI(disp)}</div>
+                <div class="mp-balance-actions" aria-label="Acciones rápidas">
+                    <button onclick="openMov()"><span class="mp-action-icon mp-action-dark"><i class="fa-solid fa-plus"></i></span><span>Registrar</span></button>
+                    <button onclick="goTab(${N.indexOf("Cuentas")})"><span class="mp-action-icon"><i class="fa-solid fa-wallet"></i></span><span>Cuentas</span></button>
+                    <button onclick="goTab(${N.indexOf("Tarjetas")})"><span class="mp-action-icon"><i class="fa-regular fa-credit-card"></i></span><span>Tarjetas</span></button>
                 </div>
-                <div class="mp-projection">${projUI(disp)}</div>
+                <div class="mp-budget-stack">
+                    ${dailyUI(disp)}
+                    ${projUI(disp)}
+                </div>
+                <div class="mp-balance-breakdown">
+                    <div><span>En mano</span><b data-cu="have">${fmt(have)}</b>${pk > 0 ? `<small>${fmt(pk)} en bolsillos</small>` : ""}</div>
+                    <div><span>Tarjetas</span><b data-cu="due">${fmt(due)}</b>${due <= 0.5 && nm == ym(new Date()) ? (() => { const x = S.cards.filter(c => !(S.hide || {})[c.n]).reduce((s, c) => s + (cardNext(c).due || 0), 0); return x > 0.5 ? `<small>próx. ${fmt(x)}</small>` : ""; })() : ""}</div>
+                    <div><span>Apartado</span><b data-cu="svt">${fmt(svt)}</b></div>
+                </div>
             </section>
 
-            <section class="mp-quick-grid" aria-label="Resumen de cuentas">
-                <button class="mp-quick-card" onclick="goTab(${N.indexOf("Cuentas")})"><span class="mp-quick-icon"><i class="fa-solid fa-wallet"></i></span><span class="mp-quick-label">En mano</span><b data-cu="have">${fmt(have)}</b>${pk > 0 ? `<small>${fmt(pk)} en bolsillos</small>` : `<small>Mis cuentas</small>`}<i class="fa-solid fa-chevron-right mp-quick-chevron"></i></button>
-                <button class="mp-quick-card" onclick="goTab(${N.indexOf("Tarjetas")})"><span class="mp-quick-icon"><i class="fa-regular fa-credit-card"></i></span><span class="mp-quick-label">Tarjetas</span><b data-cu="due">${fmt(due)}</b>${due <= 0.5 && nm == ym(new Date()) ? (() => { const x = S.cards.filter(c => !(S.hide || {})[c.n]).reduce((s, c) => s + (cardNext(c).due || 0), 0); return x > 0.5 ? `<small>Próximo ${fmt(x)}</small>` : `<small>Sin pagos pendientes</small>`; })() : `<small>Por pagar</small>`}<i class="fa-solid fa-chevron-right mp-quick-chevron"></i></button>
-                <button class="mp-quick-card" onclick="goTab(${N.indexOf("Ahorro")})"><span class="mp-quick-icon"><i class="fa-solid fa-vault"></i></span><span class="mp-quick-label">Apartado</span><b data-cu="svt">${fmt(svt)}</b><small>Ahorros reservados</small><i class="fa-solid fa-chevron-right mp-quick-chevron"></i></button>
-            </section>
-
+            <div class="mp-section-heading"><div><span class="mp-eyebrow">TU ACTIVIDAD</span><h3>Resumen financiero</h3></div><span class="mp-section-period">${cur.toLocaleDateString(DLOC, { month: "long" })}</span></div>
             ${weekUI()}
             ${yearTeaser()}
             ${typeof closeTeaser == "function" ? closeTeaser() : ""}
 
-            <section class="mp-section-block">
-                <div class="mp-section-heading"><div><span class="mp-section-kicker">Tu patrimonio</span><h3>Ahorros e inversiones</h3></div><span class="mp-section-symbol"><i class="fa-solid fa-chart-pie"></i></span></div>
-                <div class="mp-wealth-grid">
-                    <button onclick="goTab(${N.indexOf("Ahorro")})" class="mp-wealth-card">
-                        <span class="mp-wealth-icon"><i class="fa-solid fa-bullseye"></i></span><span class="mp-wealth-title">Ahorros y metas</span><b data-cu="totAcc">${fmt(totAcc)}</b><span class="mp-wealth-detail">${S.acc.filter(a=>!a.f).length} ${S.acc.filter(a=>!a.f).length===1?"meta activa":"metas activas"}</span><i class="fa-solid fa-arrow-up-right-from-square mp-wealth-arrow"></i>
-                    </button>
-                    <button onclick="goTab(${N.indexOf("Inversión")})" class="mp-wealth-card">
-                        <span class="mp-wealth-icon"><i class="fa-solid fa-arrow-trend-up"></i></span><span class="mp-wealth-title">Inversiones</span><b>${show(invT)}</b><span class="mp-wealth-detail ${invT >= invC ? "positive" : "negative"}">${invT >= invC ? "+" : ""}${fmt(invT - invC)} sobre lo invertido${P.ann !== null ? " · " + pct1(P.ann) + " anual" : ""}</span><i class="fa-solid fa-arrow-up-right-from-square mp-wealth-arrow"></i>
-                    </button>
+            <div class="mp-wealth-grid">
+                <div onclick="goTab(${N.indexOf("Ahorro")})" class="mp-wealth-card mp-savings-card cursor-pointer lift">
+                    <div class="mp-card-topline"><span>Ahorros y metas</span><i class="fa-solid fa-piggy-bank"></i></div>
+                    <h4 data-cu="totAcc">${fmt(totAcc)}</h4>
+                    <div class="mp-mini-goals">${MT}</div>
+                    <span class="mp-card-link">Ver ahorros <i class="fa-solid fa-arrow-up-right-from-square"></i></span>
                 </div>
-                <div class="mp-goals-preview">${MT}</div>
-            </section>
+                <div onclick="goTab(${N.indexOf("Inversión")})" class="mp-wealth-card mp-invest-card cursor-pointer lift">
+                    <div class="mp-card-topline"><span>Inversiones</span><i class="fa-solid fa-chart-line"></i></div>
+                    <h4>${show(invT)}</h4>
+                    <p class="${invT >= invC ? "text-emerald-500" : "text-rose-500"}">${invT >= invC ? "+" : ""}${fmt(invT - invC)} sobre lo invertido${P.ann !== null ? " · " + pct1(P.ann) + " anual" : ""}</p>
+                    <span class="mp-card-link">Ver inversiones <i class="fa-solid fa-arrow-up-right-from-square"></i></span>
+                </div>
+            </div>
 
-            <section class="mp-activity-section">
-                <div class="mp-section-heading"><div><span class="mp-section-kicker">Tu actividad</span><h3>Movimientos recientes</h3></div><button onclick="openAllMov()" class="mp-see-all">Ver todos <i class="fa-solid fa-chevron-right"></i></button></div>
-                <div class="mp-activity-card">${movListHTML(4)}</div>
+            <section class="mp-content-card mp-recent-card">
+                <div class="mp-content-heading"><div><span class="mp-eyebrow">TU DINERO EN MOVIMIENTO</span><h3>Últimos movimientos</h3></div><button onclick="openAllMov()">Ver todos <i class="fa-solid fa-chevron-right"></i></button></div>
+                ${movListHTML(4)}
             </section>
 
             ${movSec}
@@ -518,8 +524,10 @@ function vHome() {
             ${tipsUI(by)}
             ${nwUI()}
 
-            <button onclick="openSim()" class="mp-simulator">
-                <span><i class="fa-solid fa-calculator"></i></span><span><b>¿Puedo permitírmelo?</b><small>Simula una compra antes de hacerla</small></span><i class="fa-solid fa-chevron-right"></i>
+            <button onclick="openSim()" class="mp-simulator-card">
+                <span class="mp-sim-icon"><i class="fa-solid fa-scale-balanced"></i></span>
+                <span class="mp-sim-copy"><b>¿Puedo permitírmelo?</b><small>Simula una compra antes de tomar la decisión.</small></span>
+                <i class="fa-solid fa-chevron-right mp-sim-chevron"></i>
             </button>
         </div>
     `;
