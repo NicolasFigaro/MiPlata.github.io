@@ -87,3 +87,22 @@ function paintMain(el, html, soft) {
         mphKids(el, box);
     } catch (e) { el.innerHTML = html; }
 }
+
+// Menú ⋯ (details.mx): al abrir uno se cierran los demás; se cierra al tocar fuera o al elegir una opción;
+// y si abajo no hay espacio (barra de pestañas) se abre hacia arriba.
+(function () {
+    document.addEventListener("toggle", e => {
+        const d = e.target;
+        if (!d || !d.matches || !d.matches("details.mx") || !d.open) return;
+        document.querySelectorAll("details.mx[open]").forEach(o => { if (o !== d) o.open = false; });
+        const b = d.querySelector(".mx-b"); if (!b) return;
+        d.classList.remove("up");
+        const bar = document.getElementById("tabBar"), limit = (bar ? bar.getBoundingClientRect().top : innerHeight) - 8;
+        const r = d.getBoundingClientRect(), h = b.offsetHeight + 10;
+        if (r.bottom + h > limit && r.top - h > 70) d.classList.add("up");
+    }, true);
+    document.addEventListener("click", e => {
+        const inItem = e.target.closest && e.target.closest("details.mx .mx-b button");
+        document.querySelectorAll("details.mx[open]").forEach(o => { if (inItem ? o.contains(inItem) : !o.contains(e.target)) setTimeout(() => { o.open = false; }, 0); });
+    }, true);
+})();
