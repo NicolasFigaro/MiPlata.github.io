@@ -253,7 +253,8 @@ function walYieldPanelUI(a, fx) {
             <div class="sv-stats mt-3">
                 ${stat("Hoy", "+" + mf(y.daily), "up")}${stat("Este mes", "+" + mf(y.month), "up")}${stat(y.total >= (fx ? 0.005 : 0.5) ? "Ganado" : "Al mes", "+" + mf(y.total >= (fx ? 0.005 : 0.5) ? y.total : y.monthly), "up")}
             </div>
-            <p class="text-[11px] text-slate-400 mt-2">Estimado con la tasa y el saldo diario desde ${dmy(y.start)}${y.pts.length < 2 ? " (la cuenta empezó a rendir hoy)" : ""}. ${fx && fxRateOf(a) > 0 ? "Ganado ≈ " + fmt(y.total * fxRateOf(a)) + " al cambio de hoy. " : ""}No se suma al saldo: si tu banco ya lo suma, usa «Ajustar saldo».</p>
+            ${!fx && y.total >= 1 ? `<div class="yr-credit"><span>Estimado sin acreditar: <b>+${fmt(y.total)}</b>${(a.rc || []).length ? "<br>Ya acreditado: <b>" + fmt(a.rc.reduce((s, x) => s + x.v, 0)) + "</b>" : ""}</span><button onclick="creditWal(${a.id})">Acreditar al saldo</button></div>` : !fx && (a.rc || []).length ? `<p class="text-[11px] text-slate-400 mt-2">Ya acreditado: ${fmt(a.rc.reduce((s, x) => s + x.v, 0))}</p>` : ""}
+            <p class="text-[11px] text-slate-400 mt-2">Estimado con la tasa y el saldo diario desde ${dmy(y.start)}${y.pts.length < 2 ? " (la cuenta empezó a rendir hoy)" : ""}. ${fx && fxRateOf(a) > 0 ? "Ganado ≈ " + fmt(y.total * fxRateOf(a)) + " al cambio de hoy. " : ""}No se suma al saldo hasta que lo acredites: si tu banco ya lo sumó, usa «Ajustar saldo» y no acredites.</p>
         </div>`;
 }
 // Resumen de todas las cuentas que rinden (aparece arriba de la lista en Cuentas)

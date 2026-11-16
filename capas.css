@@ -879,8 +879,7 @@ html:not(.dark) .yr-btn { background: rgb(var(--p-600)); color: #fff; }
 .dot.free { background: rgb(var(--line) / .22); }
 
 /* ---- Tarjeta de bolsillo ---- */
-.pk-card { position: relative; padding: 13px 14px 12px 16px; border-radius: 18px; background: rgb(var(--n-0, 255 255 255)); border: 1px solid rgb(var(--line) / .09); overflow: hidden; animation: svIn .35s cubic-bezier(.2, .8, .2, 1) both; }
-html.dark .pk-card { background: rgb(var(--n-900)); border-color: rgb(255 255 255 / .08); }
+.pk-card { position: relative; padding: 13px 14px 12px 16px; border-radius: 18px; background: var(--g-card, rgb(255 255 255 / .66)); border: 1px solid var(--g-line, rgb(var(--line) / .09)); box-shadow: var(--g-shadow, none); overflow: hidden; animation: svIn .35s cubic-bezier(.2, .8, .2, 1) both; }
 .pk-card::before { content: ""; position: absolute; left: 0; top: 14px; bottom: 14px; width: 3px; border-radius: 0 3px 3px 0; background: var(--c); }
 .pk-top { display: flex; align-items: center; gap: 12px; }
 .pk-main { min-width: 0; flex: 1; }
@@ -919,14 +918,12 @@ html.dark .pk-card { background: rgb(var(--n-900)); border-color: rgb(255 255 25
 .sv-leg .pk-btn { margin-bottom: 4px; }
 
 /* ---- Ahorro: banda «libre para ahorrar» ---- */
-.sv-free { margin: -10px 0 22px; padding: 14px 16px 12px; border-radius: 20px; border: 1px solid rgb(var(--line) / .09); background: rgb(var(--line) / .03); }
-html.dark .sv-free { border-color: rgb(255 255 255 / .08); }
+.sv-free { margin: -10px 0 22px; padding: 14px 16px 12px; border-radius: 20px; border: 1px solid var(--g-line, rgb(var(--line) / .09)); background: var(--g-card, rgb(var(--line) / .03)); box-shadow: var(--g-shadow, none); }
 .sv-free-h { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .sv-free-h b { font-size: 20px; font-weight: 800; letter-spacing: -.03em; font-variant-numeric: tabular-nums; color: var(--acc); }
 .sv-free-chips { display: flex; gap: 8px; overflow-x: auto; margin: 10px -16px 0; padding: 0 16px 2px; scrollbar-width: none; }
 .sv-free-chips::-webkit-scrollbar { display: none; }
-.sv-free-chip { flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 9px 13px; min-width: 112px; border-radius: 14px; text-align: left; background: rgb(var(--n-0, 255 255 255)); box-shadow: inset 0 0 0 1px rgb(var(--line) / .1); transition: transform .12s; }
-html.dark .sv-free-chip { background: rgb(var(--n-900)); box-shadow: inset 0 0 0 1px rgb(255 255 255 / .08); }
+.sv-free-chip { flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 9px 13px; min-width: 112px; border-radius: 14px; text-align: left; background: rgb(var(--line) / .05); box-shadow: inset 0 0 0 1px var(--g-line, rgb(var(--line) / .1)); transition: transform .12s; }
 .sv-free-chip:active { transform: scale(.97); }
 .sv-free-chip span { font-size: 11px; color: rgb(var(--n-500)); max-width: 130px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sv-free-chip b { font-size: 14px; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
@@ -938,3 +935,12 @@ html.dark .sv-free-chip { background: rgb(var(--n-900)); box-shadow: inset 0 0 0
 .sv-free.none b { display: block; font-size: 13px; font-weight: 700; }
 .sv-free.none p { margin-top: 2px; font-size: 11.5px; color: rgb(var(--n-500)); line-height: 1.35; }
 .sv-free.none > button { flex-shrink: 0; height: 34px; padding: 0 14px; border-radius: 999px; font-size: 12px; font-weight: 700; color: #fff; background: var(--acc, rgb(var(--p-600))); }
+
+/* ---- Acreditar rendimientos ---- */
+.yr-credit { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; padding: 11px 12px; border-radius: 14px; background: rgb(var(--line) / .045); }
+.yr-credit span { font-size: 11.5px; line-height: 1.35; color: rgb(var(--n-500)); min-width: 0; }
+.yr-credit span b { color: inherit; font-weight: 700; font-variant-numeric: tabular-nums; }
+.yr-credit button { flex-shrink: 0; height: 36px; padding: 0 14px; border-radius: 999px; font-size: 12px; font-weight: 700; color: #fff; background: var(--acc, rgb(var(--p-600))); transition: transform .12s; }
+.yr-credit button:active { transform: scale(.96); }
+.cr-note { font-size: 12px; line-height: 1.45; color: rgb(var(--n-500)); margin: 0 0 12px; }
+.cr-note b { font-weight: 700; }
