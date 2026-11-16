@@ -1034,3 +1034,7 @@ html:not(.dark) .yr-link { color: rgb(var(--p-200)); }
 html .ac-qa, html.dark .ac-qa { border-radius: 20px; padding: 13px 4px 11px; color: rgb(255 255 255 / .92); background: rgb(255 255 255 / .06);
   border: 1px solid rgb(255 255 255 / .1); box-shadow: inset 0 1px 0 rgb(255 255 255 / .1); }
 html .ac-qa.danger, html.dark .ac-qa.danger { color: rgb(255 140 155); background: rgb(244 63 94 / .12); border-color: rgb(244 63 94 / .24); }
+
+/* ---- Accesos rápidos de la cuenta: contenido centrado y íconos alineados aunque un texto ocupe dos líneas ---- */
+html .ac-qa, html.dark .ac-qa { justify-content: center; gap: 7px; padding: 12px 4px; min-height: 84px; }
+.ac-qa span { display: flex; align-items: center; justify-content: center; min-height: 2.5em; line-height: 1.25; text-align: center; text-wrap: balance; }
