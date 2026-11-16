@@ -151,6 +151,39 @@ const pkSum = a => (a.pk || []).reduce((s, p) => s + p.v, 0);
 const pkHeld = () => S.wal.filter(a => !(S.hide || {})[a.n]).reduce((s, a) => s + pkSum(a), 0);
 const walBal = a => bal(a.n, ym(new Date()));
 const pkFree = a => walBal(a) - pkSum(a);
+// ---- Bolsillos = el ahorro de cada cuenta ----
+// p.h = [{ id, d fecha, v (con signo), n }]: cada vez que metes o sacas plata del bolsillo. p.v siempre es la suma de p.h (se guarda para que nada se rompa).
+// p.ry = E.A. propia del bolsillo (opcional: sin ella usa la de su cuenta) · p.rs = desde qué fecha rinde con esa tasa propia.
+function pkInit(p) {
+    if (Array.isArray(p.h)) return;
+    const d = new Date(p.id), k = isNaN(d) ? today() : ymd(d); // bolsillos antiguos: su saldo actual pasa a ser la primera entrada
+    p.h = p.v > 0 ? [{ id: p.id, d: k > today() ? today() : k, v: p.v, n: "" }] : [];
+}
+S.wal.forEach(a => a.pk.forEach(pkInit));
+let _pkUid = 0;
+function pkApply(p, v, d, n) { // única puerta para cambiar el saldo de un bolsillo: deja el historial al día
+    pkInit(p);
+    p.h.push({ id: Date.now() * 1000 + (++_pkUid % 1000), d: d || today(), v, n: n || "" });
+    p.v = Math.round((p.v + v) * 100) / 100;
+}
+const pkBalAt = (p, k) => (p.h || []).reduce((s, x) => x.d <= k ? s + x.v : s, 0);
+// Mete plata en el bolsillo de una meta dentro de una cuenta (lo crea o lo vincula si hace falta). Quien llama ya validó que haya plata libre.
+function pkDeposit(a, g, m, d, n) {
+    let p = a.pk.find(q => q.m == g.id);
+    if (!p) {
+        const base = g.n.slice(0, 24), same = a.pk.find(q => q.n.toLowerCase() == base.toLowerCase());
+        if (same && !same.m) { p = same; p.m = g.id; }
+        else {
+            let nm = base, i = 1; while (a.pk.some(q => q.n.toLowerCase() == nm.toLowerCase())) nm = base.slice(0, 20) + " (" + (++i) + ")";
+            p = { id: Date.now(), n: nm, v: 0, m: g.id, h: [] }; a.pk.push(p);
+        }
+    }
+    pkApply(p, m, d, n); return p;
+}
+const walShown = () => S.wal.filter(a => !(S.hide || {})[a.n]);
+const pkAll = () => { const r = []; walShown().forEach(w => (w.pk || []).forEach(p => r.push({ w, p }))); return r; };
+const pkTot = () => pkAll().reduce((s, x) => s + x.p.v, 0);
+const freeAll = () => walShown().reduce((s, a) => s + Math.max(0, pkFree(a)), 0); // plata libre en tus cuentas: lo único que se puede pasar a Ahorro
 // ¿La cuenta ya se usó en algo? (entonces no se puede borrar, solo ocultar)
 const walBusy = n => S.items.some(x => x.w == n || x.to == n) || S.sv.some(x => x.w == n) || S.rec.some(r => r.w == n);
 

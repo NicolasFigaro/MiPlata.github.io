@@ -303,6 +303,10 @@ function svEdit(aid, sid) {
         if (!(n > 0)) return "Escribe un monto mayor a cero.";
         const nv = x.i || v[1] == "Meter" ? n : -n;
         if (svb(a.id) - x.v + nv < -0.005) return "Con ese cambio la meta quedaría en negativo.";
+        if (!x.i && nv > 0) { // un aporte corregido tampoco puede pasarse de la plata libre de su cuenta
+            const w = walOf(v[2]), k0 = x.v && x.cp && x.cp / x.v > 0 ? x.cp / x.v : (U ? S.trm : 1), back = x.w == v[2] && x.v > 0 ? x.cp : 0;
+            if (w && nv * k0 > pkFree(w) + back + 0.5) return "Solo tienes " + fmt(Math.max(0, pkFree(w) + back)) + " libres en " + esc(w.n) + ".";
+        }
         if (!x.i) { // se conserva la tasa con la que se anotó; si no hay, la TRM de hoy
             const k = x.v && x.cp && isFinite(x.cp / x.v) && x.cp / x.v > 0 ? x.cp / x.v : (U ? S.trm : 1);
             x.cp = Math.round(nv * k); x.w = v[2];

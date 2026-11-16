@@ -142,7 +142,7 @@ function walBalAt(a, k) {
 const _wyC = {};
 // Núcleo: interés compuesto diario sobre (saldo del día + lo ya ganado). delta = { fecha: cambio del saldo } después de st; sale en la moneda de la cuenta.
 function yCore(key, r, st, startBal, delta, endBal) {
-    const td = today(); key += "|" + r + "|" + st + "|" + td + "|" + Object.keys(delta).length;
+    const td = today(); key += "|" + r + "|" + st + "|" + td + "|" + startBal + "|" + endBal + "|" + JSON.stringify(delta);
     if (_wyC[key]) return _wyC[key];
     const dr = Math.pow(1 + r / 100, 1 / 365) - 1;
     let cur = Math.max(0, startBal), earned = 0, day = st, atPrev = 0; // atPrev = lo ganado al cierre del mes pasado
@@ -159,16 +159,66 @@ function yCore(key, r, st, startBal, delta, endBal) {
     return out;
 }
 const yStart = a => { const td = today(); return a.rs && a.rs <= td ? a.rs : td; };
-function walYield(a) {
-    const r = walRate(a); if (!r) return null;
-    const td = today(), st = yStart(a), delta = {};
+// Cambios del saldo de una cuenta después de la fecha st (entradas, salidas, transferencias y plata que pasó a metas)
+function walDeltas(a, st) {
+    const td = today(), delta = {};
     const add = (d, v) => { if (d > st && d <= td) delta[d] = (delta[d] || 0) + v; };
     for (const x of S.items) {
         if (x.t == "tr" && x.to == a.n) add(x.d, x.a);
         if (x.w == a.n) { if (x.t == "i") add(x.d, x.a); else if (!x.k) add(x.d, -x.a); }
     }
     for (const x of S.sv) if (x.w == a.n && !x.i) add(x.d, -(x.cp ?? x.v));
-    return yCore("w" + a.id + "|" + S.items.length + "|" + (S.ini[a.n] || 0) + "|" + S.sv.length, r, st, walBalAt(a, st), delta, walBalAt(a, td));
+    return delta;
+}
+// ---- Rendimiento por bolsillo ----
+// Cada bolsillo rinde por su cuenta: su propia E.A. (p.ry) o, si no tiene, la de la cuenta. 200 mil y 100 mil al mismo 10,5 % son dos rendimientos
+// independientes; la cuenta muestra la suma. Lo que no está en ningún bolsillo (lo libre) rinde a la E.A. de la cuenta.
+const pkRate = (a, p) => (+p.ry > 0 ? +p.ry : walRate(a));
+function pkYield(a, p) {
+    pkInit(p);
+    const r = pkRate(a, p); if (!r) return null;
+    const td = today(), own = +p.ry > 0, first = p.h.map(x => x.d).sort()[0] || td;
+    const st = own ? (p.rs && p.rs <= td ? p.rs : (first <= td ? first : td)) : yStart(a), delta = {};
+    let b0 = 0; p.h.forEach(x => { if (x.d <= st) b0 += x.v; else if (x.d <= td) delta[x.d] = (delta[x.d] || 0) + x.v; });
+    return yCore("p" + p.id, r, st, b0, delta, p.v);
+}
+const walOwn = a => (a.pk || []).some(p => +p.ry > 0);
+// Partes de una cuenta: lo libre (a la E.A. de la cuenta) y cada bolsillo
+function walYieldParts(a) {
+    const td = today(), r = walRate(a), list = [], pks = [];
+    (a.pk || []).forEach(p => { const y = pkYield(a, p); pks.push({ p, y }); if (y) list.push(y); });
+    let free = null;
+    if (r) {
+        const st = yStart(a), delta = walDeltas(a, st), add = (d, v) => { if (d > st && d <= td) delta[d] = (delta[d] || 0) + v; };
+        let sb = walBalAt(a, st);
+        (a.pk || []).forEach(p => (p.h || []).forEach(x => { if (x.d <= st) sb -= x.v; else add(x.d, -x.v); }));
+        free = yCore("wf" + a.id, r, st, sb, delta, walBalAt(a, td) - pkSum(a));
+        list.unshift(free);
+    }
+    return { free, pks, list };
+}
+// Junta varios rendimientos en uno solo (misma forma que devuelve yCore) para que el resto de la pantalla no note la diferencia
+function yMerge(L) {
+    if (L.length == 1) return L[0];
+    const td = today(), first = L.map(y => y.start).sort()[0], days = Math.min(4000, dayDiff(first, td));
+    const maps = L.map(y => { const m = new Map(); y.pts.forEach(q => m.set(q.d, q.v)); return m; });
+    const pts = [{ d: first, v: 0 }];
+    for (let i = 1; i <= days; i++) {
+        const d = yAddDays(first, i);
+        pts.push({ d, v: L.reduce((s, y, j) => s + (maps[j].has(d) ? maps[j].get(d) : d > y.start ? y.total : 0), 0) });
+    }
+    const sum = k => L.reduce((s, y) => s + y[k], 0), bal = sum("bal");
+    return { rate: bal > 0 ? L.reduce((s, y) => s + y.rate * y.bal, 0) / bal : Math.max(...L.map(y => y.rate)), pts, total: sum("total"), start: first, bal, month: sum("month"), daily: sum("daily"), monthly: sum("monthly"), year: sum("year") };
+}
+function walYield(a) {
+    const r = walRate(a);
+    if (!r && !walOwn(a)) return null;
+    if (r && !walOwn(a)) { // lo normal: todos los bolsillos usan la tasa de la cuenta, así que la suma es el rendimiento de toda la cuenta
+        const td = today(), st = yStart(a);
+        return yCore("w" + a.id, r, st, walBalAt(a, st), walDeltas(a, st), walBalAt(a, td));
+    }
+    const P = walYieldParts(a);
+    return P.list.length ? yMerge(P.list) : null;
 }
 // Cuentas en dólares / euros: el rendimiento sale en su moneda (US$ o €) y se convierte a pesos con la tasa de la cuenta
 function fxYield(a) {
@@ -195,7 +245,7 @@ function walYieldPanelUI(a, fx) {
     return `
         <div class="yr-acc">
             <div class="flex items-center justify-between gap-2 mb-1">
-                <h4 class="sv-lbl !mb-0"><i class="fa-solid fa-arrow-trend-up mr-1.5"></i>Rendimientos · ${yPct(y.rate)}% E.A.</h4>
+                <h4 class="sv-lbl !mb-0"><i class="fa-solid fa-arrow-trend-up mr-1.5"></i>Rendimientos · ${walOwn(a) ? "≈ " : ""}${yPct(y.rate)}% E.A.</h4>
                 <button onclick="${edit}(${a.id})" class="yr-link">Editar</button>
             </div>
             <div class="yr-chart sm">${yChart(w.pts, { id: "w" + a.id, h: 36, cls: "big", est: w.est, fmt: n => "+" + mf(n), label: "Gráfica de rendimientos de la cuenta" })}</div>
@@ -208,7 +258,7 @@ function walYieldPanelUI(a, fx) {
 }
 // Resumen de todas las cuentas que rinden (aparece arriba de la lista en Cuentas)
 function walYieldAllUI() {
-    const L = S.wal.filter(a => walRate(a) > 0 && !(S.hide || {})[a.n]).map(a => ({ a, y: walYield(a), k: 1 })).filter(x => x.y)
+    const L = S.wal.filter(a => !(S.hide || {})[a.n]).map(a => ({ a, y: walYield(a), k: 1 })).filter(x => x.y)
         .concat(S.fx.filter(a => walRate(a) > 0 && fxRateOf(a) > 0).map(a => { const k = fxRateOf(a), y = fxYield(a); return { a, k, y: Object.assign({}, y, { pts: y.pts.map(p => ({ d: p.d, v: p.v * k })), total: y.total * k, daily: y.daily * k, monthly: y.monthly * k }) }; }));
     if (!L.length) return "";
     const td = today(), first = L.map(x => x.y.start).sort()[0], days = Math.min(400, dayDiff(first, td));
@@ -260,4 +310,39 @@ function walRendApply(a, v, off) {
 function fxRend(id) {
     const a = S.fx.find(x => x.id == id); if (!a) return;
     openCustomModal("Rendimientos de " + esc(a.n), walRendFields(a), v => { const e = walRendApply(a, v); if (e) return e; save(); });
+}
+
+// Lo que rinden hoy todos tus bolsillos juntos (Ahorro e Inicio)
+function pkYieldAll() {
+    const o = { daily: 0, total: 0, month: 0, monthly: 0, n: 0 };
+    pkAll().forEach(({ w, p }) => { const y = pkYield(w, p); if (y) { o.daily += y.daily; o.total += y.total; o.month += y.month; o.monthly += y.monthly; o.n++; } });
+    return o;
+}
+// Lo mismo para los bolsillos de una meta
+function goalPkYield(g) {
+    const o = { daily: 0, total: 0, month: 0, monthly: 0, n: 0 };
+    goalPks(g).forEach(({ w, p }) => { const y = pkYield(w, p); if (y) { o.daily += y.daily; o.total += y.total; o.month += y.month; o.monthly += y.monthly; o.n++; } });
+    return o;
+}
+// E.A. del bolsillo para mostrar: "9,5 % E.A." o "" si no rinde
+const pkEA = (a, p) => { const r = pkRate(a, p); return r > 0 ? yPct(r) + "% E.A." : ""; };
+
+// Tasa propia de un bolsillo (formulario): "igual que la cuenta" o una tasa distinta
+const pkRateLbl = a => walRate(a) > 0 ? "Igual que la cuenta (" + yPct(walRate(a)) + "% E.A.)" : "Sin rendimiento";
+const PK_OWN = "Tasa propia";
+function pkRateFields(a, p, o) {
+    o = o || 0;
+    return [
+        { l: "Rendimiento del bolsillo", o: [pkRateLbl(a), PK_OWN], v: +p.ry > 0 ? PK_OWN : pkRateLbl(a) },
+        { l: "Tasa efectiva anual (%)", m: "decimal", p: "Ej. 10,5", v: +p.ry > 0 ? tf(p.ry) : "", dep: [o, PK_OWN] },
+        { l: "Rinde desde", t: "date", v: p.rs || today(), dep: [o, PK_OWN] }
+    ];
+}
+function pkRateApply(p, v, o) {
+    o = o || 0;
+    if (v[o] != PK_OWN) { delete p.ry; delete p.rs; return; }
+    const r = pr(v[o + 1]);
+    if (!(r > 0) || r > 200) return "Escribe la tasa efectiva anual, por ejemplo 10,5.";
+    if (v[o + 2] > today()) return "La fecha no puede ser futura.";
+    p.ry = Math.round(r * 100) / 100; p.rs = v[o + 2] || today();
 }

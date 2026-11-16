@@ -532,24 +532,53 @@ function vHome() {
 }
 
 // ---------- Cuentas ----------
-function walPanel(a) {
-    const b = walBal(a), pk = pkSum(a);
-    const qa = (cl, fn, ic, t) => `<button onclick="${fn}" class="ac-qa ${cl}"><i class="fa-solid ${ic}"></i><span>${t}</span></button>`;
-    const ib = (cl, fn, ic, t) => `<button onclick="${fn}" title="${t}" aria-label="${t}" class="w-8 h-8 ${cl} rounded-lg text-[11px] flex items-center justify-center"><i class="fa-solid ${ic}"></i></button>`;
-    const hasGoals = S.acc.some(g => !g.f);
-    const linkedG = S.acc.filter(g => !g.f && a.pk.some(p => p.m == g.id)), linkedAG = linkedG.reduce((s, g) => s + goalTotal(g) * (g.u ? S.trm : 1), 0);
-    const pks = a.pk.map(p => {
-        const g = p.m ? S.acc.find(x => x.id == p.m) : null, gt = g && g.g ? Math.min(100, goalAll(g) / g.g * 100) : null;
-        return `
-        <div class="flex items-center justify-between gap-2 py-2.5 border-b border-slate-100 dark:border-slate-800 last:border-0">
-            <div class="min-w-0 flex items-center gap-3">${pkTile(p, g)}<div class="min-w-0"><b class="text-xs text-slate-800 dark:text-white block truncate">${esc(p.n)}</b><small class="text-[11px] text-slate-400">${fmt(p.v)}${g ? ` · <span class="font-medium" style="color:${goalCol(g)}">${goalEmo(g)} ${esc(g.n)} · lleva ${fm(g, goalAll(g))}${g.g ? " de " + fm(g, g.g) + " (" + gt.toFixed(0) + "%)" : ""}</span>` : ""}</small></div></div>
-            <div class="flex items-center gap-1.5 shrink-0">
-                ${ib("bg-emerald-50 text-emerald-600", `pkMove(${a.id},${p.id},1)`, "fa-plus", "Meter")}
-                ${ib("bg-rose-50 text-rose-600", `pkMove(${a.id},${p.id},-1)`, "fa-minus", "Sacar")}
-                ${mxMenu((hasGoals || p.m ? ib(p.m ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 dark:bg-slate-800", `linkPk(${a.id},${p.id})`, "fa-link", "Vincular a una meta") : "") + ib("bg-slate-100 dark:bg-slate-800", `editPk(${a.id},${p.id})`, "fa-pen", "Renombrar") + ib("bg-slate-100 dark:bg-slate-800 text-rose-500", `delPk(${a.id},${p.id})`, "fa-trash", "Borrar"))}
+// ---------- Bolsillos (el ahorro vive aquí) ----------
+const pkColor = (p, g) => p.c || (g ? goalCol(g) : pkCol(p));
+// Barra que reparte el saldo de una cuenta: cada bolsillo con su color y, al final, lo libre
+function pkAlloc(a) {
+    const segs = a.pk.filter(p => p.v > 0); if (!segs.length) return "";
+    const b = Math.max(walBal(a), pkSum(a)), free = Math.max(0, b - pkSum(a));
+    return `<div class="pk-alloc" role="img" aria-label="Cómo se reparte el saldo de la cuenta">
+        <div class="pk-bar">${segs.map(p => `<i style="width:${(p.v / b * 100).toFixed(2)}%;background:${pkColor(p, p.m ? S.acc.find(x => x.id == p.m) : null)}" title="${esc(p.n)}"></i>`).join("")}${free > 0 ? `<i class="free" style="width:${(free / b * 100).toFixed(2)}%" title="Libre"></i>` : ""}</div>
+        <div class="pk-leg">${segs.map(p => `<span><i class="dot" style="background:${pkColor(p, p.m ? S.acc.find(x => x.id == p.m) : null)}"></i>${esc(p.n)}</span>`).join("")}<span><i class="dot free"></i>Libre ${fmt(free)}</span></div>
+    </div>`;
+}
+const pkHistUI = p => {
+    pkInit(p); const L = p.h.slice().sort((x, y) => y.d.localeCompare(x.d) || y.id - x.id).slice(0, 8);
+    if (!L.length) return "";
+    return sdet("Historial (" + p.h.length + ")", L.map(x => `<div class="pk-hl"><span>${dmy(x.d).slice(0, 5)}${x.n ? " · " + esc(x.n) : ""}</span><b class="${x.v > 0 ? "up" : ""}">${x.v > 0 ? "+" : "-"}${fmt(Math.abs(x.v))}</b></div>`).join(""), "pk-hist");
+};
+// Tarjeta de un bolsillo: su saldo, su propia E.A., lo que rinde hoy y qué parte de la cuenta es. o.acc = muestra también el nombre de la cuenta (pantalla Ahorro)
+function pkCard(a, p, o) {
+    o = o || {};
+    const g = p.m ? S.acc.find(x => x.id == p.m) : null, y = pkYield(a, p), ea = pkEA(a, p), own = +p.ry > 0, b = walBal(a), share = b > 0 ? Math.min(100, p.v / b * 100) : 0;
+    const col = pkColor(p, g), gp = g && g.g ? Math.min(100, goalAll(g) / g.g * 100) : null, noFree = pkFree(a) <= 0;
+    const ib = (cl, fn, ic, t) => `<button onclick="${fn}" class="pk-sm ${cl}"><i class="fa-solid ${ic}"></i>${t}</button>`;
+    return `
+        <article class="pk-card" style="--c:${col}">
+            <div class="pk-top">
+                ${pkTile(p, g)}
+                <div class="pk-main"><b>${esc(p.n)}</b><small>${o.acc ? esc(a.n) + " · " : ""}${g ? esc(g.n) + (gp != null ? " · " + gp.toFixed(0) + "% de la meta" : "") : "Sin meta"}</small></div>
+                <div class="pk-amt"><b>${fmt(p.v)}</b>${y && y.daily >= 0.5 ? `<small class="up">+${fmt(y.daily)} hoy</small>` : ""}</div>
             </div>
-        </div>`;
-    }).join("");
+            <div class="sv-badges pk-chips">
+                ${ea ? `<span class="sv-pill${own ? " up" : ""}"><i class="fa-solid fa-percent"></i>${ea}${own ? " · propia" : ""}</span>` : `<span class="sv-pill">Sin rendimiento</span>`}
+                ${y && y.total >= 0.5 ? `<span class="sv-pill up">+${fmt(y.total)} ganado</span>` : ""}
+                ${!o.acc && share > 0 ? `<span class="sv-pill">${share.toFixed(share < 10 ? 1 : 0)}% de la cuenta</span>` : ""}
+            </div>
+            <div class="pk-acts">
+                ${ib("in" + (noFree ? " off" : ""), `pkMove(${a.id},${p.id},1)`, "fa-plus", "Meter")}
+                ${ib("out", `pkMove(${a.id},${p.id},-1)`, "fa-minus", "Sacar")}
+                ${mxMenu((S.acc.some(x => !x.f) || p.m ? `<button onclick="linkPk(${a.id},${p.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs font-semibold"><i class="fa-solid fa-link mr-1"></i>${p.m ? "Cambiar meta" : "Vincular a una meta"}</button>` : "") + `<button onclick="editPk(${a.id},${p.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs font-semibold"><i class="fa-solid fa-pen mr-1"></i>Editar / E.A.</button><button onclick="delPk(${a.id},${p.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-rose-500 rounded-xl text-xs font-semibold"><i class="fa-solid fa-trash mr-1"></i>Borrar</button>`)}
+            </div>
+            ${pkHistUI(p)}
+        </article>`;
+}
+
+function walPanel(a) {
+    const b = walBal(a), pk = pkSum(a), free = b - pk;
+    const qa = (cl, fn, ic, t) => `<button onclick="${fn}" class="ac-qa ${cl}"><i class="fa-solid ${ic}"></i><span>${t}</span></button>`;
+    const linkedG = S.acc.filter(g => !g.f && a.pk.some(p => p.m == g.id)), linkedAG = linkedG.reduce((s, g) => s + (goalLegacy(g) ? goalTotal(g) * (g.u ? S.trm : 1) : 0), 0);
     const mv = S.items.filter(x => (x.w == a.n && !x.k) || x.to == a.n).sort((p, q) => q.d.localeCompare(p.d) || q.id - p.id).slice(0, 8).map(x => {
         const inn = x.t == "i" || (x.t == "tr" && x.to == a.n);
         return `<div class="flex items-center justify-between gap-2 py-2 text-xs border-b border-slate-100 dark:border-slate-800 last:border-0">
@@ -560,9 +589,10 @@ function walPanel(a) {
     return `
         <section class="ac-panel">
             <div class="sv-stats">
-                ${[["Saldo", fmt(b), b < 0 ? "neg" : ""], ["En bolsillos", fmt(pk + linkedAG), ""], ["Libre", fmt(b - pk), b - pk < 0 ? "neg" : "up"]].map(([l, v, cl]) => `<div class="${cl}"><span class="sv-lbl">${l}</span><b>${v}</b></div>`).join("")}
+                ${[["Saldo", fmt(b), b < 0 ? "neg" : ""], ["Ahorrado", fmt(pk + linkedAG), ""], ["Libre", fmt(free), free < 0 ? "neg" : "up"]].map(([l, v, cl]) => `<div class="${cl}"><span class="sv-lbl">${l}</span><b>${v}</b></div>`).join("")}
             </div>
-            ${linkedAG > 0.5 ? `<p class="text-[10px] text-slate-400 mt-1.5">En bolsillos incluye ${fmt(linkedAG)} de metas</p>` : ""}
+            ${linkedAG > 0.5 ? `<p class="text-[10px] text-slate-400 mt-1.5">Ahorrado incluye ${fmt(linkedAG)} de ahorro anterior de metas</p>` : ""}
+            ${pkAlloc(a)}
             ${pk > b + 0.5 ? `<p class="text-[11px] text-amber-500 mt-2"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Tus bolsillos suman más que el saldo de la cuenta. Revisa el saldo («Ajustar saldo») o saca plata de algún bolsillo.</p>` : ""}
             <div class="ac-qas">
                 ${qa("", `adjWal(${a.id})`, "fa-sliders", "Ajustar saldo")}
@@ -571,12 +601,12 @@ function walPanel(a) {
                 ${qa("danger", `delWal(${a.id})`, "fa-trash", "Borrar")}
             </div>
             ${walYieldPanelUI(a)}
-            <div class="flex justify-between items-center mt-5 mb-1">
-                <h4 class="sv-lbl !mb-0">Bolsillos</h4>
-                <button onclick="newPk(${a.id})" class="px-3 py-1.5 bg-indigo-600 text-white rounded-xl text-xs font-semibold shadow-md">+ Nuevo bolsillo</button>
+            <div class="pk-head">
+                <div><h4 class="sv-lbl !mb-0"><i class="fa-solid fa-box-archive mr-1.5"></i>Bolsillos de ahorro</h4><small>${free > 0.5 ? "Libre para apartar: <b>" + fmt(free) + "</b>" : "Sin plata libre en esta cuenta"}</small></div>
+                <button onclick="newPk(${a.id})" class="pk-new">+ Nuevo</button>
             </div>
-            <p class="text-[11px] text-slate-400 mb-1">Plata que sigue en esta cuenta pero ya tiene dueño: no cuenta como «Disponible para gastar».</p>
-            ${pks || emptyUI("fa-box-archive", "#5856D6", "Sin bolsillos", "Aparta plata dentro de esta cuenta (arriendo, un viaje…) sin sacarla de ahí.", "Crear bolsillo", `newPk(${a.id})`, true)}
+            <p class="text-[11px] text-slate-400 mb-2">Cada bolsillo es plata apartada que sigue en esta cuenta y rinde por su cuenta${walRate(a) > 0 ? " (por defecto, al " + yPct(walRate(a)) + "% E.A. de la cuenta)" : ""}. Todo lo que apartes aparece en Ahorro.</p>
+            ${a.pk.length ? `<div class="pk-list">${a.pk.map(p => pkCard(a, p)).join("")}</div>` : emptyUI("fa-box-archive", "#5856D6", "Sin bolsillos", "Aparta plata libre de esta cuenta (arriendo, un viaje, un fondo…) sin sacarla de ahí. Cada uno rinde con su E.A.", "Crear bolsillo", `newPk(${a.id})`, true)}
             <h4 class="sv-lbl mt-5 !mb-0">Últimos movimientos</h4>
             ${mv || '<p class="text-xs text-slate-400 text-center py-4">Todavía no hay movimientos en esta cuenta.</p>'}
         </section>`;
@@ -588,15 +618,17 @@ function vCue() {
     // Lo que ya tienen ahorrado las metas que están vinculadas a algún bolsillo (esa plata está en la meta, no en la cuenta: no entra en "Libre")
     const AG = S.acc.filter(g => !g.f && goalPks(g).length).reduce((s, g) => s + goalTotal(g) * (g.u ? S.trm : 1), 0);
     const held = P + AG, pw = T > 0 ? Math.min(100, Math.max(0, held / T * 100)) : 0;
+    const DY = shown.reduce((s, a) => { const y = walYield(a); return s + (y ? y.daily : 0); }, 0);
     return `
         <section class="ac-hero">
             <small>Total en cuentas</small>
             <div class="amt">${fmt(T)}</div>
+            ${DY > 0.5 ? `<span class="hchip"><i class="fa-solid fa-arrow-trend-up"></i>+${fmt(DY)} hoy en rendimientos</span>` : ""}
             ${FX ? `<p class="hnote">Incluye ≈ ${fmt(FX)} en dólares y euros${Math.abs(fxGain()) >= 0.5 ? ` · ${fxGain() > 0 ? "ganancia por la tasa" : "pérdida por la tasa"} ${fmt(Math.abs(fxGain()))}` : ""}</p>` : ""}
             <div class="hsplit"><i style="width:${(100 - pw).toFixed(1)}%;background:#fff"></i><i style="width:${pw.toFixed(1)}%;background:rgb(255 255 255/.4)"></i></div>
             <div class="hlegend two">
                 <span><i class="dot" style="background:#fff"></i><em>Libre</em><b>${fmt(T - P)}</b></span>
-                <span><i class="dot" style="background:rgb(255 255 255/.4)"></i><em>En bolsillos</em><b>${fmt(held)}</b>${AG > 0.5 ? `<small>incluye ${fmt(AG)} de metas</small>` : ""}</span>
+                <span><i class="dot" style="background:rgb(255 255 255/.4)"></i><em>Ahorrado (bolsillos)</em><b>${fmt(held)}</b>${AG > 0.5 ? `<small>incluye ${fmt(AG)} de ahorro anterior</small>` : ""}</span>
             </div>
         </section>
         ${walYieldAllUI()}
@@ -612,7 +644,7 @@ function vCue() {
 
 // ---------- Inicio: acciones rápidas + widgets (tasa del dólar y rendimiento de hoy) ----------
 function quickUI() {
-    const goals = S.acc.filter(a => !a.f), D = goals.reduce((s, a) => s + goalYield(a).daily * (a.u ? S.trm : 1), 0), Y = goals.reduce((s, a) => s + goalYield(a).total * (a.u ? S.trm : 1), 0);
+    const goals = S.acc.filter(a => !a.f), PY = pkYieldAll(), D = goals.reduce((s, a) => s + goalYield(a).daily * (a.u ? S.trm : 1), 0) + PY.daily, Y = goals.reduce((s, a) => s + goalYield(a).total * (a.u ? S.trm : 1), 0) + PY.total;
     return `
         <div class="qa-row" role="group" aria-label="Acciones rápidas">
             <button onclick="openMov(); setType('g')" class="qa-pill"><i class="fa-solid fa-arrow-up-right"></i>Gasto</button>
@@ -676,39 +708,57 @@ function goalRing(a, p) {
 }
 const pctTxt = n => (Math.round(n * 100) / 100).toLocaleString("es-CO", { maximumFractionDigits: 2 });
 
+// E.A. de una meta: la de sus bolsillos (o el rango si cada uno rinde distinto)
+function goalEA(g) {
+    const r = goalPks(g).map(x => pkRate(x.w, x.p)).filter(v => v > 0); if (!r.length) return "";
+    const lo = Math.min(...r), hi = Math.max(...r);
+    return (lo == hi ? yPct(lo) : yPct(lo) + "–" + yPct(hi)) + "% E.A.";
+}
+const pkRow = (w, p) => {
+    const y = pkYield(w, p), ea = pkEA(w, p);
+    return `<div class="pk-row">${pkTile(p, null, 1)}
+        <span class="pk-rmain"><b>${esc(w.n)} › ${esc(p.n)}</b><small>${ea || "Sin rendimiento"}${y && y.daily >= 0.5 ? " · +" + fmt(y.daily) + " hoy" : ""}</small></span>
+        <span class="pk-ramt">${fmt(p.v)}</span>
+        <span class="pk-rbtn"><button onclick="pkMove(${w.id},${p.id},1)" aria-label="Meter"><i class="fa-solid fa-plus"></i></button><button onclick="pkMove(${w.id},${p.id},-1)" aria-label="Sacar"><i class="fa-solid fa-minus"></i></button></span>
+    </div>`;
+};
 function goalCard(a) {
-    const s = svb(a.id), gy = goalYield(a), y = gy.total, gp = goalPks(a), pkv = goalPkSum(a), K = a.u ? S.trm : 1;
+    const s = svb(a.id), gy = goalYield(a), y = gy.total, gp = goalPks(a), pkv = goalPkSum(a), K = a.u ? S.trm : 1, leg = goalLegacy(a), py = goalPkYield(a);
     const t = s + y + pkv, p = a.g ? Math.min(100, t / a.g * 100) : 0, gb = goalBlock(a, p), col = goalCol(a), open = goalOpen == a.id, done = a.g && t >= a.g;
-    const rh = (a.rh || []).slice().sort((x, z) => x.d.localeCompare(z.d));
-    const pkBox = gp.length ? `<div class="sv-box">
-            <div class="flex justify-between items-center mb-1"><span class="sv-lbl"><i class="fa-solid fa-box-archive mr-1"></i>En bolsillos de tus cuentas</span><b class="text-xs">${fm(a, pkv)}</b></div>
-            ${gp.map(x => `<div class="flex items-center justify-between gap-2 py-1.5 text-[11px] border-t border-slate-100 dark:border-slate-800 first:border-0"><span class="min-w-0 truncate text-slate-500 dark:text-slate-400">${esc(x.w.n)} › <b class="text-slate-700 dark:text-slate-200">${esc(x.p.n)}</b> · ${fmt(x.p.v)}</span><span class="flex gap-1.5 shrink-0"><button onclick="pkMove(${x.w.id},${x.p.id},1)" class="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 text-[11px]" aria-label="Meter"><i class="fa-solid fa-plus"></i></button><button onclick="pkMove(${x.w.id},${x.p.id},-1)" class="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 text-[11px]" aria-label="Sacar"><i class="fa-solid fa-minus"></i></button></span></div>`).join("")}
-            ${hq("Esta plata sigue en tu cuenta (no sube tu patrimonio dos veces), pero cuenta para esta meta.")}
+    const rh = (a.rh || []).slice().sort((x, z) => x.d.localeCompare(z.d)), ea = goalEA(a), dayT = py.daily / K + gy.daily, yldT = py.total / K + y;
+    const pkBox = `<div class="sv-box">
+            <div class="flex justify-between items-center mb-1"><span class="sv-lbl !mb-0"><i class="fa-solid fa-box-archive mr-1"></i>Bolsillos de esta meta</span><b class="text-xs">${fm(a, pkv)}</b></div>
+            ${gp.length ? gp.map(x => pkRow(x.w, x.p)).join("") : `<p style="font-size:12px;line-height:1.4;padding:4px 0" class="text-slate-400">Todavía no hay plata apartada para esta meta. «Meter» aparta plata libre de una de tus cuentas.</p>`}
+            ${gp.length ? hq("Esta plata sigue en tu cuenta (no sube tu patrimonio dos veces), pero cuenta para esta meta. Cada bolsillo rinde con su propia E.A.") : ""}
+        </div>`;
+    const legBox = leg ? `<div class="sv-box sv-leg">
+            <div class="flex justify-between items-center mb-1"><span class="sv-lbl !mb-0"><i class="fa-solid fa-clock-rotate-left mr-1"></i>Ahorro anterior</span><b class="text-xs">${fm(a, s + y)}</b></div>
+            <p class="text-[11px] text-slate-400 mb-2">Plata que se guardó aquí antes de que el ahorro viviera en los bolsillos: no está dentro de ninguna cuenta${gy.rate > 0 ? " y rinde " + pctTxt(gy.rate) + "% E.A" : ""}. Pásala a una cuenta para que quede en un bolsillo y cuadre con Cuentas.</p>
+            <button onclick="legToPk(${a.id})" class="pk-btn"><i class="fa-solid fa-arrow-right-to-bracket"></i>Pasar a una cuenta</button>
+            ${gy.rate > 0 ? sdet("Cómo rinde", `<div class="sv-rows">
+                <div><span>Este mes</span><b class="up">+${fm(a, gy.month)}</b></div>
+                <div><span>Al mes, a este ritmo</span><b class="up">+${fm(a, gy.monthly)}</b></div>
+                <div><span>En 12 meses sin aportar más</span><b class="up">+${fm(a, gy.year)}</b></div>
+                ${rh.length > 1 ? rh.map((x, i) => `<div><span>${i == 0 ? "Al inicio" : "Desde " + dmy(x.d)}</span><b>${pctTxt(x.r)}% E.A.</b></div>`).join("") : ""}
+            </div><p class="text-[10px] text-slate-400 mt-1">Estimado: interés compuesto día a día sobre la E.A.</p>`, "sv-det") : ""}
         </div>` : "";
     const badges = [
-        gy.rate > 0 ? `<span class="sv-pill">${pctTxt(gy.rate)}% E.A.</span>` : "",
-        gy.daily * K > 0.5 ? `<span class="sv-pill up"><i class="fa-solid fa-arrow-trend-up"></i>+${fm(a, gy.daily)} hoy</span>` : "",
+        ea ? `<span class="sv-pill">${ea}</span>` : "",
+        dayT * K > 0.5 ? `<span class="sv-pill up"><i class="fa-solid fa-arrow-trend-up"></i>+${fm(a, dayT)} hoy</span>` : "",
         done ? `<span class="sv-pill up">¡Meta lograda! 🎉</span>` : "",
         a.u ? `<span class="sv-pill">USD</span>` : ""
     ].join("");
     let body = "";
     if (open) {
-        const trio = gy.rate > 0
+        const trio = py.n > 0 || gy.rate > 0
             ? `<div class="sv-stats">
-                <div><span class="sv-lbl">Aportado</span><b>${fm(a, s)}</b></div>
-                <div class="up"><span class="sv-lbl">Rendimiento</span><b>+${fm(a, y)}</b></div>
-                <div class="up"><span class="sv-lbl">Hoy</span><b>+${fm(a, gy.daily)}</b></div>
-            </div>
-            ${sdet("Cómo rinde", `<div class="sv-rows">
-                <div><span>Este mes</span><b class="up">+${fm(a, gy.month)}</b></div>
-                <div><span>Al mes, a este ritmo</span><b class="up">+${fm(a, gy.monthly)}</b></div>
-                <div><span>En 12 meses sin aportar más</span><b class="up">+${fm(a, gy.year)}</b></div>
-                <div><span>Tasa equivalente</span><b>${pctTxt((Math.pow(1 + gy.rate / 100, 1 / 12) - 1) * 100)}% mensual</b></div>
-                ${rh.length > 1 ? rh.map((x, i) => `<div><span>${i == 0 ? "Al inicio" : "Desde " + dmy(x.d)}</span><b>${pctTxt(x.r)}% E.A.</b></div>`).join("") : ""}
-            </div><p class="text-[10px] text-slate-400 mt-1">Estimado: interés compuesto día a día sobre la E.A. Si el banco cambia la tasa, usa Editar y elige desde qué día rige: lo ganado antes no se recalcula.</p>`, "sv-det")}`
+                <div><span class="sv-lbl">Ahorrado</span><b>${fm(a, s + pkv)}</b></div>
+                <div class="up"><span class="sv-lbl">Rendimiento</span><b>+${fm(a, yldT)}</b></div>
+                <div class="up"><span class="sv-lbl">Hoy</span><b>+${fm(a, dayT)}</b></div>
+            </div>${py.n > 0 ? `<p class="text-[10px] text-slate-400 -mt-1 mb-3">El rendimiento de los bolsillos es estimado y no se suma a tu saldo: si tu banco ya lo suma, usa «Ajustar saldo» en la cuenta.</p>` : ""}`
             : `<div class="sv-stats two">
-                <div><span class="sv-lbl">Aportado</span><b>${fm(a, s)}</b></div>
-                <button onclick="editAcc(${a.id})" class="sv-cta"><i class="fa-solid fa-percent"></i><span>¿Esta plata gana intereses?<small>Agrega la tasa E.A.</small></span></button>
+                <div><span class="sv-lbl">Ahorrado</span><b>${fm(a, s + pkv)}</b></div>
+                <button onclick="goTab(N.indexOf('Cuentas'))" class="sv-cta"><i class="fa-solid fa-percent"></i><span>¿Esta plata gana intereses?<small>Ponle E.A. a su cuenta o bolsillo</small></span></button>
             </div>`;
         body = `<div class="sv-body">
             <div class="sv-big"><b data-cu="goal${a.id}">${fm(a, t)}</b>${a.g ? `<span>de ${fm(a, a.g)}</span>` : ""}</div>
@@ -716,11 +766,12 @@ function goalCard(a) {
             ${a.g ? `${gb.bar.replace('bg-emerald-500 h-full', 'h-full').replace('style="width:' + p + '%"', 'style="width:' + p + '%;background:' + col + '"')}<div class="flex justify-between text-[11px] text-slate-400 mt-1 mb-3"><span>${p.toFixed(0)}%</span><span>${done ? "¡Meta lograda!" : "Faltan " + fm(a, a.g - t)}</span></div>${gb.info}` : ""}
             ${trio}
             ${pkBox}
-            ${goalHist(a)}
+            ${legBox}
+            ${leg ? goalHist(a) : ""}
             <div class="sv-act">
-                <button onclick="mov(${a.id}, 1)" class="sv-btn in"><i class="fa-solid fa-plus"></i>Meter</button>
+                <button onclick="mov(${a.id}, 1)" class="sv-btn in${freeAll() <= 0 ? " off" : ""}"><i class="fa-solid fa-plus"></i>Meter</button>
                 <button onclick="mov(${a.id}, -1)" class="sv-btn out"><i class="fa-solid fa-minus"></i>Sacar</button>
-                ${mxMenu(`<button onclick="pkGoal(${a.id})" class="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-xl text-xs font-semibold"><i class="fa-solid fa-box-archive mr-1"></i>Bolsillo</button>${s + y > 0.5 ? `<button onclick="mov(${a.id}, -1, 1)" class="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-xl text-xs font-semibold">Sacar todo</button>` : ""}<button onclick="editAcc(${a.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold">Editar</button><button onclick="archAcc(${a.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold">Archivar</button><button onclick="delAcc(${a.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-rose-500 rounded-xl text-xs font-semibold">Borrar</button>`)}
+                ${mxMenu(`${gp.some(x => x.p.v > 0) ? `<button onclick="mov(${a.id}, -1, 1)" class="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-xl text-xs font-semibold">Sacar todo</button>` : ""}${leg && gp.length ? `<button onclick="movLegacy(${a.id}, -1)" class="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-xl text-xs font-semibold">Sacar del ahorro anterior</button>` : ""}<button onclick="editAcc(${a.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold">Editar</button><button onclick="archAcc(${a.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold">Archivar</button><button onclick="delAcc(${a.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-rose-500 rounded-xl text-xs font-semibold">Borrar</button>`)}
             </div>
         </div>`;
     }
@@ -733,23 +784,32 @@ function goalCard(a) {
 }
 
 function vAho() {
-    let T = 0, Y = 0, PK = 0, D = 0;
-    const goals = S.acc.filter(a => !a.f);
-    goals.forEach(a => {
-        const K = a.u ? S.trm : 1;
-        T += svb(a.id) * K; Y += goalYield(a).total * K; D += goalYield(a).daily * K; PK += goalPkSum(a) * K;
-    });
-    const tot = T + Y + PK, w = v => tot > 0 ? Math.max(0, v / tot * 100).toFixed(1) : 0;
+    const goals = S.acc.filter(a => !a.f), PK = pkTot(), PY = pkYieldAll();
+    let L = 0, LD = 0;
+    goals.forEach(a => { const K = a.u ? S.trm : 1; if (goalLegacy(a)) L += Math.max(0, goalTotal(a)) * K; LD += goalYield(a).daily * K; });
+    const tot = PK + L, D = PY.daily + LD, M = PY.monthly, w = v => tot > 0 ? Math.max(0, v / tot * 100).toFixed(1) : 0;
+    const fr = walShown().map(a => ({ a, f: Math.max(0, pkFree(a)) })).filter(x => x.f > 0.5);
+    const strip = fr.length
+        ? `<section class="sv-free">
+            <div class="sv-free-h"><span class="sv-lbl !mb-0">Libre para ahorrar</span><b>${fmt(freeAll())}</b></div>
+            <div class="sv-free-chips">${fr.map(x => `<button onclick="openAcc(${x.a.id})" class="sv-free-chip"><span>${esc(wlabel(x.a.n))}</span><b>${fmt(x.f)}</b>${walRate(x.a) > 0 ? `<em>${yPct(walRate(x.a))}% E.A.</em>` : ""}</button>`).join("")}</div>
+            <p>Solo puedes ahorrar plata que esté libre en una cuenta: así Ahorro y Cuentas siempre cuadran.</p>
+        </section>`
+        : `<section class="sv-free none"><i class="fa-solid fa-circle-info"></i><div><b>No tienes plata libre en tus cuentas</b><p>Ingresa o transfiere plata a una cuenta para poder ahorrarla.</p></div><button onclick="goTab(N.indexOf('Cuentas'))">Ir a Cuentas</button></section>`;
+    const loose = pkAll().filter(x => !x.p.m || (S.acc.find(g => g.id == x.p.m) || {}).f);
     return `
         <section class="sv-hero">
             <small>Total Ahorrado</small>
             <div class="amt">${fmt(tot)}</div>
-            ${D > 0.5 ? `<span class="hchip"><i class="fa-solid fa-arrow-trend-up"></i>+${fmt(D)} hoy</span>` : ""}
-            ${tot > 0 && (Y > 0.5 || PK > 0.5) ? `<div class="hsplit"><i style="width:${w(T)}%;background:#fff"></i><i style="width:${w(Y)}%;background:rgb(var(--p-300))"></i><i style="width:${w(PK)}%;background:rgb(255 255 255/.45)"></i></div>
-            <div class="hlegend"><span><i class="dot" style="background:#fff"></i>Aportado <b>${fmt(T)}</b></span>${Y > 0.5 ? `<span><i class="dot" style="background:rgb(var(--p-300))"></i>Rendimiento <b>${fmt(Y)}</b></span>` : ""}${PK > 0.5 ? `<span><i class="dot" style="background:rgb(255 255 255/.45)"></i>En bolsillos <b>${fmt(PK)}</b></span>` : ""}</div>` : ""}
+            ${D > 0.5 ? `<span class="hchip"><i class="fa-solid fa-arrow-trend-up"></i>+${fmt(D)} hoy${M > 0.5 ? " · ≈ +" + fmt(M) + " al mes" : ""}</span>` : ""}
+            ${tot > 0 && L > 0.5 ? `<div class="hsplit"><i style="width:${w(PK)}%;background:#fff"></i><i style="width:${w(L)}%;background:rgb(var(--p-300))"></i></div>
+            <div class="hlegend"><span><i class="dot" style="background:#fff"></i>En bolsillos <b>${fmt(PK)}</b></span><span><i class="dot" style="background:rgb(var(--p-300))"></i>Ahorro anterior <b>${fmt(L)}</b></span></div>` : tot > 0 ? `<div class="hlegend"><span>En ${pkAll().length} ${pkAll().length == 1 ? "bolsillo" : "bolsillos"} de tus cuentas${PY.total > 0.5 ? " · ≈ +" + fmt(PY.total) + " ganado" : ""}</span></div>` : ""}
         </section>
+        ${strip}
         <div class="sec-h"><h3>Mis Metas</h3><button onclick="newAcc()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold shadow-md">+ Nueva meta</button></div>
-        ${goals.map(goalCard).join("") || emptyUI("fa-piggy-bank", "#34C759", "Aún no tienes metas", "Una meta es una cajita para algo concreto: un viaje, un fondo de emergencia, una compra. Mete plata y mira cómo crece.", "Crear la primera meta", "newAcc()")}${arcUI()}
+        ${goals.map(goalCard).join("") || emptyUI("fa-piggy-bank", "#34C759", "Aún no tienes metas", "Una meta es un destino para tu ahorro: un viaje, un fondo de emergencia, una compra. La plata sale de tus cuentas y queda en bolsillos que rinden.", "Crear la primera meta", "newAcc()")}
+        ${loose.length ? `<div class="sec-h mt-6"><h3>Bolsillos sin meta</h3>${hq("Plata apartada en tus cuentas que no está ligada a ninguna meta. Se administra igual desde Cuentas.")}</div><div class="pk-list">${loose.map(x => pkCard(x.w, x.p, { acc: true })).join("")}</div>` : ""}
+        ${arcUI()}
     `;
 }
 

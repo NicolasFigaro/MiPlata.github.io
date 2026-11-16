@@ -523,7 +523,7 @@ function addMov() {
     rcSavePend(iid);
     if (fxAcc) fxAcc.h.push({ id: iid + 1, d, v: -fxUnits, n: note || cat, it: iid }); // sale de la cuenta en su moneda; queda ligado al movimiento
     if (ds == "card") S.items.push({ id: Date.now() + 1, d, t: "p", c: "Pago tarjeta", n: "Pago " + pcSel, a: pa, k: "", pc: pcSel, w: wh, q: 1 });
-    if (ds == "save") S.sv.push({ id: Date.now() + 1, a: ac.id, d, v: ac.u ? pa / S.trm : pa, cp: pa, w: wh });
+    if (ds == "save" && walOf(wh)) pkDeposit(walOf(wh), ac, pa, d, note || "Ingreso"); // el ingreso ya entró a la cuenta: una parte queda apartada en el bolsillo de la meta
     if (ds == "debt") S.items.push({ id: Date.now() + 1, d, t: "g", c: "Deudas/Tarjeta", n: "Pago deuda: " + db.n, a: pa, k: "", w: wh, q: 1, dbt: db.id });
     // El gasto sale directo de una meta: se descuenta de ahí y no toca ninguna billetera
     if (savAcc) S.sv.push({ id: Date.now() + 1, a: savAcc.id, d, v: savAcc.u ? -(a / S.trm) : -a, cp: -a, w: "" });
@@ -744,6 +744,8 @@ function showModal(html) {
     setTimeout(() => { modal.classList.remove("opacity-0"); container.classList.remove("scale-95"); container.classList.add("scale-100"); }, 10);
 }
 function togW(id) { walOpen = walOpen == id ? null : id; fxOpen = null; draw(); }
+// Desde Ahorro: abre esa cuenta en Cuentas (con sus bolsillos a la vista)
+function openAcc(id) { walOpen = id; fxOpen = null; goTab(N.indexOf("Cuentas")); }
 // El nombre identifica la cuenta en los movimientos: debe ser único entre cuentas y tarjetas
 function walErr(n, own) {
     if (!/^[\p{L}\p{N}][\p{L}\p{N} .\/-]{0,19}$/u.test(n)) return "Usa hasta 20 letras o números (sin comillas ni símbolos raros).";
@@ -825,19 +827,26 @@ function delWal(id) {
         syncWH(); save();
     });
 }
-// Bolsillos: plata apartada dentro de una cuenta. Sigue en el saldo, pero no cuenta como "Disponible para gastar".
+// Bolsillos: plata apartada dentro de una cuenta. Es el ahorro de Mi Plata: sigue en el saldo de la cuenta, pero ya no cuenta como «Disponible para gastar».
+// Regla de oro: solo se puede apartar plata LIBRE de esa cuenta (saldo − lo que ya está en bolsillos). Cada bolsillo rinde con su propia E.A.
+const noFreeToast = () => showToast("No tienes plata libre en tus cuentas. Ingresa o transfiere plata a una cuenta primero.", true, { label: "Ir a Cuentas", ic: "fa-wallet text-amber-400", fn: () => goTab(N.indexOf("Cuentas")) });
 function newPk(wid) {
     const a = S.wal.find(x => x.id == wid); if (!a) return;
+    const go = goalOpts(), free = Math.max(0, pkFree(a)), rI = go ? 3 : 2;
     openCustomModal("Nuevo bolsillo en " + esc(a.n), [
         { l: "Nombre", p: "Ej. Arriendo, Viaje" },
-        { l: "¿Cuánto apartas ahora? (libre: " + fmt(Math.max(0, pkFree(a))) + ")", m: "numeric", p: "0" }
-    ].concat(goalOpts() ? [{ l: "Para una meta de ahorro (opcional)", o: goalOpts() }] : []).concat([{ l: "Ícono", sw: icoSw(), v: "", cls: "sw-ic" }, { l: "Color", sw: colSw(), v: "" }]), v => {
-        const kI = goalOpts() ? 3 : 2;
+        { l: "¿Cuánto apartas ahora? (libre: " + fmt(free) + ")", m: "numeric", p: "0" }
+    ].concat(go ? [{ l: "Para una meta de ahorro (opcional)", o: go }] : []).concat(pkRateFields(a, {}, rI)).concat([{ l: "Ícono", sw: icoSw(), v: "", cls: "sw-ic" }, { l: "Color", sw: colSw(), v: "" }]), v => {
         if (!v[0] || v[0].length > 24) return "Escribe un nombre (hasta 24 letras).";
         if (a.pk.some(p => p.n.toLowerCase() == v[0].toLowerCase())) return "Ya tienes un bolsillo con ese nombre en esta cuenta.";
         const m = num(v[1]);
-        if (m > Math.max(0, pkFree(a))) return "Solo tienes " + fmt(Math.max(0, pkFree(a))) + " libres en esta cuenta.";
-        const g = goalByOpt(v[2]), p = { id: Date.now(), n: v[0], v: m }; if (g) p.m = g.id; if (v[kI]) p.ic = v[kI]; if (v[kI + 1]) p.c = v[kI + 1]; a.pk.push(p); save();
+        if (m > free) return free > 0 ? "Solo tienes " + fmt(free) + " libres en esta cuenta." : "Esta cuenta no tiene plata libre. Ingresa o transfiere plata primero.";
+        const g = go ? goalByOpt(v[2]) : null, p = { id: Date.now(), n: v[0], v: 0, h: [] };
+        const er = pkRateApply(p, v, rI); if (er) return er;
+        if (g) p.m = g.id;
+        if (v[rI + 3]) p.ic = v[rI + 3]; if (v[rI + 4]) p.c = v[rI + 4];
+        if (m > 0) pkApply(p, m, today(), "");
+        a.pk.push(p); save();
     });
 }
 // ---- Bolsillos ↔ metas de ahorro ----
@@ -857,41 +866,49 @@ function linkPk(wid, pid) {
         save();
     });
 }
-// Desde la meta: apartar plata en un bolsillo (de la cuenta que elijas) ya vinculado a esa meta
+// Desde la meta (o desde Ahorro): apartar plata libre de una cuenta en el bolsillo de esa meta
 function pkGoal(gid) {
     const g = S.acc.find(x => x.id == gid); if (!g) return;
+    const L = walShown().map(a => ({ a, f: Math.max(0, pkFree(a)) })).sort((x, y) => (y.f > 0) - (x.f > 0));
+    if (!L.some(x => x.f > 0)) return noFreeToast();
+    const lab = x => x.a.n + " · libre " + fmt(x.f) + (walRate(x.a) > 0 ? " · " + yPct(walRate(x.a)) + "% E.A." : "");
     openCustomModal("Apartar para " + esc(g.n), [
-        { l: "¿De qué cuenta? (el bolsillo queda dentro de ella)", o: WH.map(w => w) },
-        { l: "Monto en pesos", m: "numeric" }
+        { l: "¿De qué cuenta? (sale de su plata libre)", o: L.map(x => esc(lab(x))) },
+        { l: "Monto en pesos", m: "numeric" },
+        { l: "Fecha", t: "date", v: today() }
     ], v => {
-        const a = S.wal.find(x => v[0].startsWith(x.n)), m = num(v[1]);
-        if (!a) return "Elige una cuenta.";
+        const x = L.find(q => lab(q) == v[0]), m = num(v[1]), d = v[2] || today();
+        if (!x) return "Elige una cuenta.";
         if (!(m > 0)) return "Escribe un monto válido.";
-        if (m > Math.max(0, pkFree(a))) return "Solo tienes " + fmt(Math.max(0, pkFree(a))) + " libres en " + esc(a.n) + ".";
-        let p = a.pk.find(q => q.m == g.id);
-        if (!p) {
-            const nm = g.n.slice(0, 24); p = a.pk.find(q => q.n.toLowerCase() == nm.toLowerCase() && !q.m); // si ya hay uno con el nombre de la meta, se vincula
-            if (p) p.m = g.id; else { p = { id: Date.now(), n: nm, v: 0, m: g.id }; a.pk.push(p); }
-        }
-        p.v += m; save();
+        if (d > today()) return "La fecha no puede ser futura.";
+        if (m > x.f) return x.f > 0 ? "Solo tienes " + fmt(x.f) + " libres en " + esc(x.a.n) + "." : esc(x.a.n) + " no tiene plata libre.";
+        pkDeposit(x.a, g, m, d); save();
     });
 }
+// Apartar sin meta: elige el bolsillo (o uno nuevo desde Cuentas)
 function pkMove(wid, pid, s) {
     const a = S.wal.find(x => x.id == wid), p = a && a.pk.find(x => x.id == pid); if (!p) return;
-    openCustomModal((s > 0 ? "Meter a " : "Sacar de ") + esc(p.n), [{ l: s > 0 ? "Monto (libre en la cuenta: " + fmt(Math.max(0, pkFree(a))) + ")" : "Monto (hay " + fmt(p.v) + " en el bolsillo)", v: s > 0 ? "" : p.v, m: "numeric" }], v => {
-        const m = num(v[0]);
+    const free = Math.max(0, pkFree(a));
+    if (s > 0 && free <= 0) return showToast("«" + a.n + "» no tiene plata libre. Ingresa o transfiere plata a esa cuenta primero.", true);
+    openCustomModal((s > 0 ? "Meter a " : "Sacar de ") + esc(p.n), [
+        { l: s > 0 ? "Monto (libre en la cuenta: " + fmt(free) + ")" : "Monto (hay " + fmt(p.v) + " en el bolsillo)", v: s > 0 ? "" : p.v, m: "numeric" },
+        { l: "Fecha", t: "date", v: today() }
+    ], v => {
+        const m = num(v[0]), d = v[1] || today();
         if (!m) return "Escribe un monto válido.";
-        if (s > 0 && m > Math.max(0, pkFree(a))) return "Solo tienes " + fmt(Math.max(0, pkFree(a))) + " libres en esta cuenta.";
+        if (d > today()) return "La fecha no puede ser futura.";
+        if (s > 0 && m > free) return "Solo tienes " + fmt(free) + " libres en esta cuenta.";
         if (s < 0 && m > p.v) return "El bolsillo solo tiene " + fmt(p.v) + ".";
-        p.v += s * m; save();
+        pkApply(p, s * m, d); save();
     });
 }
 function editPk(wid, pid) {
     const a = S.wal.find(x => x.id == wid), p = a && a.pk.find(x => x.id == pid); if (!p) return;
-    openCustomModal("Renombrar bolsillo", [{ l: "Nombre", v: esc(p.n) }, { l: "Ícono", sw: icoSw(), v: p.ic || "", cls: "sw-ic" }, { l: "Color", sw: colSw(), v: p.c || "" }], v => {
+    openCustomModal("Editar bolsillo", [{ l: "Nombre", v: esc(p.n) }].concat(pkRateFields(a, p, 1), [{ l: "Ícono", sw: icoSw(), v: p.ic || "", cls: "sw-ic" }, { l: "Color", sw: colSw(), v: p.c || "" }]), v => {
         if (!v[0] || v[0].length > 24) return "Escribe un nombre (hasta 24 letras).";
         if (a.pk.some(q => q.id != pid && q.n.toLowerCase() == v[0].toLowerCase())) return "Ya tienes un bolsillo con ese nombre en esta cuenta.";
-        p.n = v[0]; if (v[1]) p.ic = v[1]; else delete p.ic; if (v[2]) p.c = v[2]; else delete p.c; save();
+        const er = pkRateApply(p, v, 1); if (er) return er;
+        p.n = v[0]; if (v[4]) p.ic = v[4]; else delete p.ic; if (v[5]) p.c = v[5]; else delete p.c; save();
     });
 }
 function delPk(wid, pid) {
@@ -906,55 +923,80 @@ function newAcc() {
         { l: "Moneda", o: ["COP (pesos)", "USD (dólares)"] },
         { l: "Meta (monto)", m: "decimal" },
         { l: "Fecha límite (opcional)", t: "date" },
-        { l: "Rendimiento anual E.A. % (0 si no gana)", v: "0", m: "decimal" },
-        { l: "Ya tengo ahorrado (opcional)", m: "decimal" },
         { l: "Ícono", sw: goalIcoSw(), v: "", cls: "sw-ic" },
         { l: "Color", sw: colSw(), v: "" }
     ], v => {
         if (!v[0]) return "Escribe un nombre.";
         if (v[3] && v[3] <= today()) return "La fecha límite debe ser futura.";
         const u = v[1].startsWith("USD"), P = s => u ? (pr(s) || 0) : num(s), id = Date.now();
-        const ng = { id, n: v[0], g: P(v[2]), r: pr(v[4]) || 0, u: u ? 1 : 0, dl: v[3] || "", s0: today() };
-        if (v[6]) ng.ic = v[6]; if (v[7]) ng.c = v[7];
+        const ng = { id, n: v[0], g: P(v[2]), r: 0, u: u ? 1 : 0, dl: v[3] || "", s0: today() };
+        if (v[4]) ng.ic = v[4]; if (v[5]) ng.c = v[5];
         S.acc.push(ng);
-        if (P(v[5])) S.sv.push({ id: id + 1, a: id, d: today(), v: P(v[5]), i: 1 });
         save();
+        showToast(freeAll() > 0 ? "Meta creada. Usa «Meter» para apartar plata libre de tus cuentas." : "Meta creada. Para ahorrar, primero ten plata libre en alguna cuenta.");
     });
 }
+// ¿La meta todavía tiene ahorro «anterior» (el que se guardaba aparte, fuera de las cuentas)?
+const goalLegacy = a => { const e = a.u ? 0.004 : 0.5; return Math.abs(svb(a.id)) > e || goalTotal(a) > e; };
 function editAcc(id) {
-    const a = S.acc.find(x => x.id == id), r0 = goalRateAt(a, today());
+    const a = S.acc.find(x => x.id == id), r0 = goalRateAt(a, today()), leg = goalLegacy(a), n0 = leg ? 5 : 3;
     openCustomModal("Editar Meta", [
         { l: "Nombre", v: esc(a.n) },
         { l: "Meta", v: tf(a.g), m: "decimal" },
-        { l: "Fecha límite (opcional)", v: a.dl || "", t: "date" },
-        { l: "Rendimiento E.A. %", v: tf(r0), m: "decimal" },
-        { l: "La nueva tasa rige desde (si la cambiaste)", v: today(), t: "date" },
+        { l: "Fecha límite (opcional)", v: a.dl || "", t: "date" }
+    ].concat(leg ? [
+        { l: "Rendimiento E.A. % del ahorro anterior", v: tf(r0), m: "decimal" },
+        { l: "La nueva tasa rige desde (si la cambiaste)", v: today(), t: "date" }
+    ] : []).concat([
         { l: "Ícono", sw: goalIcoSw(), v: a.ic || "", cls: "sw-ic" },
         { l: "Color", sw: colSw(), v: a.c || "" }
-    ], v => {
-        const nr = pr(v[3]) || 0, d = v[4] || today();
-        if (nr < 0 || nr > 100) return "La tasa E.A. debe estar entre 0 y 100.";
-        if (d > today()) return "La fecha no puede ser futura.";
-        // Si cambió la tasa se guarda desde qué día rige: lo ya ganado antes de esa fecha no se recalcula
-        if (Math.abs(nr - r0) > 1e-9) {
-            if (!a.rh || !a.rh.length) a.rh = [{ d: "1970-01-01", r: r0 }];
-            a.rh = a.rh.filter(x => x.d != d); a.rh.push({ d, r: nr }); a.rh.sort((p, q) => p.d.localeCompare(q.d));
+    ]), v => {
+        if (leg) {
+            const nr = pr(v[3]) || 0, d = v[4] || today();
+            if (nr < 0 || nr > 100) return "La tasa E.A. debe estar entre 0 y 100.";
+            if (d > today()) return "La fecha no puede ser futura.";
+            // Si cambió la tasa se guarda desde qué día rige: lo ya ganado antes de esa fecha no se recalcula
+            if (Math.abs(nr - r0) > 1e-9) {
+                if (!a.rh || !a.rh.length) a.rh = [{ d: "1970-01-01", r: r0 }];
+                a.rh = a.rh.filter(x => x.d != d); a.rh.push({ d, r: nr }); a.rh.sort((p, q) => p.d.localeCompare(q.d));
+            }
+            a.r = a.rh && a.rh.length ? goalRateAt(a, today()) : nr;
         }
         if (v[0]) a.n = v[0];
-        a.g = pr(v[1]); a.dl = v[2] || ""; a.r = a.rh && a.rh.length ? goalRateAt(a, today()) : nr;
-        if (v[5]) a.ic = v[5]; else delete a.ic;
-        if (v[6]) a.c = v[6]; else delete a.c;
+        a.g = pr(v[1]); a.dl = v[2] || "";
+        if (v[n0]) a.ic = v[n0]; else delete a.ic;
+        if (v[n0 + 1]) a.c = v[n0 + 1]; else delete a.c;
         save();
     });
 }
 function delAcc(id) { confirmAction("¿Borrar meta y sus movimientos?" + (goalPks({ id }).length ? " Sus bolsillos no se borran: la plata sigue en tus cuentas." : ""), () => { S.wal.forEach(w => w.pk.forEach(p => { if (p.m == id) delete p.m; })); S.acc = S.acc.filter(x => x.id != id); S.sv = S.sv.filter(x => x.a != id); save(); }); }
 function archAcc(id) { const a = S.acc.find(x => x.id == id); a.f = a.f ? 0 : 1; save(); draw(); }
-// all = 1: "Sacar todo", deja escrito el saldo completo (lo ahorrado + el rendimiento ganado)
+// Meter plata a una meta = apartarla en un bolsillo, y solo sale de plata libre de una cuenta (así Ahorro nunca tiene más de lo que hay en Cuentas).
+// Sacar = el bolsillo suelta la plata y vuelve a quedar libre en su cuenta. all = 1: «Sacar todo» (campo vacío = todo el bolsillo elegido).
 function mov(id, s, all) {
+    const a = S.acc.find(x => x.id == id); if (!a) return;
+    if (s > 0) return pkGoal(id);
+    const L = goalPks(a).filter(x => x.p.v > 0), lab = x => x.w.n + " › " + x.p.n + " · " + fmt(x.p.v);
+    if (!L.length) return goalLegacy(a) && goalTotal(a) > 0 ? movLegacy(id, -1, all) : showToast("Esta meta no tiene plata para sacar.", true);
+    openCustomModal((all ? "Sacar todo de " : "Sacar de ") + esc(a.n), [
+        { l: "¿De qué bolsillo? (la plata queda libre en su cuenta)", o: L.map(x => esc(lab(x))) },
+        { l: all ? "Monto (vacío = todo el bolsillo)" : "Monto", v: all && L.length == 1 ? L[0].p.v : "", m: "numeric" },
+        { l: "Fecha", t: "date", v: today() }
+    ], v => {
+        const x = L.find(q => lab(q) == v[0]), d = v[2] || today(); if (!x) return "Elige un bolsillo.";
+        const m = v[1] === "" && all ? x.p.v : num(v[1]);
+        if (!(m > 0)) return "Escribe un monto válido.";
+        if (d > today()) return "La fecha no puede ser futura.";
+        if (m > x.p.v) return "Ese bolsillo solo tiene " + fmt(x.p.v) + ".";
+        pkApply(x.p, -m, d); save();
+    });
+}
+// Ahorro «anterior»: el que cada meta guardaba aparte (con su propia E.A.) antes de que el ahorro viviera en los bolsillos. Se puede sacar o pasar a una cuenta.
+function movLegacy(id, s, all) {
     const a = S.acc.find(x => x.id == id), U = a.u, K = U ? S.trm : 1;
     const full = all ? (U ? Math.floor(goalTotal(a) * 100) / 100 : Math.floor(goalTotal(a))) : 0;
-    openCustomModal(s > 0 ? "Meter a " + esc(a.n) : (all ? "Sacar todo de " : "Sacar de ") + esc(a.n), [
-        { l: s > 0 ? "¿De dónde sale?" : "¿A dónde regresa?", o: WH.map(w => w) },
+    openCustomModal("Sacar del ahorro anterior de " + esc(a.n), [
+        { l: "¿A dónde regresa?", o: WH.map(w => w) },
         { l: U ? "Monto en USD" : "Monto", v: full > 0 ? tf(full) : "", m: "decimal" },
         { l: "Fecha", t: "date", v: today() }
     ], v => {
@@ -962,6 +1004,24 @@ function mov(id, s, all) {
         if (!(n > 0)) return "Escribe un monto válido.";
         if (d > today()) return "La fecha no puede ser futura.";
         S.sv.push({ id: Date.now(), a: id, d, v: s * n, cp: s * n * K, w });
+        save();
+    });
+}
+// Pasa TODO el ahorro anterior de una meta (lo aportado + su rendimiento) a un bolsillo dentro de una cuenta
+function legToPk(gid) {
+    const g = S.acc.find(x => x.id == gid); if (!g) return;
+    const tot = g.u ? Math.floor(goalTotal(g) * 100) / 100 : Math.floor(goalTotal(g)), K = g.u ? S.trm : 1, r0 = goalRateAt(g, today());
+    if (!(tot > 0)) return showToast("Esta meta no tiene ahorro anterior para pasar.", true);
+    const keep = "Mantener la E.A. de la meta (" + yPct(r0) + "%)", acc = walShown();
+    openCustomModal("Pasar «" + esc(g.n) + "» a una cuenta", [
+        { l: "¿A qué cuenta va? (" + fm(g, tot) + " quedan en su bolsillo)", o: acc.map(w => esc(w.n)) },
+        { l: "Rendimiento", o: ["Usar la E.A. de la cuenta", keep], v: r0 > 0 ? keep : "Usar la E.A. de la cuenta" }
+    ].filter((f, i) => i == 0 || r0 > 0), v => {
+        const a = acc.find(w => w.n == v[0]); if (!a) return "Elige una cuenta.";
+        const pesos = Math.round(tot * K), d = today();
+        S.sv.push({ id: Date.now(), a: g.id, d, v: -tot, cp: -pesos, w: a.n }); // sale del ahorro anterior y vuelve a la cuenta…
+        const p = pkDeposit(a, g, pesos, d, "Ahorro anterior");               // …donde queda apartada en el bolsillo de la meta
+        if (r0 > 0 && v[1] == keep) { p.ry = r0; p.rs = d; }
         save();
     });
 }
