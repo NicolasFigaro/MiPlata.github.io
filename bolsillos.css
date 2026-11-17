@@ -1,0 +1,87 @@
+/* ===== Mi Plata · bolsillos.css =====
+   Cuentas ↔ Ahorro: los bolsillos son el ahorro. Sobrio y plano (línea fina, un solo acento), todo sale de las variables del tema (--p-*, --n-*, --line, --acc),
+   así que sigue los 10 temas, el color propio y el modo oscuro. */
+
+/* ---- Cabecera de bolsillos dentro de una cuenta ---- */
+.pk-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin: 22px 0 6px; }
+.pk-head small { display: block; margin-top: 3px; font-size: 12px; color: rgb(var(--n-500)); }
+.pk-head small b { color: var(--acc); font-weight: 700; font-variant-numeric: tabular-nums; }
+.pk-new { flex-shrink: 0; height: 34px; padding: 0 14px; border-radius: 999px; font-size: 12px; font-weight: 700; color: #fff; background: var(--acc, rgb(var(--p-600))); transition: transform .12s; }
+.pk-new:active { transform: scale(.96); }
+.pk-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 4px; }
+
+/* ---- Barra de reparto del saldo ---- */
+.pk-alloc { margin-top: 12px; }
+.pk-bar { display: flex; gap: 2px; height: 10px; border-radius: 999px; overflow: hidden; background: rgb(var(--line) / .07); }
+.pk-bar i { display: block; height: 100%; min-width: 3px; border-radius: 3px; transition: width .5s cubic-bezier(.2, .8, .2, 1); }
+.pk-bar i.free { background: rgb(var(--line) / .1); }
+.pk-leg { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 9px; font-size: 11px; color: rgb(var(--n-500)); }
+.pk-leg span { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dot.free { background: rgb(var(--line) / .22); }
+
+/* ---- Tarjeta de bolsillo ---- */
+.pk-card { position: relative; padding: 13px 14px 12px 16px; border-radius: 18px; background: var(--g-card, rgb(255 255 255 / .66)); border: 1px solid var(--g-line, rgb(var(--line) / .09)); box-shadow: var(--g-shadow, none); overflow: hidden; animation: svIn .35s cubic-bezier(.2, .8, .2, 1) both; }
+.pk-card::before { content: ""; position: absolute; left: 0; top: 14px; bottom: 14px; width: 3px; border-radius: 0 3px 3px 0; background: var(--c); }
+.pk-top { display: flex; align-items: center; gap: 12px; }
+.pk-main { min-width: 0; flex: 1; }
+.pk-main b { display: block; font-size: 14.5px; font-weight: 700; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pk-main small { display: block; margin-top: 1px; font-size: 11.5px; color: rgb(var(--n-500)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pk-amt { text-align: right; flex-shrink: 0; }
+.pk-amt b { display: block; font-size: 16px; font-weight: 800; letter-spacing: -.025em; font-variant-numeric: tabular-nums; }
+.pk-amt small { display: block; margin-top: 1px; font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.pk-amt small.up { color: var(--acc); }
+.pk-chips { margin-top: 10px; }
+.pk-acts { display: flex; align-items: flex-start; gap: 8px; margin-top: 11px; }
+.pk-sm { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 38px; border-radius: 12px; font-size: 13px; font-weight: 700; transition: transform .12s, opacity .2s; }
+.pk-sm:active { transform: scale(.97); }
+.pk-sm.in { background: var(--ink); color: var(--ink-on); }
+.pk-sm.out { color: inherit; box-shadow: inset 0 0 0 1px rgb(var(--line) / .16); }
+.pk-sm.off, .sv-btn.off { opacity: .45; }
+.pk-acts details.mx > summary { height: 38px; width: 42px; display: flex; align-items: center; justify-content: center; border-radius: 12px; box-shadow: inset 0 0 0 1px rgb(var(--line) / .16); }
+.pk-card .sdet { margin-top: 8px; }
+.pk-hl { display: flex; justify-content: space-between; gap: 10px; padding: 7px 0; font-size: 12px; border-bottom: 1px solid rgb(var(--line) / .06); }
+.pk-hl:last-child { border-bottom: 0; }
+.pk-hl span { color: rgb(var(--n-500)); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pk-hl b { font-variant-numeric: tabular-nums; }
+.pk-hl b.up { color: var(--acc); }
+
+/* ---- Fila compacta de bolsillo (dentro de una meta) ---- */
+.pk-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-top: 1px solid rgb(var(--line) / .06); }
+.pk-row:first-of-type { border-top: 0; }
+.pk-rmain { min-width: 0; flex: 1; }
+.pk-rmain b { display: block; font-size: 12.5px; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pk-rmain small { display: block; font-size: 11px; color: rgb(var(--n-500)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pk-ramt { font-size: 13px; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+.pk-rbtn { display: flex; gap: 6px; flex-shrink: 0; }
+.pk-rbtn button { width: 30px; height: 30px; border-radius: 10px; font-size: 11px; box-shadow: inset 0 0 0 1px rgb(var(--line) / .16); transition: transform .12s; }
+.pk-rbtn button:active { transform: scale(.92); }
+.pk-btn { display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 16px; border-radius: 12px; font-size: 13px; font-weight: 700; color: #fff; background: var(--acc, rgb(var(--p-600))); }
+.sv-leg .pk-btn { margin-bottom: 4px; }
+
+/* ---- Ahorro: banda «libre para ahorrar» ---- */
+.sv-free { margin: -10px 0 22px; padding: 14px 16px 12px; border-radius: 20px; border: 1px solid var(--g-line, rgb(var(--line) / .09)); background: var(--g-card, rgb(var(--line) / .03)); box-shadow: var(--g-shadow, none); }
+.sv-free-h { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.sv-free-h b { font-size: 20px; font-weight: 800; letter-spacing: -.03em; font-variant-numeric: tabular-nums; color: var(--acc); }
+.sv-free-chips { display: flex; gap: 8px; overflow-x: auto; margin: 10px -16px 0; padding: 0 16px 2px; scrollbar-width: none; }
+.sv-free-chips::-webkit-scrollbar { display: none; }
+.sv-free-chip { flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 9px 13px; min-width: 112px; border-radius: 14px; text-align: left; background: rgb(var(--line) / .05); box-shadow: inset 0 0 0 1px var(--g-line, rgb(var(--line) / .1)); transition: transform .12s; }
+.sv-free-chip:active { transform: scale(.97); }
+.sv-free-chip span { font-size: 11px; color: rgb(var(--n-500)); max-width: 130px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sv-free-chip b { font-size: 14px; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.sv-free-chip em { font-style: normal; font-size: 10.5px; font-weight: 700; color: var(--acc); }
+.sv-free > p { margin-top: 9px; font-size: 11px; color: rgb(var(--n-500)); line-height: 1.4; }
+.sv-free.none { display: flex; align-items: center; gap: 12px; }
+.sv-free.none > i { font-size: 18px; color: rgb(245 158 11); }
+.sv-free.none > div { flex: 1; min-width: 0; }
+.sv-free.none b { display: block; font-size: 13px; font-weight: 700; }
+.sv-free.none p { margin-top: 2px; font-size: 11.5px; color: rgb(var(--n-500)); line-height: 1.35; }
+.sv-free.none > button { flex-shrink: 0; height: 34px; padding: 0 14px; border-radius: 999px; font-size: 12px; font-weight: 700; color: #fff; background: var(--acc, rgb(var(--p-600))); }
+
+/* ---- Acreditar rendimientos ---- */
+.yr-credit { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; padding: 11px 12px; border-radius: 14px; background: rgb(var(--line) / .045); }
+.yr-credit span { font-size: 11.5px; line-height: 1.35; color: rgb(var(--n-500)); min-width: 0; }
+.yr-credit span b { color: inherit; font-weight: 700; font-variant-numeric: tabular-nums; }
+.yr-credit button { flex-shrink: 0; height: 36px; padding: 0 14px; border-radius: 999px; font-size: 12px; font-weight: 700; color: #fff; background: var(--acc, rgb(var(--p-600))); transition: transform .12s; }
+.yr-credit button:active { transform: scale(.96); }
+.cr-note { font-size: 12px; line-height: 1.45; color: rgb(var(--n-500)); margin: 0 0 12px; }
+.cr-note b { font-weight: 700; }

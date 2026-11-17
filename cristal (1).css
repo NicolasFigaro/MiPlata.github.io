@@ -1,0 +1,80 @@
+/* ===== Mi Plata · cristal.css =====
+   Rediseño "cristal y metal": fondo con haces de luz hechos en CSS (cero imágenes, cero desenfoque pesado), tarjetas de vidrio con borde fino,
+   cifras grandes y ligeras, barra flotante con el acento del tema, widgets y acciones rápidas en Inicio.
+   Todo se calcula con las escalas del tema (--p-* acento, --n-* neutros): cada tema tiene su propio "material", en oscuro y en claro (porcelana).
+   Se carga al final; pisa a serio.css. */
+
+:root {
+  --g-card: rgb(255 255 255 / .66);
+  --g-line: rgb(var(--n-900) / .09);
+  --g-hi: rgb(255 255 255 / .95);
+  --g-shadow: 0 1px 2px rgb(var(--n-900) / .05), 0 18px 32px -22px rgb(var(--n-900) / .32);
+  --g-mute: rgb(var(--n-500));
+}
+html.dark {
+  --g-card: linear-gradient(180deg, rgb(255 255 255 / .075), rgb(255 255 255 / .028)), rgb(var(--n-900) / .74);
+  --g-line: rgb(255 255 255 / .1);
+  --g-hi: rgb(255 255 255 / .16);
+  --g-shadow: 0 18px 34px -22px rgb(0 0 0 / .7);
+  --g-mute: rgb(var(--n-400));
+}
+
+/* ---- Fondo: haces de luz metálicos, una sola capa fija (barata para el celular) ---- */
+html, html.dark { background-image: none; }
+body, html.dark body { background: transparent !important; background-image: none !important; position: relative; }
+body::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none; transform: translateZ(0);
+  background:
+    linear-gradient(118deg, transparent 22%, rgb(255 255 255 / .8) 29%, transparent 37%, transparent 62%, rgb(var(--p-100) / .55) 68%, transparent 76%),
+    radial-gradient(70% 42% at 0% 0%, rgb(var(--p-200) / .5), transparent 62%),
+    radial-gradient(60% 40% at 100% 30%, rgb(var(--p-100) / .7), transparent 64%); }
+html.dark body::before {
+  background:
+    linear-gradient(118deg, transparent 18%, rgb(255 255 255 / .05) 24%, transparent 32%, transparent 54%, rgb(var(--p-200) / .08) 60%, transparent 68%),
+    radial-gradient(70% 45% at 6% 0%, rgb(var(--p-300) / .22), transparent 62%),
+    radial-gradient(55% 40% at 100% 24%, rgb(var(--p-500) / .17), transparent 64%),
+    radial-gradient(90% 50% at 50% 118%, rgb(var(--p-700) / .2), transparent 62%); }
+
+/* ---- Tarjetas de vidrio ---- */
+#appMain .rounded-\[20px\].bg-white:not(.yt-sec), html.dark #appMain .rounded-\[20px\].dark\:bg-slate-900:not(.yt-sec) {
+  background: var(--g-card); border: 1px solid var(--g-line); box-shadow: var(--g-shadow), inset 0 1px 0 var(--g-hi); }
+html.dark #modalContainer { background: linear-gradient(180deg, rgb(255 255 255 / .08), rgb(255 255 255 / .03)), rgb(var(--n-900) / .96); border-color: var(--g-line); }
+
+/* ---- Cabeceras: metal oscuro con un destello del acento ---- */
+[data-hero], .sv-hero, .ac-hero, #appMain section[class*="bg-gradient-to-b"], .tc-card {
+  background: radial-gradient(120% 95% at 100% 0%, rgb(var(--p-300) / .28), transparent 58%), linear-gradient(140deg, rgb(255 255 255 / .11), rgb(255 255 255 / .02) 40%, rgb(0 0 0 / .2)), rgb(var(--n-900)) !important;
+  border: 1px solid rgb(255 255 255 / .13) !important;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .2), 0 26px 40px -26px rgb(var(--n-950) / .75) !important; }
+html.dark [data-hero], html.dark .sv-hero, html.dark .ac-hero, html.dark #appMain section[class*="bg-gradient-to-b"], html.dark .tc-card {
+  background: radial-gradient(120% 95% at 100% 0%, rgb(var(--p-300) / .24), transparent 58%), linear-gradient(140deg, rgb(255 255 255 / .1), rgb(255 255 255 / .02) 40%, rgb(0 0 0 / .25)), rgb(var(--n-900)) !important; }
+
+/* ---- Cifras grandes y ligeras ---- */
+[data-hero] h2, .sv-hero .amt, .ac-hero .amt { font-weight: 300 !important; letter-spacing: -.045em !important; }
+.sv-big b { font-weight: 300; letter-spacing: -.045em; }
+#appMain :is(.text-3xl, .text-4xl):is(.font-extrabold, .font-bold) { font-weight: 300; letter-spacing: -.04em; }
+.tc-amt { font-weight: 300; letter-spacing: -.045em; }
+
+/* ---- Acciones rápidas y widgets (Inicio) ---- */
+.qa-row { display: flex; gap: 10px; }
+.qa-pill { flex: 1; min-width: 0; height: 50px; border-radius: 25px; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 13.5px; font-weight: 600; background: var(--g-card); border: 1px solid var(--g-line); box-shadow: var(--g-shadow), inset 0 1px 0 var(--g-hi); transition: transform .12s; }
+.qa-pill:active { transform: scale(.97); }
+.qa-pill i { font-size: 12px; color: rgb(var(--p-500)); }
+html.dark .qa-pill i { color: rgb(var(--p-300)); }
+.wd-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.wd { position: relative; overflow: hidden; text-align: left; display: flex; flex-direction: column; min-height: 118px; padding: 16px; border-radius: 22px; background: var(--g-card); border: 1px solid var(--g-line); box-shadow: var(--g-shadow), inset 0 1px 0 var(--g-hi); }
+.wd-l { font-size: 12px; color: var(--g-mute); }
+.wd-v { margin-top: auto; padding-top: 16px; font-size: 26px; line-height: 1.1; font-weight: 300; letter-spacing: -.045em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.wd-s { font-size: 11.5px; color: var(--g-mute); margin-top: 3px; }
+.wd-spark { position: absolute; right: 14px; top: 38px; width: 42%; height: 28px; color: rgb(var(--p-500)); opacity: .85; }
+html.dark .wd-spark { color: rgb(var(--p-300)); }
+
+/* ---- Barra flotante y botón flotante con el acento del tema ---- */
+#tabPill { background: rgb(var(--p-200)) !important; border-color: transparent !important; box-shadow: 0 8px 18px -8px rgb(var(--p-600) / .7) !important; }
+html.dark #tabPill { background: rgb(var(--p-300)) !important; }
+#tabBar button.on, #tabBar button[aria-current="page"], #tabBar .on { color: rgb(var(--n-950)) !important; }
+#fab { background: rgb(var(--p-300)) !important; color: rgb(var(--n-950)); box-shadow: 0 14px 26px -12px rgb(var(--p-600) / .8) !important; }
+
+/* ---- Botones principales: acento claro con texto oscuro en modo oscuro ---- */
+html.dark #appMain .bg-indigo-600, html.dark #modalContainer .bg-indigo-600 { background-color: rgb(var(--p-300)); color: rgb(var(--n-950)); }
+
+/* ---- Textos secundarios con contraste suficiente sobre el vidrio oscuro ---- */
+html.dark .hi-t small, html.dark .ac-main small, html.dark .sv-main small, html.dark .sv-lbl { color: rgb(var(--n-400)); }

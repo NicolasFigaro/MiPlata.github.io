@@ -106,3 +106,12 @@ function paintMain(el, html, soft) {
         document.querySelectorAll("details.mx[open]").forEach(o => { if (inItem ? o.contains(inItem) : !o.contains(e.target)) setTimeout(() => { o.open = false; }, 0); });
     }, true);
 })();
+
+// El botón + se oculta mientras haces scroll (no tapa cifras) y reaparece al soltar
+(function () {
+    let t = 0;
+    addEventListener("scroll", () => {
+        document.documentElement.classList.add("fab-hide");
+        clearTimeout(t); t = setTimeout(() => document.documentElement.classList.remove("fab-hide"), 220);
+    }, { passive: true });
+})();

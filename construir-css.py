@@ -7,7 +7,7 @@ import os
 D = os.path.dirname(os.path.abspath(__file__))
 GRUPOS = {
     "base.css":  ["styles", "mejoras", "pantallas", "estetica"],
-    "capas.css": ["diseno", "fluido", "ahorro-cuentas", "serio", "cristal", "summit", "claro", "rendimientos"],
+    "capas.css": ["diseno", "fluido", "ahorro-cuentas", "serio", "cristal", "summit", "claro", "rendimientos", "bolsillos", "bolsillos-cristal"],
 }
 for salida, hojas in GRUPOS.items():
     partes = []
