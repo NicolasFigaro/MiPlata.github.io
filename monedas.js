@@ -67,7 +67,7 @@ function fxPanel(a) {
             <div class="sv-act" style="border:0;padding:0;margin:0 0 14px">
                 <button onclick="fxMove(${a.id},1)" class="sv-btn in"><i class="fa-solid fa-plus"></i>Meter</button>
                 <button onclick="fxMove(${a.id},-1)" class="sv-btn out"><i class="fa-solid fa-minus"></i>Sacar</button>
-                ${mxMenu(act("bg-sky-50 text-sky-600", `fxCash(${a.id})`, "Cambiar a pesos") + act("bg-indigo-50 text-indigo-600", `fxAdj(${a.id})`, "Ajustar saldo") + act("bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300", `fxEdit(${a.id})`, "Editar") + act("bg-slate-100 dark:bg-slate-800 text-rose-500", `fxDel(${a.id})`, "Borrar"))}
+                ${mxMenu(act("bg-emerald-50 text-emerald-600", `fxBuy(${a.id})`, "Comprar con pesos") + act("bg-sky-50 text-sky-600", `fxCash(${a.id})`, "Cambiar a pesos") + act("bg-violet-50 text-violet-600", `fxTrf(${a.id})`, "Transferir") + act("bg-indigo-50 text-indigo-600", `fxAdj(${a.id})`, "Ajustar saldo") + act("bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300", `fxEdit(${a.id})`, "Editar") + act("bg-slate-100 dark:bg-slate-800 text-rose-500", `fxDel(${a.id})`, "Borrar"))}
             </div>
             ${fxPkUI(a)}
             <details class="sdet" ${fxHO[a.id] ? "open" : ""} ontoggle="fxHO[${a.id}]=this.open?1:0"><summary>Historial (${L.length})</summary><div class="sdet-b">
@@ -168,6 +168,7 @@ function fxDel(id) {
     const b = fxBal(a), conv = a.h.filter(x => x.cv).length;
     confirmAction("¿Borrar la cuenta " + esc(a.n) + "?" + (a.pk.length ? (a.pk.length > 1 ? " Sus " + a.pk.length + " bolsillos también se borran" : " Su bolsillo también se borra") + " y las metas vinculadas dejan de contar esa plata." : "") + (Math.abs(b) > 0.004 ? " Tiene " + fxFmt(a.c, b) + " que dejarán de sumar a tu patrimonio." : "") + (conv ? (conv > 1 ? " Los pesos de sus " + conv + " cambios a pesos siguen en tus cuentas." : " Los pesos de su cambio a pesos siguen en tus cuentas.") : ""), () => {
         S.items.forEach(x => { if (x.fx && x.fx.a == id) delete x.fx; if (x.fxa == id) { delete x.fxa; delete x.fxe; } }); // los pesos que ya recibiste se quedan como una transferencia normal
+        S.fx.forEach(o => o.h.forEach(e => { if (e.tf && e.tf.a == id) delete e.tf; })); // las transferencias con esta cuenta quedan como entradas normales en la otra
         S.fx = S.fx.filter(x => x.id != id); if (fxOpen == id) fxOpen = null; save();
     });
 }
@@ -228,9 +229,62 @@ function fxCash(id) {
         showToast("Cambiaste " + fxFmt(a.c, n) + " y recibiste " + fmt(pesos) + "." + (g !== undefined && Math.abs(g) >= 0.5 ? " " + (g > 0 ? "Ganancia" : "Pérdida") + ": " + fmt(Math.abs(g)) : ""));
     });
 }
+// Comprar con pesos: salen pesos de una cuenta en pesos y entran dólares/euros (como "Cambiar a pesos", pero al revés). No cuenta como gasto.
+// La tasa sale de los dos montos (pesos pagados ÷ dólares recibidos) y queda guardada en la entrada para calcular ganancia o pérdida.
+function fxBuy(id) {
+    const a = S.fx.find(x => x.id == id); if (!a) return;
+    if (!WH.length) return showToast("Primero crea una cuenta en pesos.", true);
+    openCustomModal("Comprar " + (a.c == "EUR" ? "euros" : "dólares") + " para " + esc(a.n), [
+        { l: "¿De qué cuenta salen los pesos?", o: WH.slice() },
+        { l: "¿Cuántos pesos pagas?", m: "numeric" },
+        { l: a.c == "EUR" ? "¿Cuántos euros recibes?" : "¿Cuántos dólares recibes?", m: "decimal" },
+        { l: "Fecha", t: "date", v: today() }
+    ], v => {
+        const w = WH.find(x => x == v[0]), pesos = num(v[1]), n = fxR2(pr(v[2])), d = v[3], wa = walOf(w);
+        if (!w || !wa) return "Elige la cuenta de donde salen los pesos.";
+        if (!(pesos > 0)) return "Escribe cuántos pesos pagas.";
+        if (!(n > 0)) return "Escribe cuántos " + (a.c == "EUR" ? "euros" : "dólares") + " recibes.";
+        if (!d || d > today()) return "Elige una fecha de hoy o anterior.";
+        const r = fxR2(pesos / n);
+        if (!fxRateOk(r)) return "Esos montos dan una tasa rara (" + fmtD(r) + " pesos por unidad). Revísalos.";
+        if (pesos > pkFree(wa) + 0.5) return "Solo tienes " + fmt(Math.max(0, pkFree(wa))) + " libres en " + esc(wlabel(w)) + (pkSum(wa) > 0 ? " (el resto está en bolsillos)." : ".");
+        const it = Date.now(), eid = it + 1;
+        S.items.push({ id: it, d, t: "tr", c: "Transferencia", n: wlabel(w) + " → " + a.n, a: pesos, k: "", w, to: "", q: 1, fx: { a: a.id, e: eid, b: 1 } });
+        a.h.push({ id: eid, d, v: n, r, n: "Compra con pesos", pc: pesos, it });
+        save();
+        showToast("Compraste " + fxFmt(a.c, n) + " por " + fmt(pesos) + " · tasa " + fmtD(r));
+    });
+}
+// Transferir entre dos cuentas de la misma moneda (dólares↔dólares o euros↔euros). La cuenta que recibe hereda el costo promedio de la que envía,
+// así la ganancia o pérdida por la tasa no se pierde ni se inventa.
+function fxTrf(id) {
+    const a = S.fx.find(x => x.id == id); if (!a) return;
+    const others = S.fx.filter(x => x.id != id && x.c == a.c);
+    if (!others.length) return showToast("Necesitas otra cuenta en " + (a.c == "EUR" ? "euros" : "dólares") + " para transferir. Crea una en «Cuenta en USD / EUR».", true);
+    if (fxBal(a) <= 0) return showToast("Esta cuenta no tiene saldo para transferir.", true);
+    const lab = x => x.n + " · " + fxFmt(x.c, fxBal(x));
+    openCustomModal("Transferir desde " + esc(a.n), [
+        { l: "¿A qué cuenta?", o: others.map(x => esc(lab(x))) },
+        { l: fxAmtLbl(a), m: "decimal" },
+        { l: "Fecha", t: "date", v: today() }
+    ], v => {
+        const b = others.find(x => lab(x) == v[0]), n = fxR2(pr(v[1])), d = v[2];
+        if (!b) return "Elige la cuenta que recibe.";
+        if (!(n > 0)) return "Escribe un monto mayor a cero.";
+        if (n > fxBal(a) + 0.004) return "Solo tienes " + fxFmt(a.c, fxBal(a)) + " en esta cuenta.";
+        if (!d || d > today()) return "Elige una fecha de hoy o anterior.";
+        const k = fxCost(a), avg = k.q > 0 ? fxR2(k.cost / k.q) : fxRateOf(a), t0 = Date.now();
+        a.h.push({ id: t0, d, v: -n, n: "Transferencia a " + b.n, tf: { a: b.id, e: t0 + 1 } });
+        b.h.push(Object.assign({ id: t0 + 1, d, v: n, n: "Transferencia de " + a.n, tf: { a: a.id, e: t0 } }, avg > 0 ? { r: avg } : {}));
+        save();
+        showToast("Transferiste " + fxFmt(a.c, n) + " a " + b.n + ".");
+    });
+}
 function fxEntryEdit(aid, eid) {
     const a = S.fx.find(x => x.id == aid), x = a && a.h.find(y => y.id == eid); if (!x) return;
     if (x.cv) return showToast("Es un cambio a pesos: bórralo y vuelve a hacerlo con los datos correctos.", true);
+    if (x.tf) return showToast("Es una transferencia entre tus cuentas: bórrala y vuelve a hacerla con los datos correctos.", true);
+    if (x.pc) return showToast("Es una compra con pesos: bórrala y vuelve a hacerla con los datos correctos.", true);
     if (x.it) return showToast("Es un gasto anotado en Inicio: bórralo y vuelve a anotarlo.", true);
     openCustomModal("Corregir movimiento", [
         { l: "Tipo", o: ["Entrada", "Salida"], v: x.v < 0 ? "Salida" : "Entrada" },
@@ -253,11 +307,18 @@ function fxEntryEdit(aid, eid) {
 }
 function fxEntryDel(aid, eid) {
     const a = S.fx.find(x => x.id == aid), x = a && a.h.find(y => y.id == eid); if (!x) return;
+    const ob = x.tf ? S.fx.find(y => y.id == x.tf.a) : null, ox = ob ? ob.h.find(y => y.id == x.tf.e) : null; // la otra punta de una transferencia
     if (fxBal(a) - x.v < -0.004) return showToast("Si borras eso la cuenta quedaría en negativo. Corrige o borra primero la salida.", true);
+    if (x.v > 0 && fxBal(a) - x.v < pkSum(a) - 0.004) return showToast("Esa plata está apartada en bolsillos. Saca plata de los bolsillos primero.", true);
+    if (ox && fxBal(ob) - ox.v < -0.004) return showToast("Si borras la transferencia, «" + ob.n + "» quedaría en negativo. Corrige primero esa cuenta.", true);
+    if (ox && ox.v > 0 && fxBal(ob) - ox.v < pkSum(ob) - 0.004) return showToast("Esa plata está apartada en bolsillos de «" + ob.n + "». Saca plata de sus bolsillos primero.", true);
     const it = x.it ? S.items.find(y => y.id == x.it) : null;
-    confirmAction(!x.cv && it ? "¿Borrar este gasto de " + fxFmt(a.c, Math.abs(x.v)) + "? También se quita de tus movimientos y la plata vuelve a esta cuenta." : x.cv ? "¿Borrar este cambio a pesos? Los " + fmt(x.cv) + " dejan de entrar a " + esc(it ? wlabel(it.to) : "tu cuenta") + " y los " + fxFmt(a.c, Math.abs(x.v)) + " vuelven a esta cuenta."
+    confirmAction(x.pc ? "¿Borrar esta compra de " + fxFmt(a.c, x.v) + "? Los " + fmt(x.pc) + " vuelven a " + esc(it && it.w ? wlabel(it.w) : "tu cuenta") + " y los " + fxFmt(a.c, x.v) + " salen de esta cuenta."
+        : ox ? "¿Borrar esta transferencia de " + fxFmt(a.c, Math.abs(x.v)) + "? Se quita de las dos cuentas y la plata vuelve a «" + (x.v < 0 ? a.n : ob.n) + "»."
+        : !x.cv && it ? "¿Borrar este gasto de " + fxFmt(a.c, Math.abs(x.v)) + "? También se quita de tus movimientos y la plata vuelve a esta cuenta." : x.cv ? "¿Borrar este cambio a pesos? Los " + fmt(x.cv) + " dejan de entrar a " + esc(it ? wlabel(it.to) : "tu cuenta") + " y los " + fxFmt(a.c, Math.abs(x.v)) + " vuelven a esta cuenta."
         : "¿Borrar este movimiento de " + (x.v >= 0 ? "+" : "-") + fxFmt(a.c, Math.abs(x.v)) + "?", () => {
-        if (x.it) S.items = S.items.filter(y => y.id != x.it); // el cambio a pesos o el gasto ligado a esta entrada
+        if (x.it) S.items = S.items.filter(y => y.id != x.it); // el cambio, la compra o el gasto ligado a esta entrada
+        if (ox) ob.h = ob.h.filter(y => y.id != ox.id);
         a.h = a.h.filter(y => y.id != eid); save();
     });
 }

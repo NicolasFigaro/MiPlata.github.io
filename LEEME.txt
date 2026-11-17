@@ -23,3 +23,5 @@ BOLSILLOS EN CUENTAS USD / EUR (v47)
 - Una meta en pesos cuenta el bolsillo USD/EUR al cambio de la cuenta; una meta en USD cuenta un bolsillo USD directo (sin pasar por pesos) y uno en EUR vía pesos.
 - "Disponible para gastar" descuenta lo apartado en bolsillos USD/EUR (pkHeld). El patrimonio no cambia (los bolsillos ya están dentro del saldo de su cuenta).
 - Rendimientos: cada bolsillo puede tener su E.A. propia o usar la de la cuenta (fxYield en rendimientos.js).
+- Comprar con pesos (fxBuy): sale de una cuenta en pesos (transferencia con fx.b=1) y entra a la cuenta USD/EUR con la tasa = pesos/monto.
+- Transferir (fxTrf): entre cuentas de la MISMA moneda; la que recibe hereda el costo promedio (entradas ligadas con x.tf).
