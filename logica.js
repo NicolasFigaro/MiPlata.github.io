@@ -248,7 +248,7 @@ const save = () => {
     try { invSnap(); } catch (e) {} // foto diaria del portafolio (nuevas.js)
     try { S.nwh[ym(new Date())] = Math.round(netWorth().tot); } catch (e) {}
     try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { saveFail(e); }
-    try { mirrorEvents(); } catch (e) {}
+    try { cfScope(mirrorEvents); } catch (e) {}
     try { goalCheck(); } catch (e) {} // confeti si una meta se acaba de lograr (pantallas.js)
     try { if (typeof budgetAlerts == "function") setTimeout(budgetAlerts, 60); } catch (e) {} // avisos de presupuesto 80 % / 100 % (nuevas.js)
 };
@@ -375,7 +375,7 @@ const dayDiff = (a, b) => Math.max(0, daysBetween(new Date(a + "T00:00:00"), new
 //    Un pago va primero a lo vencido, luego a la cuota del mes y luego a la mora.
 // Devuelve: cuota del mes ya ajustada por abonos a capital (cuota), vencido de meses anteriores (atr), cuota de manejo (fee), mora total (mora), fee+mora (ext),
 // lo pagado en el mes (av), lo que ya cubre este mes contando adelantos del mes anterior (got) y el abono a capital acumulado (pool).
-const cardFlow = (c, nm) => {
+const cardFlowRaw = (c, nm, tl) => {
     const its = S.items.filter(x => x.k == c.n), ps = S.items.filter(x => x.t == "p" && x.pc == c.n);
     const n0 = mIdx(nm), sch = {}, byM = {}, td = today(), rd = (c.mr || 0) / 100 / 30;
     let start = null;
@@ -387,6 +387,7 @@ const cardFlow = (c, nm) => {
     ps.forEach(x => { const i = mIdx(x.d.slice(0, 7)); (byM[i] = byM[i] || []).push(x); if (start === null || i < start) start = i; });
     if (c.mf > 0 && c.mfs) { const i = mIdx(c.mfs); if (start === null || i < start) start = i; }
     const zero = { cuota: 0, fee: 0, mora: 0, atr: 0, ext: 0, av: 0, got: 0, pool: 0 };
+    if (tl) tl.start = start;
     if (start === null || start > n0) return zero;
     let total = 0; Object.keys(sch).forEach(i => { total += sch[i]; });
     // arr = cuota vencida y sin pagar que viene de meses anteriores; mor = mora sin pagar que viene de meses anteriores
@@ -420,7 +421,9 @@ const cardFlow = (c, nm) => {
         const flagged = !!(c.paid && c.paid[m]);                                 // marcada como pagada: se borra lo vencido y la mora
         if (flagged) { A = 0; cB = 0; mora = 0; mp = 0; }
         const moraTot = flagged ? 0 : mor0 + mora;                               // mora bruta: la que venía sin pagar + la de este mes
-        if (i == n0) out = { cuota: eff, fee, mora: moraTot, atr: arr0, ext: fee + moraTot, av, got: av + cin0, pool: pool0 };
+        const row = { cuota: eff, fee, mora: moraTot, atr: arr0, ext: fee + moraTot, av, got: av + cin0, pool: pool0 };
+        if (tl) tl[i] = row;                                                     // línea de tiempo: el resultado de cada mes sale de la misma pasada
+        if (i == n0) out = row;
         const need = (sch[i + 1] || 0) + feeAt(c, i + 1), sp = Math.min(xs, need); // lo que sobra adelanta la cuota siguiente
         pool += xs - sp; cin = sp;
         // Lo que quedó sin pagar pasa al mes siguiente como vencido (solo si su día de pago ya pasó)
@@ -428,6 +431,25 @@ const cardFlow = (c, nm) => {
         mor = flagged ? 0 : Math.max(0, mor0 + mora - mp);
     }
     return out;
+};
+// Caché de cardFlow. Es el cálculo más pesado de la app (recorre todos los movimientos de la tarjeta) y una pantalla lo pide muchas veces con los mismos datos.
+// El resultado de un mes solo depende de los meses anteriores, así que UNA pasada hasta dentro de 36 meses sirve para cualquier mes (antes cada mes repetía todo el recorrido).
+// La caché SOLO está activa dentro de cfScope(...) (al armar una pantalla o al preparar los avisos), donde nada modifica los datos, y se borra al salir.
+// Fuera de ahí (formularios, simulador, importaciones...) cada llamada calcula en vivo, así que nunca puede devolver un número viejo.
+let _cfOn = 0; const _cfTl = new Map();
+const cfScope = fn => { if (!_cfOn++) _cfTl.clear(); try { return fn(); } finally { if (!--_cfOn) _cfTl.clear(); } };
+const CF_ZERO = { cuota: 0, fee: 0, mora: 0, atr: 0, ext: 0, av: 0, got: 0, pool: 0 };
+const cardFlow = (c, nm) => {
+    if (!_cfOn) return cardFlowRaw(c, nm);
+    const n = mIdx(nm);
+    let e = _cfTl.get(c.id);
+    if (!e || n > e.hi) {
+        const hi = Math.max(n, mIdx(ym(new Date())) + 36), tl = {};
+        cardFlowRaw(c, idxYm(hi), tl);
+        e = { tl, hi, start: tl.start }; _cfTl.set(c.id, e);
+    }
+    if (e.start === null || n < e.start) return Object.assign({}, CF_ZERO);
+    return Object.assign({}, e.tl[n] || CF_ZERO);
 };
 const cardDue = (c, nm) => { if (c.paid[nm]) return 0; const f = cardFlow(c, nm); return Math.max(0, f.cuota + f.atr + f.ext - f.got); };
 const nextPay = p => {
@@ -729,12 +751,22 @@ const cardNext = c => {
     for (let i = 0; i < 24; i++) { m = nextMonth(m); const dd = cardDue(c, m); if (dd > 0) return { m, due: dd }; }
     return { m: nextMonth(nm), due: 0 };
 };
-// Lo que pesa sobre "Disponible": lo que falta de la cuota de ESTE mes. La cuota del mes siguiente solo se suma
-// cuando ya pasó el día de pago de este mes (mientras tanto ya cuenta en el cupo usado, pero no te quita plata para gastar hoy).
-// Así: pagas la cuota → queda en $0 → pasa la fecha de pago → recién ahí empieza a contar la siguiente.
+// Lo que pesa sobre "Disponible": lo que falta de la cuota de ESTE mes.
+// Si ya la pagaste, queda en $0 hasta que cierre el extracto siguiente (el día de corte): ahí recién se sabe cuánto es la próxima cuota y empieza a contar.
+// Si no la pagaste y ya pasó el día de pago, lo vencido sigue contando (viaja dentro de la cuota siguiente).
+// Tarjetas sin día de corte: se usa el día de pago, como antes.
 const cardSoon = c => {
     const nm = ym(new Date()), d = cardDue(c, nm);
-    return dueIn(c.p) < 0 ? Math.max(d, cardDue(c, nextMonth(nm))) : d; // lo que quedó sin pagar ya viaja dentro de la cuota siguiente
+    if (!cardClosed(c, nm)) { const f = cardFlow(c, nm); return Math.min(d, f.atr + f.mora); } // el extracto de este pago aún no cierra: solo cuenta lo vencido y la mora
+    if (dueIn(c.p) >= 0) return d;                                           // aún no pasa el día de pago
+    if (d > 0.5) return Math.max(d, cardDue(c, nextMonth(nm)));              // quedó algo sin pagar: sigue contando
+    return cardClosed(c, nextMonth(nm)) ? cardDue(c, nextMonth(nm)) : 0;     // pagada: espera al corte del extracto que se paga el mes siguiente
+};
+// ¿Ya cerró el extracto que se paga en el mes nm? (misma regla de corte que stmt)
+const cardClosed = (c, nm) => {
+    if (!(c.k && c.p)) return true;
+    const i = mIdx(nm), cl = i - (c.p <= c.k ? 1 : 0);
+    return payDateIn(c.k, idxYm(cl)) < today();
 };
 // Días que faltan para el pago de ESTE mes (negativo = ya pasó)
 const dueIn = p => daysTo(payDate(p));

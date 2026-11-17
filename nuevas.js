@@ -588,14 +588,12 @@ function vSubs() {
 /* =====================================================================
    4) NOVEDADES: aviso de «lo nuevo», se muestra una sola vez por versión
    ===================================================================== */
-const NEWS_VER = "13";
+const NEWS_VER = APP_VER; // un solo número de versión: se cambia en vistas.js (APP_VER) y la tarjeta vuelve a salir una vez
 const NEWS = [
-    ["fa-wand-magic-sparkles", "#AF52DE", "Nuevo diseño en Mi Plata", "Cinco cambios nuevos. Te los cuento rápido."],
-    ["fa-sun", "#FF9500", "Modo claro renovado", "El modo claro ahora tiene su propio cristal líquido: tarjetas claras y translúcidas, barra inferior y botones adaptados, y las cabeceras toman el color de tu tema."],
-    ["fa-chart-line", "#34C759", "Ahorro rinde, sin enredos", "La gráfica del widget «Ahorro rinde» ya no se monta sobre la cifra: tiene su propio espacio y se ve bien en claro y en oscuro."],
-    ["fa-chart-pie", "#FF2D55", "Gráficas más bonitas y ligeras", "Segmentos redondeados, barras con degradado y un selector de mes más cómodo. Además se dibujan solo al llegar a ellas, así el celular trabaja menos."],
-    ["fa-sliders", "#007AFF", "Ajustes más ordenados", "Cada sección de Ajustes se pliega y te muestra un resumen de lo que hay dentro (idioma, tasa del dólar, PIN…). Abre solo lo que necesitas."],
-    ["fa-bolt", "#32ADE6", "Más fluida al deslizar", "Menos desenfoque en las tarjetas grandes: el scroll se siente más suave, sobre todo en celulares con varios años."]
+    ["fa-wand-magic-sparkles", "#AF52DE", "Novedades en Mi Plata", "Tres cambios nuevos. Te los cuento rápido."],
+    ["fa-lock-open", "#34C759", "Metas libres para gastar", "Marca una meta de ahorro como «libre para gastar»: su plata sigue apartada, pero deja de restarse de tu disponible. Se activa al crear o editar la meta, o con el botón rápido en Ahorro. En Inicio aparece con su etiqueta."],
+    ["fa-credit-card", "#007AFF", "Tarjetas más justas", "Si ya pagaste la cuota del mes, tus tarjetas quedan en $0 en el disponible hasta que cierre el siguiente extracto (el día de corte). Revisa que cada tarjeta tenga bien su día de corte y su día límite de pago."],
+    ["fa-bolt", "#FF9500", "Más rápida", "Los cálculos de tarjetas y rendimientos ahora se hacen hasta 4 veces más rápido, y se nota más si tienes años de movimientos."]
 ];
 let newsI = 0;
 function paintNews() {

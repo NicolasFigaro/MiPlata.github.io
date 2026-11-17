@@ -139,11 +139,11 @@ function walBalAt(a, k) {
     for (const x of S.sv) if (x.w == a.n && !x.i && x.d <= k) s -= (x.cp ?? x.v);
     return s;
 }
-const _wyC = {};
+const _wyC = new Map(); // guarda los últimos 24 cálculos (varias cuentas y bolsillos en una misma pantalla); la clave incluye todos los datos de entrada
 // Núcleo: interés compuesto diario sobre (saldo del día + lo ya ganado). delta = { fecha: cambio del saldo } después de st; sale en la moneda de la cuenta.
 function yCore(key, r, st, startBal, delta, endBal) {
     const td = today(); key += "|" + r + "|" + st + "|" + td + "|" + startBal + "|" + endBal + "|" + JSON.stringify(delta);
-    if (_wyC[key]) return _wyC[key];
+    const hit = _wyC.get(key); if (hit) return hit;
     const dr = Math.pow(1 + r / 100, 1 / 365) - 1;
     let cur = Math.max(0, startBal), earned = 0, day = st, atPrev = 0; // atPrev = lo ganado al cierre del mes pasado
     const m0 = td.slice(0, 8) + "01", prevEnd = yAddDays(m0, -1), pts = [{ d: st, v: 0 }];
@@ -155,7 +155,7 @@ function yCore(key, r, st, startBal, delta, endBal) {
     }
     const bal = Math.max(0, endBal), base = bal + earned;
     const out = { rate: r, pts, total: earned, start: st, bal, month: earned - atPrev, daily: base * dr, monthly: base * (Math.pow(1 + r / 100, 1 / 12) - 1), year: base * (r / 100) };
-    for (const k in _wyC) delete _wyC[k]; _wyC[key] = out; // solo guarda el último cálculo: basta para un dibujo
+    _wyC.set(key, out); if (_wyC.size > 24) _wyC.delete(_wyC.keys().next().value); // si pasa de 24, sale el más antiguo
     return out;
 }
 const yStart = a => { const td = today(); return a.rs && a.rs <= td ? a.rs : td; };

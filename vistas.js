@@ -5,7 +5,7 @@ const N = ["Inicio", "Cuentas", "Ahorro", "Inversión", "Gráficas", "Tarjetas",
 const V = [vHome, vCue, vAho, vInv, vGra, vTar, vDeu, vCal, vYear, vSet]; // vCal y vYear viven en pantallas.js
 // Pestañas que viven dentro del menú "Más" de la barra inferior (índices de N)
 const MORE = [3, 4, 6, 7, 8, 9];
-const APP_VER = "13";
+const APP_VER = "14";
 const MORE_IC = { "Inversión": ["fa-chart-line", "#34C759"], "Gráficas": ["fa-chart-pie", "#FF9500"], "Deudas": ["fa-hand-holding-dollar", "#FF3B30"], "Calendario": ["fa-calendar-days", "#007AFF"], "Resumen": ["fa-wand-magic-sparkles", "#AF52DE"], "Ajustes": ["fa-gear", "#8E8E93"] };
 function vMore() {
     return `

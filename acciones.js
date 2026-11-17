@@ -114,7 +114,7 @@ function draw() {
     document.getElementById("navBack").classList.toggle("hidden", !inMore);
 
     const soft = !anim && drawnTab === tab; drawnTab = tab; // misma pantalla: se actualiza en su lugar, sin parpadeo
-    const html = tab < 0 ? vMore() : V[tab]();
+    const html = cfScope(() => tab < 0 ? vMore() : V[tab]()); // las vistas solo leen datos: dentro, cardFlow se calcula una vez por tarjeta
     if (typeof paintMain == "function") paintMain(document.getElementById("appMain"), html, soft); else document.getElementById("appMain").innerHTML = html;
     const fb = document.getElementById("fab"); if (fb) fb.classList.toggle("hidden", N[tab] == "Asistente"); // en el chat, el + estorba al escribir
     if (keep) { openMov(); restoreForm(); } // volvió de crear una categoría: reabre el formulario con lo que había escrito

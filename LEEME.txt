@@ -3,15 +3,30 @@ MI PLATA - guía rápida del proyecto
 ESTILOS (CSS)
 - Se cargan 3 archivos en este orden: base.css -> tailwind.css -> capas.css
 - base.css y capas.css se GENERAN juntando las hojas de la carpeta css-fuentes/.
-  Para cambiar estilos: edita el archivo que corresponda en css-fuentes/ y ejecuta
-      python3 construir-css.py
-- tailwind.css está precompilado (ver instrucciones al inicio de tailwind.config.js).
+  Para cambiar estilos: edita el archivo que corresponda en css-fuentes/ (nunca base.css ni capas.css) y ejecuta
+      python3 construir.py
+- tailwind.css está precompilado (ver instrucciones al inicio de tailwind.config.js; entrada.css es su archivo de entrada).
   Si usas una clase de Tailwind nueva que no existe en tailwind.css, no se verá:
   hay que regenerarlo o escribir esa regla a mano en css-fuentes/styles.css.
+- archivo-css/ guarda hojas de rediseños antiguos que ya no se cargan. Se puede borrar cuando quieras.
 
 AL SUBIR CAMBIOS
-- Cambia el número de versión en sw.js (const C = "miplata-vXX") para que los celulares
-  descarguen la versión nueva.
+- Ejecuta SIEMPRE  python3 construir.py  antes de subir los archivos. Además de armar el CSS, pone en sw.js
+  un nombre de caché que cambia solo cuando cambia cualquier archivo de la app (miplata-v<versión>-<huella>),
+  así los celulares descargan la versión nueva completa. Ya no hay que subir ningún número a mano.
+  (construir-css.py sigue funcionando: hace lo mismo.)
+- Para anunciar «lo nuevo» en la tarjeta que sale al abrir la app (una sola vez por versión):
+  sube APP_VER en vistas.js y reescribe la lista NEWS en nuevas.js. El número que se ve en Más es APP_VER.
+
+RENDIMIENTO
+- cardFlow (logica.js) es el cálculo más pesado. Su caché solo vive dentro de cfScope(...): draw() y los avisos
+  (save -> mirrorEvents). Fuera de ahí (formularios, simulador, importaciones) siempre calcula en vivo.
+  Si algún día una vista modifica datos mientras se dibuja, no uses cfScope en ese punto.
+- yCore (rendimientos.js) guarda los últimos 24 cálculos; su clave incluye todos los datos de entrada.
+
+METAS «LIBRE PARA GASTAR» Y TARJETAS EN EL DISPONIBLE
+- Una meta con a.fg = 1 sigue siendo ahorro, pero su plata en bolsillos no se descuenta del disponible (pkLocked / pkFreeSp en logica.js).
+- cardSoon (logica.js): si la cuota del mes está pagada, las tarjetas pesan $0 hasta que cierre el extracto siguiente (cardClosed, usa el día de corte c.k y el de pago c.p).
 
 PIN Y SEGURIDAD
 - El PIN es una barrera de pantalla; no cifra los datos guardados en el teléfono.
