@@ -953,12 +953,21 @@ function delPk(wid, pid) {
 }
 
 // ---------- Metas de ahorro ----------
+// «Libre para gastar»: la meta sigue siendo ahorro, pero su plata se puede sacar para gastar y no se descuenta del disponible
+const FG_OPT = ["No, es plata apartada", "Sí, libre para gastar"];
+function togFreeG(id) {
+    const a = S.acc.find(x => x.id == id); if (!a) return;
+    if (a.fg) delete a.fg; else a.fg = 1;
+    save(); draw();
+    showToast(a.fg ? "«" + a.n + "» ahora es libre para gastar." : "«" + a.n + "» vuelve a ser plata apartada.");
+}
 function newAcc() {
     openCustomModal("Nueva Meta de Ahorro", [
         { l: "Nombre (ej. Viaje, Moto)" },
         { l: "Moneda", o: ["COP (pesos)", "USD (dólares)"] },
         { l: "Meta (monto)", m: "decimal" },
         { l: "Fecha límite (opcional)", t: "date" },
+        { l: "¿Libre para gastar?", o: FG_OPT, v: FG_OPT[0] },
         { l: "Ícono", sw: goalIcoSw(), v: "", cls: "sw-ic" },
         { l: "Color", sw: colSw(), v: "" }
     ], v => {
@@ -966,7 +975,8 @@ function newAcc() {
         if (v[3] && v[3] <= today()) return "La fecha límite debe ser futura.";
         const u = v[1].startsWith("USD"), P = s => u ? (pr(s) || 0) : num(s), id = Date.now();
         const ng = { id, n: v[0], g: P(v[2]), r: 0, u: u ? 1 : 0, dl: v[3] || "", s0: today() };
-        if (v[4]) ng.ic = v[4]; if (v[5]) ng.c = v[5];
+        if (v[4] == FG_OPT[1]) ng.fg = 1;
+        if (v[5]) ng.ic = v[5]; if (v[6]) ng.c = v[6];
         S.acc.push(ng);
         save();
         showToast(freeAll() > 0 ? "Meta creada. Usa «Meter» para apartar plata libre de tus cuentas." : "Meta creada. Para ahorrar, primero ten plata libre en alguna cuenta.");
@@ -975,11 +985,12 @@ function newAcc() {
 // ¿La meta todavía tiene ahorro «anterior» (el que se guardaba aparte, fuera de las cuentas)?
 const goalLegacy = a => { const e = a.u ? 0.004 : 0.5; return Math.abs(svb(a.id)) > e || goalTotal(a) > e; };
 function editAcc(id) {
-    const a = S.acc.find(x => x.id == id), r0 = goalRateAt(a, today()), leg = goalLegacy(a), n0 = leg ? 5 : 3;
+    const a = S.acc.find(x => x.id == id), r0 = goalRateAt(a, today()), leg = goalLegacy(a), n0 = leg ? 6 : 4;
     openCustomModal("Editar Meta", [
         { l: "Nombre", v: esc(a.n) },
         { l: "Meta", v: tf(a.g), m: "decimal" },
-        { l: "Fecha límite (opcional)", v: a.dl || "", t: "date" }
+        { l: "Fecha límite (opcional)", v: a.dl || "", t: "date" },
+        { l: "¿Libre para gastar?", o: FG_OPT, v: a.fg ? FG_OPT[1] : FG_OPT[0] }
     ].concat(leg ? [
         { l: "Rendimiento E.A. % del ahorro anterior", v: tf(r0), m: "decimal" },
         { l: "La nueva tasa rige desde (si la cambiaste)", v: today(), t: "date" }
@@ -988,7 +999,7 @@ function editAcc(id) {
         { l: "Color", sw: colSw(), v: a.c || "" }
     ]), v => {
         if (leg) {
-            const nr = pr(v[3]) || 0, d = v[4] || today();
+            const nr = pr(v[4]) || 0, d = v[5] || today();
             if (nr < 0 || nr > 100) return "La tasa E.A. debe estar entre 0 y 100.";
             if (d > today()) return "La fecha no puede ser futura.";
             // Si cambió la tasa se guarda desde qué día rige: lo ya ganado antes de esa fecha no se recalcula
@@ -1000,6 +1011,7 @@ function editAcc(id) {
         }
         if (v[0]) a.n = v[0];
         a.g = pr(v[1]); a.dl = v[2] || "";
+        if (v[3] == FG_OPT[1]) a.fg = 1; else delete a.fg;
         if (v[n0]) a.ic = v[n0]; else delete a.ic;
         if (v[n0 + 1]) a.c = v[n0 + 1]; else delete a.c;
         save();

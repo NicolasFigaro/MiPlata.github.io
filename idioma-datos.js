@@ -1273,4 +1273,11 @@ window.I18N_ROWS = [
 ["Esa plata está apartada en bolsillos. Saca plata de los bolsillos primero.","That money is set aside in pockets. Take money out of the pockets first.","Cet argent est mis de côté dans des poches. Retirez d'abord de l'argent des poches.","Dieses Geld liegt in Fächern. Nimm zuerst Geld aus den Fächern.","Эти деньги отложены в кармашках. Сначала выньте деньги из кармашков."],
 ["Es una transferencia entre tus cuentas: bórrala y vuelve a hacerla con los datos correctos.","It's a transfer between your accounts: delete it and redo it with the right details.","C'est un transfert entre vos comptes : supprimez-le et refaites-le avec les bonnes données.","Es ist eine Überweisung zwischen deinen Konten: lösche sie und führe sie mit den richtigen Daten neu aus.","Это перевод между вашими счетами: удалите его и сделайте заново с правильными данными."],
 ["Es una compra con pesos: bórrala y vuelve a hacerla con los datos correctos.","It's a purchase with pesos: delete it and redo it with the right details.","C'est un achat avec des pesos : supprimez-le et refaites-le avec les bonnes données.","Es ist ein Kauf mit Pesos: lösche ihn und führe ihn mit den richtigen Daten neu aus.","Это покупка за песо: удалите её и сделайте заново с правильными данными."],
+["¿Libre para gastar?","Free to spend?","Libre à dépenser ?","Frei zum Ausgeben?","Можно тратить?"],
+["No, es plata apartada","No, it's set aside","Non, c'est de l'argent mis de côté","Nein, ist zurückgelegt","Нет, это отложенные деньги"],
+["Sí, libre para gastar","Yes, free to spend","Oui, libre à dépenser","Ja, frei zum Ausgeben","Да, можно тратить"],
+["Libre para gastar","Free to spend","Libre à dépenser","Frei zum Ausgeben","Можно тратить"],
+["libre para gastar","free to spend","libre à dépenser","frei zum Ausgeben","можно тратить"],
+["Marcar libre para gastar","Mark as free to spend","Marquer comme libre à dépenser","Als frei zum Ausgeben markieren","Отметить как свободные для трат"],
+["Quitar «libre para gastar»","Remove «free to spend»","Retirer « libre à dépenser »","«Frei zum Ausgeben» entfernen","Убрать «можно тратить»"],
 ];

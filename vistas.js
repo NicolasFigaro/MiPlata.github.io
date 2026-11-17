@@ -414,15 +414,15 @@ function vHome() {
     const have = hasW ? WH.filter(w => !(S.hide || {})[w]).reduce((s, w) => s + bal(w, nm), 0) + fxTotalAt(nm) : sob; // + cuentas en dólares/euros, en pesos
     const due = S.cards.filter(c => !(S.hide || {})[c.n]).reduce((s, c) => s + (nm == ym(new Date()) ? cardSoon(c) : cardDue(c, nm)), 0);
     // Apartado = lo ahorrado + el rendimiento ganado hasta hoy (el rendimiento solo se suma en el mes actual: de meses pasados no hay foto)
-    const svt = S.acc.reduce((s, a) => s + (svb(a.id, nm) + (nm == ym(new Date()) ? Math.max(0, yieldOf(a.id, a.r)) : 0)) * (a.u ? S.trm : 1), 0), pk = hasW ? pkHeld() : 0, disp = have - pk - due;
+    const svt = S.acc.reduce((s, a) => s + (svb(a.id, nm) + (nm == ym(new Date()) ? Math.max(0, yieldOf(a.id, a.r)) : 0)) * (a.u ? S.trm : 1), 0), pk = hasW ? pkLocked() : 0, fsp = hasW ? pkFreeSp() : 0, disp = have - pk - due;
     const P = invPortfolio(), invT = P.T, invC = P.C;
     const totAcc = S.acc.filter(a => !a.f).reduce((s, a) => s + goalAll(a) * (a.u ? S.trm : 1), 0);
 
     const MT = S.acc.filter(a => !a.f).map(a => {
         const t = goalAll(a), p = a.g ? Math.min(100, t / a.g * 100) : 0, gi = goalInfo(a);
         const tag = gi && !gi.done ? `<span class="${gi.late ? "text-rose-500" : gi.days <= 30 || !gi.ok ? "text-amber-500" : "text-slate-400"} ml-1">· ${gi.late ? "venció" : gi.days + " d"}</span>` : "";
-        const gc = goalCol(a);
-        return `<div class="mb-3 last:mb-0"><div class="flex justify-between text-xs mb-1 font-medium"><span>${goalEmo(a)} ${esc(a.n)}${tag}</span><span>${fm(a, t)}${a.g ? " de " + fm(a, a.g) : ""}</span></div>${a.g ? `<div class="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden"><div class="bar-seg h-full rounded-full" style="width:${p}%;background:${gc}"></div></div>` : ""}</div>`;
+        const gc = goalCol(a), fgt = a.fg ? `<span class="text-emerald-500 ml-1 whitespace-nowrap">· <i class="fa-solid fa-lock-open"></i> libre para gastar</span>` : "";
+        return `<div class="mb-3 last:mb-0"><div class="flex justify-between text-xs mb-1 font-medium"><span>${goalEmo(a)} ${esc(a.n)}${tag}${fgt}</span><span>${fm(a, t)}${a.g ? " de " + fm(a, a.g) : ""}</span></div>${a.g ? `<div class="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden"><div class="bar-seg h-full rounded-full" style="width:${p}%;background:${gc}"></div></div>` : ""}</div>`;
     }).join("") || '<p class="text-xs text-slate-400 text-center py-2">Aún no tienes metas. Toca aquí para crear la primera.</p>';
 
     // Secciones que se pliegan (ver colSec): lo gastado por categoría y la lista de movimientos
@@ -468,6 +468,7 @@ function vHome() {
                 <div>
                     <p class="text-xs font-medium uppercase tracking-wider text-indigo-200">Disponible para gastar</p>
                     <h2 data-cu="disp" class="text-3xl font-extrabold mt-1 tracking-tight ${disp < 0 ? "text-rose-300" : ""}">${fmt(disp)}</h2>
+                    ${fsp > 0.5 ? `<p class="text-[11px] text-indigo-200 mt-1"><i class="fa-solid fa-lock-open mr-1"></i>Incluye ${fmt(fsp)} de metas libres para gastar</p>` : ""}
                 </div>
                 <div class="flex items-center space-x-2">
                     <button onclick="go(-1)" class="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-sm font-bold transition">‹</button>
@@ -745,6 +746,7 @@ function goalCard(a) {
     const badges = [
         ea ? `<span class="sv-pill">${ea}</span>` : "",
         dayT * K > 0.5 ? `<span class="sv-pill up"><i class="fa-solid fa-arrow-trend-up"></i>+${fm(a, dayT)} hoy</span>` : "",
+        a.fg ? `<span class="sv-pill up"><i class="fa-solid fa-lock-open"></i>Libre para gastar</span>` : "",
         done ? `<span class="sv-pill up">¡Meta lograda! 🎉</span>` : "",
         a.u ? `<span class="sv-pill">USD</span>` : ""
     ].join("");
@@ -771,7 +773,7 @@ function goalCard(a) {
             <div class="sv-act">
                 <button onclick="mov(${a.id}, 1)" class="sv-btn in${freeAll() <= 0 ? " off" : ""}"><i class="fa-solid fa-plus"></i>Meter</button>
                 <button onclick="mov(${a.id}, -1)" class="sv-btn out"><i class="fa-solid fa-minus"></i>Sacar</button>
-                ${mxMenu(`${gp.some(x => x.p.v > 0) ? `<button onclick="mov(${a.id}, -1, 1)" class="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-xl text-xs font-semibold">Sacar todo</button>` : ""}${leg && gp.length ? `<button onclick="movLegacy(${a.id}, -1)" class="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-xl text-xs font-semibold">Sacar del ahorro anterior</button>` : ""}<button onclick="editAcc(${a.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold">Editar</button><button onclick="archAcc(${a.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold">Archivar</button><button onclick="delAcc(${a.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-rose-500 rounded-xl text-xs font-semibold">Borrar</button>`)}
+                ${mxMenu(`${gp.some(x => x.p.v > 0) ? `<button onclick="mov(${a.id}, -1, 1)" class="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-xl text-xs font-semibold">Sacar todo</button>` : ""}${leg && gp.length ? `<button onclick="movLegacy(${a.id}, -1)" class="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-xl text-xs font-semibold">Sacar del ahorro anterior</button>` : ""}<button onclick="togFreeG(${a.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold"><i class="fa-solid ${a.fg ? "fa-lock" : "fa-lock-open"} mr-1"></i>${a.fg ? "Quitar «libre para gastar»" : "Marcar libre para gastar"}</button><button onclick="editAcc(${a.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold">Editar</button><button onclick="archAcc(${a.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold">Archivar</button><button onclick="delAcc(${a.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-rose-500 rounded-xl text-xs font-semibold">Borrar</button>`)}
             </div>
         </div>`;
     }

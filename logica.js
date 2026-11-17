@@ -149,6 +149,10 @@ const wlabel = n => String(n).replace(/\s*\(.*\)\s*$/, ""); // "Billetera digita
 // Bolsillos: plata que sigue en la cuenta pero ya tiene dueño (no cuenta como "Disponible para gastar")
 const pkSum = a => (a.pk || []).reduce((s, p) => s + p.v, 0);
 const pkHeld = () => S.wal.filter(a => !(S.hide || {})[a.n]).reduce((s, a) => s + pkSum(a), 0) + S.fx.reduce((s, a) => s + pkSum(a) * fxRateOf(a), 0); // en pesos: incluye los bolsillos de dólares/euros
+// Meta «libre para gastar» (g.fg = 1): su plata sigue apartada en bolsillos (cuenta como ahorro), pero NO se descuenta del «Disponible para gastar».
+const goalFreeSp = g => !!(g && g.fg && !g.f);
+const pkFreeSp = () => { const L = p => p.m && goalFreeSp(S.acc.find(g => g.id == p.m)) ? p.v : 0; return S.wal.filter(a => !(S.hide || {})[a.n]).reduce((s, a) => s + (a.pk || []).reduce((t, p) => t + L(p), 0), 0) + S.fx.reduce((s, a) => s + (a.pk || []).reduce((t, p) => t + L(p), 0) * fxRateOf(a), 0); }; // en pesos
+const pkLocked = () => pkHeld() - pkFreeSp(); // lo apartado que SÍ está bloqueado (no se puede gastar)
 const walBal = a => bal(a.n, ym(new Date()));
 // ---- Cuentas en pesos Y en dólares/euros comparten bolsillos ----
 // isFxA: ¿es una cuenta en dólares/euros? · acBal: su saldo en SU moneda · acK: cuánto vale 1 unidad en pesos · acF: formato en su moneda · acById: busca en ambas listas.
@@ -660,7 +664,7 @@ function monthProjection(disp) {
 function dispAt(nm, hw) {
     const hid = n => (S.hide || {})[n];
     let have;
-    if (hw) have = WH.filter(w => !hid(w)).reduce((s, w) => s + bal(w, nm), 0) + fxTotalAt(nm) - pkHeld(); // lo que está en bolsillos ya tiene dueño
+    if (hw) have = WH.filter(w => !hid(w)).reduce((s, w) => s + bal(w, nm), 0) + fxTotalAt(nm) - pkLocked(); // lo que está en bolsillos ya tiene dueño (salvo metas «libres para gastar»)
     else {
         const m = S.items.filter(x => x.d.startsWith(nm) && vis(x));
         have = sum(m, x => x.t == "i") - sum(m, x => x.t == "g") - S.sv.filter(x => x.d.startsWith(nm) && !x.i).reduce((s, x) => s + (x.cp ?? x.v), 0);
