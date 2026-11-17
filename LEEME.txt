@@ -16,3 +16,10 @@ AL SUBIR CAMBIOS
 PIN Y SEGURIDAD
 - El PIN es una barrera de pantalla; no cifra los datos guardados en el teléfono.
 - Los intentos fallidos se guardan aparte (miplata_pinlock), fuera de las copias de seguridad.
+
+BOLSILLOS EN CUENTAS USD / EUR (v47)
+- Las cuentas en dólares y euros (S.fx) ahora tienen bolsillos igual que las de pesos: a.pk = [{ id, n, v, h, m (meta), ry, rs, ... }].
+- Los montos de un bolsillo SIEMPRE están en la moneda de su cuenta. Para sumar entre cuentas se pasan a pesos con fxRateOf(a) (ver acK/acF/acBal/acById en logica.js).
+- Una meta en pesos cuenta el bolsillo USD/EUR al cambio de la cuenta; una meta en USD cuenta un bolsillo USD directo (sin pasar por pesos) y uno en EUR vía pesos.
+- "Disponible para gastar" descuenta lo apartado en bolsillos USD/EUR (pkHeld). El patrimonio no cambia (los bolsillos ya están dentro del saldo de su cuenta).
+- Rendimientos: cada bolsillo puede tener su E.A. propia o usar la de la cuenta (fxYield en rendimientos.js).

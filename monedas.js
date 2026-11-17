@@ -23,8 +23,9 @@ function fxCard(a) {
     return `
         <button onclick="togFx(${a.id})" class="ac-row ${sel ? "on" : ""}" aria-expanded="${sel}">
             <span class="ac-ic lg" style="--c:${a.c == "EUR" ? "#2F55B0" : "#0B6B58"}"><i class="fa-solid ${C[2]}"></i></span>
-            <span class="ac-main"><b>${esc(a.n)}</b><small>${r > 0 ? "≈ " + fmt(b * r) : "Falta la tasa del euro"}${walRate(a) > 0 ? " · " + yPct(a.ry) + "% E.A." : ""}</small>
-                ${k && k.q > 0 && Math.abs(k.gain) >= 0.5 ? `<small class="font-semibold ${fxGcl(k.gain)}">${fxPlus(k.gain)} ${fxPct(k.gain, k.cost)}</small>` : ""}</span>
+            <span class="ac-main"><b>${esc(a.n)}</b><small>${r > 0 ? "≈ " + fmt(b * r) : "Falta la tasa del euro"}${pkSum(a) > 0.004 ? " · " + fxFmt(a.c, pkSum(a)) + " en bolsillos" : ""}${walRate(a) > 0 ? " · " + yPct(a.ry) + "% E.A." : ""}</small>
+                ${k && k.q > 0 && Math.abs(k.gain) >= 0.5 ? `<small class="font-semibold ${fxGcl(k.gain)}">${fxPlus(k.gain)} ${fxPct(k.gain, k.cost)}</small>` : ""}
+                ${a.pk.length ? `<span class="pk-mini">${a.pk.slice(0, 5).map(p => pkTile(p, p.m ? S.acc.find(x => x.id == p.m) : null, 1)).join("")}${a.pk.length > 5 ? `<span class="pk-more">+${a.pk.length - 5}</span>` : ""}</span>` : ""}</span>
             <span class="ac-bal ${b < 0 ? "neg" : ""}">${fxFmt(a.c, b)}</span><i class="fa-solid fa-chevron-right ac-ch"></i>
         </button>`;
 }
@@ -68,10 +69,30 @@ function fxPanel(a) {
                 <button onclick="fxMove(${a.id},-1)" class="sv-btn out"><i class="fa-solid fa-minus"></i>Sacar</button>
                 ${mxMenu(act("bg-sky-50 text-sky-600", `fxCash(${a.id})`, "Cambiar a pesos") + act("bg-indigo-50 text-indigo-600", `fxAdj(${a.id})`, "Ajustar saldo") + act("bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300", `fxEdit(${a.id})`, "Editar") + act("bg-slate-100 dark:bg-slate-800 text-rose-500", `fxDel(${a.id})`, "Borrar"))}
             </div>
+            ${fxPkUI(a)}
             <details class="sdet" ${fxHO[a.id] ? "open" : ""} ontoggle="fxHO[${a.id}]=this.open?1:0"><summary>Historial (${L.length})</summary><div class="sdet-b">
             ${rows || '<p class="text-xs text-slate-400 text-center py-4">Todavía no hay movimientos en esta cuenta.</p>'}
             ${L.length > 8 ? `<button onclick="fxAll[${a.id}]=${all ? 0 : 1};draw()" class="w-full mt-2 py-2 text-xs font-semibold text-indigo-600 dark:text-indigo-400">${all ? "Ver menos" : "Ver los " + L.length + " movimientos"}</button>` : ""}</div></details>
         </section>`;
+}
+
+// Bolsillos de ahorro de una cuenta en dólares/euros: igual que en las cuentas en pesos (vistas.js · walPanel), pero en la moneda de la cuenta.
+// Cada bolsillo se puede vincular a una meta de ahorro: cuenta para su avance convertido a la moneda de la meta (pesos o dólares).
+function fxPkUI(a) {
+    const b = fxBal(a), pk = pkSum(a), free = b - pk, r = fxRateOf(a);
+    return `
+        <div class="sv-stats mb-1">
+            ${[["Saldo", fxFmt(a.c, b), b < 0 ? "neg" : ""], ["Ahorrado", fxFmt(a.c, pk), ""], ["Libre", fxFmt(a.c, free), free < -0.004 ? "neg" : "up"]].map(([l, v, cl]) => `<div class="${cl}"><span class="sv-lbl">${l}</span><b>${v}</b></div>`).join("")}
+        </div>
+        ${pkAlloc(a)}
+        ${pk > b + 0.004 ? `<p class="text-[11px] text-amber-500 mt-2"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Tus bolsillos suman más que el saldo de la cuenta. Revisa el saldo («Ajustar saldo») o saca plata de algún bolsillo.</p>` : ""}
+        <div class="pk-head">
+            <div><h4 class="sv-lbl !mb-0"><i class="fa-solid fa-box-archive mr-1.5"></i>Bolsillos de ahorro</h4><small>${free > 0.004 ? "Libre para apartar: <b>" + fxFmt(a.c, free) + "</b>" : "Sin plata libre en esta cuenta"}</small></div>
+            <button onclick="newPk(${a.id})" class="pk-new">+ Nuevo</button>
+        </div>
+        <p class="text-[11px] text-slate-400 mb-1">Cada bolsillo es plata apartada que sigue en esta cuenta y rinde por su cuenta${walRate(a) > 0 ? " (por defecto, al " + yPct(walRate(a)) + "% E.A. de la cuenta)" : ""}. Todo lo que apartes aparece en Ahorro.</p>
+        <p class="text-[11px] text-slate-400 mb-2">Se puede vincular a una meta: cuenta para su avance${r > 0 ? " al cambio de hoy (" + fmtD(r) + ")" : ""}.</p>
+        ${a.pk.length ? `<div class="pk-list">${a.pk.map(p => pkCard(a, p)).join("")}</div>` : emptyUI("fa-box-archive", "#5856D6", "Sin bolsillos", "Aparta plata libre de esta cuenta (un viaje, un fondo…) sin sacarla de ahí. Puedes vincularlo a una meta de ahorro.", "Crear bolsillo", `newPk(${a.id})`, true)}`;
 }
 
 // Sección que vCue (vistas.js) pinta debajo de las cuentas en pesos
@@ -145,7 +166,7 @@ function fxEdit(id) {
 function fxDel(id) {
     const a = S.fx.find(x => x.id == id); if (!a) return;
     const b = fxBal(a), conv = a.h.filter(x => x.cv).length;
-    confirmAction("¿Borrar la cuenta " + esc(a.n) + "?" + (Math.abs(b) > 0.004 ? " Tiene " + fxFmt(a.c, b) + " que dejarán de sumar a tu patrimonio." : "") + (conv ? (conv > 1 ? " Los pesos de sus " + conv + " cambios a pesos siguen en tus cuentas." : " Los pesos de su cambio a pesos siguen en tus cuentas.") : ""), () => {
+    confirmAction("¿Borrar la cuenta " + esc(a.n) + "?" + (a.pk.length ? (a.pk.length > 1 ? " Sus " + a.pk.length + " bolsillos también se borran" : " Su bolsillo también se borra") + " y las metas vinculadas dejan de contar esa plata." : "") + (Math.abs(b) > 0.004 ? " Tiene " + fxFmt(a.c, b) + " que dejarán de sumar a tu patrimonio." : "") + (conv ? (conv > 1 ? " Los pesos de sus " + conv + " cambios a pesos siguen en tus cuentas." : " Los pesos de su cambio a pesos siguen en tus cuentas.") : ""), () => {
         S.items.forEach(x => { if (x.fx && x.fx.a == id) delete x.fx; if (x.fxa == id) { delete x.fxa; delete x.fxe; } }); // los pesos que ya recibiste se quedan como una transferencia normal
         S.fx = S.fx.filter(x => x.id != id); if (fxOpen == id) fxOpen = null; save();
     });
@@ -176,6 +197,7 @@ function fxAdj(id) {
         if (v[0] === "") return "Escribe el saldo.";
         const t = fxR2(pr(v[0]));
         if (t < 0) return "El saldo no puede ser negativo.";
+        if (t < pkSum(a) - 0.004) return "Tus bolsillos suman " + fxFmt(a.c, pkSum(a)) + ": el saldo no puede ser menor. Saca plata de los bolsillos primero.";
         const d = fxR2(t - fxBal(a)), rt = fxRateOf(a);
         if (d) a.h.push(Object.assign({ id: Date.now(), d: today(), v: d, n: "Ajuste de saldo" }, d > 0 && rt > 0 ? { r: rt } : {}));
         save();

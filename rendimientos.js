@@ -222,10 +222,20 @@ function walYield(a) {
 }
 // Cuentas en dólares / euros: el rendimiento sale en su moneda (US$ o €) y se convierte a pesos con la tasa de la cuenta
 function fxYield(a) {
-    const r = walRate(a); if (!r) return null;
+    const r = walRate(a);
+    if (!r && !walOwn(a)) return null;
     const td = today(), st = yStart(a), delta = {};
     let b0 = 0; a.h.forEach(x => { if (x.d <= st) b0 += x.v; else if (x.d <= td) delta[x.d] = (delta[x.d] || 0) + x.v; });
-    return yCore("f" + a.id + "|" + a.h.length + "|" + fxBal(a), r, st, b0, delta, fxBal(a));
+    if (r && !walOwn(a)) return yCore("f" + a.id + "|" + a.h.length + "|" + fxBal(a), r, st, b0, delta, fxBal(a));
+    // Algún bolsillo tiene tasa propia (igual que en las cuentas en pesos): lo libre rinde a la E.A. de la cuenta y cada bolsillo a la suya
+    const list = [];
+    (a.pk || []).forEach(p => { const y = pkYield(a, p); if (y) list.push(y); });
+    if (r) {
+        let sb = b0; const d2 = Object.assign({}, delta);
+        (a.pk || []).forEach(p => (p.h || []).forEach(x => { if (x.d <= st) sb -= x.v; else if (x.d <= td) d2[x.d] = (d2[x.d] || 0) - x.v; }));
+        list.unshift(yCore("ff" + a.id + "|" + a.h.length, r, st, sb, d2, fxBal(a) - pkSum(a)));
+    }
+    return list.length ? yMerge(list) : null;
 }
 // Si todavía no hay historia (empezó hoy), se muestra una proyección a 30 días con la tasa actual
 function walYieldPts(y) {
@@ -260,7 +270,7 @@ function walYieldPanelUI(a, fx) {
 // Resumen de todas las cuentas que rinden (aparece arriba de la lista en Cuentas)
 function walYieldAllUI() {
     const L = S.wal.filter(a => !(S.hide || {})[a.n]).map(a => ({ a, y: walYield(a), k: 1 })).filter(x => x.y)
-        .concat(S.fx.filter(a => walRate(a) > 0 && fxRateOf(a) > 0).map(a => { const k = fxRateOf(a), y = fxYield(a); return { a, k, y: Object.assign({}, y, { pts: y.pts.map(p => ({ d: p.d, v: p.v * k })), total: y.total * k, daily: y.daily * k, monthly: y.monthly * k }) }; }));
+        .concat(S.fx.filter(a => (walRate(a) > 0 || walOwn(a)) && fxRateOf(a) > 0).map(a => { const k = fxRateOf(a), y = fxYield(a); return { a, k, y: Object.assign({}, y, { pts: y.pts.map(p => ({ d: p.d, v: p.v * k })), total: y.total * k, daily: y.daily * k, monthly: y.monthly * k }) }; }));
     if (!L.length) return "";
     const td = today(), first = L.map(x => x.y.start).sort()[0], days = Math.min(400, dayDiff(first, td));
     let pts = [];
@@ -316,13 +326,13 @@ function fxRend(id) {
 // Lo que rinden hoy todos tus bolsillos juntos (Ahorro e Inicio)
 function pkYieldAll() {
     const o = { daily: 0, total: 0, month: 0, monthly: 0, n: 0 };
-    pkAll().forEach(({ w, p }) => { const y = pkYield(w, p); if (y) { o.daily += y.daily; o.total += y.total; o.month += y.month; o.monthly += y.monthly; o.n++; } });
+    pkAll().forEach(({ w, p }) => { const y = pkYield(w, p), K = acK(w); if (y) { o.daily += y.daily * K; o.total += y.total * K; o.month += y.month * K; o.monthly += y.monthly * K; o.n++; } }); // siempre en pesos
     return o;
 }
 // Lo mismo para los bolsillos de una meta
 function goalPkYield(g) {
     const o = { daily: 0, total: 0, month: 0, monthly: 0, n: 0 };
-    goalPks(g).forEach(({ w, p }) => { const y = pkYield(w, p); if (y) { o.daily += y.daily; o.total += y.total; o.month += y.month; o.monthly += y.monthly; o.n++; } });
+    goalPks(g).forEach(({ w, p }) => { const y = pkYield(w, p), K = acK(w); if (y) { o.daily += y.daily * K; o.total += y.total * K; o.month += y.month * K; o.monthly += y.monthly * K; o.n++; } }); // siempre en pesos
     return o;
 }
 // E.A. del bolsillo para mostrar: "9,5 % E.A." o "" si no rinde

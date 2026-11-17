@@ -115,7 +115,7 @@ syncWH();
 // ---------- Cuentas en dólares / euros ----------
 // Viven aparte de las cuentas en pesos: no pasan por los movimientos (no se gasta de ahí), solo guardan su saldo en su moneda.
 // El saldo es la suma de su historial (el saldo inicial es la primera entrada), así cada entrada se puede corregir.
-S.fx.forEach(a => { if (!Array.isArray(a.h)) a.h = []; if (a.c != "EUR") a.c = "USD"; });
+S.fx.forEach(a => { if (!Array.isArray(a.h)) a.h = []; if (a.c != "EUR") a.c = "USD"; if (!Array.isArray(a.pk)) a.pk = []; a.pk.forEach(p => { if (p.m && !S.acc.some(g => g.id == p.m)) delete p.m; }); }); // a.pk = bolsillos de la cuenta (igual que en las de pesos), SIEMPRE en la moneda de la cuenta
 const FXC = { USD: ["Dólares", "US$", "fa-dollar-sign"], EUR: ["Euros", "€", "fa-euro-sign"] };
 const fe = n => masked() ? "€ ••••" : (n < 0 ? "-" : "") + "€" + Math.abs(n || 0).toLocaleString("es-CO", { maximumFractionDigits: 2 });
 const fxFmt = (c, n) => c == "EUR" ? fe(n) : fu(n);
@@ -148,9 +148,18 @@ const walOf = n => S.wal.find(a => a.n == n);
 const wlabel = n => String(n).replace(/\s*\(.*\)\s*$/, ""); // "Billetera digital (Nequi, Daviplata)" → "Billetera digital"
 // Bolsillos: plata que sigue en la cuenta pero ya tiene dueño (no cuenta como "Disponible para gastar")
 const pkSum = a => (a.pk || []).reduce((s, p) => s + p.v, 0);
-const pkHeld = () => S.wal.filter(a => !(S.hide || {})[a.n]).reduce((s, a) => s + pkSum(a), 0);
+const pkHeld = () => S.wal.filter(a => !(S.hide || {})[a.n]).reduce((s, a) => s + pkSum(a), 0) + S.fx.reduce((s, a) => s + pkSum(a) * fxRateOf(a), 0); // en pesos: incluye los bolsillos de dólares/euros
 const walBal = a => bal(a.n, ym(new Date()));
-const pkFree = a => walBal(a) - pkSum(a);
+// ---- Cuentas en pesos Y en dólares/euros comparten bolsillos ----
+// isFxA: ¿es una cuenta en dólares/euros? · acBal: su saldo en SU moneda · acK: cuánto vale 1 unidad en pesos · acF: formato en su moneda · acById: busca en ambas listas.
+// Los bolsillos (p.v, p.h) de una cuenta en USD/EUR están en esa moneda; todo lo que se suma entre cuentas se pasa a pesos con acK.
+const isFxA = a => !!a && (a.c == "USD" || a.c == "EUR");
+const acBal = a => isFxA(a) ? fxBal(a) : walBal(a);
+const acK = a => isFxA(a) ? fxRateOf(a) : 1;
+const acF = (a, n) => isFxA(a) ? fxFmt(a.c, n) : fmt(n);
+const acById = id => S.wal.find(x => x.id == id) || S.fx.find(x => x.id == id);
+const acEps = a => isFxA(a) ? 0.004 : 0; // tolerancia por los centavos
+const pkFree = a => acBal(a) - pkSum(a);
 // ---- Bolsillos = el ahorro de cada cuenta ----
 // p.h = [{ id, d fecha, v (con signo), n }]: cada vez que metes o sacas plata del bolsillo. p.v siempre es la suma de p.h (se guarda para que nada se rompa).
 // p.ry = E.A. propia del bolsillo (opcional: sin ella usa la de su cuenta) · p.rs = desde qué fecha rinde con esa tasa propia.
@@ -160,6 +169,7 @@ function pkInit(p) {
     p.h = p.v > 0 ? [{ id: p.id, d: k > today() ? today() : k, v: p.v, n: "" }] : [];
 }
 S.wal.forEach(a => a.pk.forEach(pkInit));
+S.fx.forEach(a => a.pk.forEach(pkInit));
 let _pkUid = 0;
 function pkApply(p, v, d, n) { // única puerta para cambiar el saldo de un bolsillo: deja el historial al día
     pkInit(p);
@@ -181,9 +191,9 @@ function pkDeposit(a, g, m, d, n) {
     pkApply(p, m, d, n); return p;
 }
 const walShown = () => S.wal.filter(a => !(S.hide || {})[a.n]);
-const pkAll = () => { const r = []; walShown().forEach(w => (w.pk || []).forEach(p => r.push({ w, p }))); return r; };
-const pkTot = () => pkAll().reduce((s, x) => s + x.p.v, 0);
-const freeAll = () => walShown().reduce((s, a) => s + Math.max(0, pkFree(a)), 0); // plata libre en tus cuentas: lo único que se puede pasar a Ahorro
+const pkAll = () => { const r = []; walShown().concat(S.fx).forEach(w => (w.pk || []).forEach(p => r.push({ w, p }))); return r; };
+const pkTot = () => pkAll().reduce((s, x) => s + x.p.v * acK(x.w), 0); // en pesos
+const freeAll = () => walShown().reduce((s, a) => s + Math.max(0, pkFree(a)), 0) + S.fx.reduce((s, a) => s + Math.max(0, pkFree(a)) * fxRateOf(a), 0); // plata libre en tus cuentas: lo único que se puede pasar a Ahorro
 // ¿La cuenta ya se usó en algo? (entonces no se puede borrar, solo ocultar)
 const walBusy = n => S.items.some(x => x.w == n || x.to == n) || S.sv.some(x => x.w == n) || S.rec.some(r => r.w == n);
 
@@ -287,8 +297,10 @@ const goalTotal = a => svb(a.id) + Math.max(0, yieldOf(a.id, a.r));
 // Bolsillos vinculados a una meta (p.m = id de la meta): la plata sigue en su cuenta, pero cuenta para el avance de la meta.
 // goalTotal = solo lo que está en la meta (movimientos + rendimiento). goalAll = eso + lo que hay en sus bolsillos.
 // El patrimonio neto sigue usando goalTotal, porque los bolsillos ya están dentro del saldo de las cuentas (no se duplica).
-const goalPks = a => { const r = []; S.wal.forEach(w => (w.pk || []).forEach(p => { if (p.m == a.id) r.push({ w, p }); })); return r; };
-const goalPkSum = a => goalPks(a).reduce((s, x) => s + x.p.v, 0) / (a.u ? S.trm : 1);
+const goalPks = a => { const r = []; S.wal.concat(S.fx).forEach(w => (w.pk || []).forEach(p => { if (p.m == a.id) r.push({ w, p }); })); return r; };
+// Lo que vale un bolsillo (en su cuenta) expresado en la moneda de la meta. USD → meta en USD va directo (sin pasar por pesos, para no inventar diferencias).
+const pkToGoal = (w, v, g) => isFxA(w) ? (w.c == "USD" && g.u ? v : v * fxRateOf(w) / (g.u ? S.trm : 1)) : v / (g.u ? S.trm : 1);
+const goalPkSum = a => goalPks(a).reduce((s, x) => s + pkToGoal(x.w, x.p.v, a), 0);
 const goalAll = a => goalTotal(a) + goalPkSum(a);
 // Meta como una "cajita" de Nu: el rendimiento se acumula día a día (interés compuesto sobre la tasa E.A.) y se suma al saldo.
 // Saldo de la meta en una fecha ("YYYY-MM-DD"): cada depósito o retiro crece desde su fecha hasta esa fecha.

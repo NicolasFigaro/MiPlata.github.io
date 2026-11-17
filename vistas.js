@@ -537,21 +537,21 @@ const pkColor = (p, g) => p.c || (g ? goalCol(g) : pkCol(p));
 // Barra que reparte el saldo de una cuenta: cada bolsillo con su color y, al final, lo libre
 function pkAlloc(a) {
     const segs = a.pk.filter(p => p.v > 0); if (!segs.length) return "";
-    const b = Math.max(walBal(a), pkSum(a)), free = Math.max(0, b - pkSum(a));
+    const b = Math.max(acBal(a), pkSum(a)), free = Math.max(0, b - pkSum(a));
     return `<div class="pk-alloc" role="img" aria-label="Cómo se reparte el saldo de la cuenta">
         <div class="pk-bar">${segs.map(p => `<i style="width:${(p.v / b * 100).toFixed(2)}%;background:${pkColor(p, p.m ? S.acc.find(x => x.id == p.m) : null)}" title="${esc(p.n)}"></i>`).join("")}${free > 0 ? `<i class="free" style="width:${(free / b * 100).toFixed(2)}%" title="Libre"></i>` : ""}</div>
-        <div class="pk-leg">${segs.map(p => `<span><i class="dot" style="background:${pkColor(p, p.m ? S.acc.find(x => x.id == p.m) : null)}"></i>${esc(p.n)}</span>`).join("")}<span><i class="dot free"></i>Libre ${fmt(free)}</span></div>
+        <div class="pk-leg">${segs.map(p => `<span><i class="dot" style="background:${pkColor(p, p.m ? S.acc.find(x => x.id == p.m) : null)}"></i>${esc(p.n)}</span>`).join("")}<span><i class="dot free"></i>Libre ${acF(a, free)}</span></div>
     </div>`;
 }
-const pkHistUI = p => {
+const pkHistUI = (p, a) => {
     pkInit(p); const L = p.h.slice().sort((x, y) => y.d.localeCompare(x.d) || y.id - x.id).slice(0, 8);
     if (!L.length) return "";
-    return sdet("Historial (" + p.h.length + ")", L.map(x => `<div class="pk-hl"><span>${dmy(x.d).slice(0, 5)}${x.n ? " · " + esc(x.n) : ""}</span><b class="${x.v > 0 ? "up" : ""}">${x.v > 0 ? "+" : "-"}${fmt(Math.abs(x.v))}</b></div>`).join(""), "pk-hist");
+    return sdet("Historial (" + p.h.length + ")", L.map(x => `<div class="pk-hl"><span>${dmy(x.d).slice(0, 5)}${x.n ? " · " + esc(x.n) : ""}</span><b class="${x.v > 0 ? "up" : ""}">${x.v > 0 ? "+" : "-"}${a ? acF(a, Math.abs(x.v)) : fmt(Math.abs(x.v))}</b></div>`).join(""), "pk-hist");
 };
 // Tarjeta de un bolsillo: su saldo, su propia E.A., lo que rinde hoy y qué parte de la cuenta es. o.acc = muestra también el nombre de la cuenta (pantalla Ahorro)
 function pkCard(a, p, o) {
     o = o || {};
-    const g = p.m ? S.acc.find(x => x.id == p.m) : null, y = pkYield(a, p), ea = pkEA(a, p), own = +p.ry > 0, b = walBal(a), share = b > 0 ? Math.min(100, p.v / b * 100) : 0;
+    const g = p.m ? S.acc.find(x => x.id == p.m) : null, y = pkYield(a, p), ea = pkEA(a, p), own = +p.ry > 0, b = acBal(a), mn = isFxA(a) ? 0.005 : 0.5, share = b > 0 ? Math.min(100, p.v / b * 100) : 0;
     const col = pkColor(p, g), gp = g && g.g ? Math.min(100, goalAll(g) / g.g * 100) : null, noFree = pkFree(a) <= 0;
     const ib = (cl, fn, ic, t) => `<button onclick="${fn}" class="pk-sm ${cl}"><i class="fa-solid ${ic}"></i>${t}</button>`;
     return `
@@ -559,11 +559,11 @@ function pkCard(a, p, o) {
             <div class="pk-top">
                 ${pkTile(p, g)}
                 <div class="pk-main"><b>${esc(p.n)}</b><small>${o.acc ? esc(a.n) + " · " : ""}${g ? esc(g.n) + (gp != null ? " · " + gp.toFixed(0) + "% de la meta" : "") : "Sin meta"}</small></div>
-                <div class="pk-amt"><b>${fmt(p.v)}</b>${y && y.daily >= 0.5 ? `<small class="up">+${fmt(y.daily)} hoy</small>` : ""}</div>
+                <div class="pk-amt"><b>${acF(a, p.v)}</b>${isFxA(a) && fxRateOf(a) > 0 && p.v > 0 ? `<small>≈ ${fmt(p.v * fxRateOf(a))}</small>` : ""}${y && y.daily >= mn ? `<small class="up">+${acF(a, y.daily)} hoy</small>` : ""}</div>
             </div>
             <div class="sv-badges pk-chips">
                 ${ea ? `<span class="sv-pill${own ? " up" : ""}"><i class="fa-solid fa-percent"></i>${ea}${own ? " · propia" : ""}</span>` : `<span class="sv-pill">Sin rendimiento</span>`}
-                ${y && y.total >= 0.5 ? `<span class="sv-pill up">+${fmt(y.total)} ganado</span>` : ""}
+                ${y && y.total >= mn ? `<span class="sv-pill up">+${acF(a, y.total)} ganado</span>` : ""}
                 ${!o.acc && share > 0 ? `<span class="sv-pill">${share.toFixed(share < 10 ? 1 : 0)}% de la cuenta</span>` : ""}
             </div>
             <div class="pk-acts">
@@ -571,7 +571,7 @@ function pkCard(a, p, o) {
                 ${ib("out", `pkMove(${a.id},${p.id},-1)`, "fa-minus", "Sacar")}
                 ${mxMenu((S.acc.some(x => !x.f) || p.m ? `<button onclick="linkPk(${a.id},${p.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs font-semibold"><i class="fa-solid fa-link mr-1"></i>${p.m ? "Cambiar meta" : "Vincular a una meta"}</button>` : "") + `<button onclick="editPk(${a.id},${p.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs font-semibold"><i class="fa-solid fa-pen mr-1"></i>Editar / E.A.</button><button onclick="delPk(${a.id},${p.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-rose-500 rounded-xl text-xs font-semibold"><i class="fa-solid fa-trash mr-1"></i>Borrar</button>`)}
             </div>
-            ${pkHistUI(p)}
+            ${pkHistUI(p, a)}
         </article>`;
 }
 
@@ -717,8 +717,8 @@ function goalEA(g) {
 const pkRow = (w, p) => {
     const y = pkYield(w, p), ea = pkEA(w, p);
     return `<div class="pk-row">${pkTile(p, null, 1)}
-        <span class="pk-rmain"><b>${esc(w.n)} › ${esc(p.n)}</b><small>${ea || "Sin rendimiento"}${y && y.daily >= 0.5 ? " · +" + fmt(y.daily) + " hoy" : ""}</small></span>
-        <span class="pk-ramt">${fmt(p.v)}</span>
+        <span class="pk-rmain"><b>${esc(w.n)} › ${esc(p.n)}</b><small>${ea || "Sin rendimiento"}${y && y.daily >= (isFxA(w) ? 0.005 : 0.5) ? " · +" + acF(w, y.daily) + " hoy" : ""}</small></span>
+        <span class="pk-ramt">${acF(w, p.v)}${isFxA(w) && fxRateOf(w) > 0 && p.v > 0 ? `<small style="display:block;font-size:10px;font-weight:500;opacity:.6">≈ ${fmt(p.v * fxRateOf(w))}</small>` : ""}</span>
         <span class="pk-rbtn"><button onclick="pkMove(${w.id},${p.id},1)" aria-label="Meter"><i class="fa-solid fa-plus"></i></button><button onclick="pkMove(${w.id},${p.id},-1)" aria-label="Sacar"><i class="fa-solid fa-minus"></i></button></span>
     </div>`;
 };
@@ -788,11 +788,11 @@ function vAho() {
     let L = 0, LD = 0;
     goals.forEach(a => { const K = a.u ? S.trm : 1; if (goalLegacy(a)) L += Math.max(0, goalTotal(a)) * K; LD += goalYield(a).daily * K; });
     const tot = PK + L, D = PY.daily + LD, M = PY.monthly, w = v => tot > 0 ? Math.max(0, v / tot * 100).toFixed(1) : 0;
-    const fr = walShown().map(a => ({ a, f: Math.max(0, pkFree(a)) })).filter(x => x.f > 0.5);
+    const fr = walShown().concat(S.fx).map(a => ({ a, f: Math.max(0, pkFree(a)) })).filter(x => x.f > (isFxA(x.a) ? 0.005 : 0.5));
     const strip = fr.length
         ? `<section class="sv-free">
             <div class="sv-free-h"><span class="sv-lbl !mb-0">Libre para ahorrar</span><b>${fmt(freeAll())}</b></div>
-            <div class="sv-free-chips">${fr.map(x => `<button onclick="openAcc(${x.a.id})" class="sv-free-chip"><span>${esc(wlabel(x.a.n))}</span><b>${fmt(x.f)}</b>${walRate(x.a) > 0 ? `<em>${yPct(walRate(x.a))}% E.A.</em>` : ""}</button>`).join("")}</div>
+            <div class="sv-free-chips">${fr.map(x => `<button onclick="openAcc(${x.a.id})" class="sv-free-chip"><span>${esc(wlabel(x.a.n))}</span><b>${acF(x.a, x.f)}</b>${walRate(x.a) > 0 ? `<em>${yPct(walRate(x.a))}% E.A.</em>` : ""}</button>`).join("")}</div>
             <p>Solo puedes ahorrar plata que esté libre en una cuenta: así Ahorro y Cuentas siempre cuadran.</p>
         </section>`
         : `<section class="sv-free none"><i class="fa-solid fa-circle-info"></i><div><b>No tienes plata libre en tus cuentas</b><p>Ingresa o transfiere plata a una cuenta para poder ahorrarla.</p></div><button onclick="goTab(N.indexOf('Cuentas'))">Ir a Cuentas</button></section>`;

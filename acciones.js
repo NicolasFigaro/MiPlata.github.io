@@ -745,7 +745,7 @@ function showModal(html) {
 }
 function togW(id) { walOpen = walOpen == id ? null : id; fxOpen = null; draw(); }
 // Desde Ahorro: abre esa cuenta en Cuentas (con sus bolsillos a la vista)
-function openAcc(id) { walOpen = id; fxOpen = null; goTab(N.indexOf("Cuentas")); }
+function openAcc(id) { if (S.fx.some(a => a.id == id)) { fxOpen = id; walOpen = null; } else { walOpen = id; fxOpen = null; } goTab(N.indexOf("Cuentas")); }
 // El nombre identifica la cuenta en los movimientos: debe ser único entre cuentas y tarjetas
 function walErr(n, own) {
     if (!/^[\p{L}\p{N}][\p{L}\p{N} .\/-]{0,19}$/u.test(n)) return "Usa hasta 20 letras o números (sin comillas ni símbolos raros).";
@@ -862,17 +862,18 @@ function delWal(id) {
 // Bolsillos: plata apartada dentro de una cuenta. Es el ahorro de Mi Plata: sigue en el saldo de la cuenta, pero ya no cuenta como «Disponible para gastar».
 // Regla de oro: solo se puede apartar plata LIBRE de esa cuenta (saldo − lo que ya está en bolsillos). Cada bolsillo rinde con su propia E.A.
 const noFreeToast = () => showToast("No tienes plata libre en tus cuentas. Ingresa o transfiere plata a una cuenta primero.", true, { label: "Ir a Cuentas", ic: "fa-wallet text-amber-400", fn: () => goTab(N.indexOf("Cuentas")) });
+const pkAmt = (a, t) => isFxA(a) ? fxR2(pr(t)) : num(t); // monto escrito: pesos enteros o dólares/euros con centavos
 function newPk(wid) {
-    const a = S.wal.find(x => x.id == wid); if (!a) return;
-    const go = goalOpts(), free = Math.max(0, pkFree(a)), rI = go ? 3 : 2;
+    const a = acById(wid); if (!a) return;
+    const go = goalOpts(), free = Math.max(0, pkFree(a)), rI = go ? 3 : 2, eps = acEps(a);
     openCustomModal("Nuevo bolsillo en " + esc(a.n), [
         { l: "Nombre", p: "Ej. Arriendo, Viaje" },
-        { l: "¿Cuánto apartas ahora? (libre: " + fmt(free) + ")", m: "numeric", p: "0" }
+        { l: "¿Cuánto apartas ahora? (libre: " + acF(a, free) + ")", m: isFxA(a) ? "decimal" : "numeric", p: "0" }
     ].concat(go ? [{ l: "Para una meta de ahorro (opcional)", o: go }] : []).concat(pkRateFields(a, {}, rI)).concat([{ l: "Ícono", sw: icoSw(), v: "", cls: "sw-ic" }, { l: "Color", sw: colSw(), v: "" }]), v => {
         if (!v[0] || v[0].length > 24) return "Escribe un nombre (hasta 24 letras).";
         if (a.pk.some(p => p.n.toLowerCase() == v[0].toLowerCase())) return "Ya tienes un bolsillo con ese nombre en esta cuenta.";
-        const m = num(v[1]);
-        if (m > free) return free > 0 ? "Solo tienes " + fmt(free) + " libres en esta cuenta." : "Esta cuenta no tiene plata libre. Ingresa o transfiere plata primero.";
+        const m = pkAmt(a, v[1]);
+        if (m > free + eps) return free > eps ? "Solo tienes " + acF(a, free) + " libres en esta cuenta." : isFxA(a) ? "Esta cuenta no tiene plata libre. Mete o ingresa plata primero." : "Esta cuenta no tiene plata libre. Ingresa o transfiere plata primero.";
         const g = go ? goalByOpt(v[2]) : null, p = { id: Date.now(), n: v[0], v: 0, h: [] };
         const er = pkRateApply(p, v, rI); if (er) return er;
         if (g) p.m = g.id;
@@ -889,7 +890,7 @@ const goalLabel = a => "🎯 " + a.n + " · lleva " + fm(a, goalAll(a)) + (a.g ?
 const goalOpts = () => { const g = S.acc.filter(a => !a.f); return g.length ? [NO_GOAL].concat(g.map(a => esc(goalLabel(a)))) : null; };
 const goalByOpt = t => S.acc.find(a => !a.f && goalLabel(a) == t);
 function linkPk(wid, pid) {
-    const a = S.wal.find(x => x.id == wid), p = a && a.pk.find(x => x.id == pid); if (!p) return;
+    const a = acById(wid), p = a && a.pk.find(x => x.id == pid); if (!p) return;
     const cur = p.m ? S.acc.find(g => g.id == p.m) : null, o = goalOpts();
     if (!o) return showToast("Primero crea una meta de ahorro", true);
     openCustomModal("Vincular «" + esc(p.n) + "» a una meta", [{ l: "Meta de ahorro", o, v: cur ? esc(goalLabel(cur)) : NO_GOAL }], v => {
@@ -901,41 +902,44 @@ function linkPk(wid, pid) {
 // Desde la meta (o desde Ahorro): apartar plata libre de una cuenta en el bolsillo de esa meta
 function pkGoal(gid) {
     const g = S.acc.find(x => x.id == gid); if (!g) return;
-    const L = walShown().map(a => ({ a, f: Math.max(0, pkFree(a)) })).sort((x, y) => (y.f > 0) - (x.f > 0));
-    if (!L.some(x => x.f > 0)) return noFreeToast();
-    const lab = x => x.a.n + " · libre " + fmt(x.f) + (walRate(x.a) > 0 ? " · " + yPct(walRate(x.a)) + "% E.A." : "");
+    const L = walShown().concat(S.fx).map(a => ({ a, f: Math.max(0, pkFree(a)) })).sort((x, y) => (y.f > acEps(y.a)) - (x.f > acEps(x.a)));
+    if (!L.some(x => x.f > acEps(x.a))) return noFreeToast();
+    const lab = x => x.a.n + " · libre " + acF(x.a, x.f) + (walRate(x.a) > 0 ? " · " + yPct(walRate(x.a)) + "% E.A." : "");
+    const hasFx = L.some(x => isFxA(x.a));
     openCustomModal("Apartar para " + esc(g.n), [
         { l: "¿De qué cuenta? (sale de su plata libre)", o: L.map(x => esc(lab(x))) },
-        { l: "Monto en pesos", m: "numeric" },
+        { l: hasFx ? "Monto (en la moneda de la cuenta que elegiste)" : "Monto en pesos", m: hasFx ? "decimal" : "numeric" },
         { l: "Fecha", t: "date", v: today() }
     ], v => {
-        const x = L.find(q => lab(q) == v[0]), m = num(v[1]), d = v[2] || today();
+        const x = L.find(q => lab(q) == v[0]), d = v[2] || today();
         if (!x) return "Elige una cuenta.";
+        const m = pkAmt(x.a, v[1]), eps = acEps(x.a);
         if (!(m > 0)) return "Escribe un monto válido.";
         if (d > today()) return "La fecha no puede ser futura.";
-        if (m > x.f) return x.f > 0 ? "Solo tienes " + fmt(x.f) + " libres en " + esc(x.a.n) + "." : esc(x.a.n) + " no tiene plata libre.";
+        if (m > x.f + eps) return x.f > eps ? "Solo tienes " + acF(x.a, x.f) + " libres en " + esc(x.a.n) + "." : esc(x.a.n) + " no tiene plata libre.";
         pkDeposit(x.a, g, m, d); save();
     });
 }
 // Apartar sin meta: elige el bolsillo (o uno nuevo desde Cuentas)
 function pkMove(wid, pid, s) {
-    const a = S.wal.find(x => x.id == wid), p = a && a.pk.find(x => x.id == pid); if (!p) return;
-    const free = Math.max(0, pkFree(a));
-    if (s > 0 && free <= 0) return showToast("«" + a.n + "» no tiene plata libre. Ingresa o transfiere plata a esa cuenta primero.", true);
+    const a = acById(wid), p = a && a.pk.find(x => x.id == pid); if (!p) return;
+    const free = Math.max(0, pkFree(a)), eps = acEps(a);
+    if (s > 0 && free <= eps) return showToast("«" + a.n + "» no tiene plata libre. Ingresa o transfiere plata a esa cuenta primero.", true);
     openCustomModal((s > 0 ? "Meter a " : "Sacar de ") + esc(p.n), [
-        { l: s > 0 ? "Monto (libre en la cuenta: " + fmt(free) + ")" : "Monto (hay " + fmt(p.v) + " en el bolsillo)", v: s > 0 ? "" : p.v, m: "numeric" },
+        { l: s > 0 ? "Monto (libre en la cuenta: " + acF(a, free) + ")" : "Monto (hay " + acF(a, p.v) + " en el bolsillo)", v: s > 0 ? "" : p.v, m: isFxA(a) ? "decimal" : "numeric" },
         { l: "Fecha", t: "date", v: today() }
     ], v => {
-        const m = num(v[0]), d = v[1] || today();
-        if (!m) return "Escribe un monto válido.";
+        let m = pkAmt(a, v[0]); const d = v[1] || today();
+        if (!(m > 0)) return "Escribe un monto válido.";
         if (d > today()) return "La fecha no puede ser futura.";
-        if (s > 0 && m > free) return "Solo tienes " + fmt(free) + " libres en esta cuenta.";
-        if (s < 0 && m > p.v) return "El bolsillo solo tiene " + fmt(p.v) + ".";
+        if (s > 0 && m > free + eps) return "Solo tienes " + acF(a, free) + " libres en esta cuenta.";
+        if (s < 0 && m > p.v + eps) return "El bolsillo solo tiene " + acF(a, p.v) + ".";
+        if (s < 0) m = Math.min(m, p.v);
         pkApply(p, s * m, d); save();
     });
 }
 function editPk(wid, pid) {
-    const a = S.wal.find(x => x.id == wid), p = a && a.pk.find(x => x.id == pid); if (!p) return;
+    const a = acById(wid), p = a && a.pk.find(x => x.id == pid); if (!p) return;
     openCustomModal("Editar bolsillo", [{ l: "Nombre", v: esc(p.n) }].concat(pkRateFields(a, p, 1), [{ l: "Ícono", sw: icoSw(), v: p.ic || "", cls: "sw-ic" }, { l: "Color", sw: colSw(), v: p.c || "" }]), v => {
         if (!v[0] || v[0].length > 24) return "Escribe un nombre (hasta 24 letras).";
         if (a.pk.some(q => q.id != pid && q.n.toLowerCase() == v[0].toLowerCase())) return "Ya tienes un bolsillo con ese nombre en esta cuenta.";
@@ -944,8 +948,8 @@ function editPk(wid, pid) {
     });
 }
 function delPk(wid, pid) {
-    const a = S.wal.find(x => x.id == wid), p = a && a.pk.find(x => x.id == pid); if (!p) return;
-    confirmAction("¿Borrar el bolsillo " + esc(p.n) + "?" + (p.v > 0 ? " Sus " + fmt(p.v) + " vuelven a quedar libres en la cuenta." : ""), () => { a.pk = a.pk.filter(x => x.id != pid); save(); });
+    const a = acById(wid), p = a && a.pk.find(x => x.id == pid); if (!p) return;
+    confirmAction("¿Borrar el bolsillo " + esc(p.n) + "?" + (p.v > 0 ? " Sus " + acF(a, p.v) + " vuelven a quedar libres en la cuenta." : ""), () => { a.pk = a.pk.filter(x => x.id != pid); save(); });
 }
 
 // ---------- Metas de ahorro ----------
@@ -1001,25 +1005,26 @@ function editAcc(id) {
         save();
     });
 }
-function delAcc(id) { confirmAction("¿Borrar meta y sus movimientos?" + (goalPks({ id }).length ? " Sus bolsillos no se borran: la plata sigue en tus cuentas." : ""), () => { S.wal.forEach(w => w.pk.forEach(p => { if (p.m == id) delete p.m; })); S.acc = S.acc.filter(x => x.id != id); S.sv = S.sv.filter(x => x.a != id); save(); }); }
+function delAcc(id) { confirmAction("¿Borrar meta y sus movimientos?" + (goalPks({ id }).length ? " Sus bolsillos no se borran: la plata sigue en tus cuentas." : ""), () => { S.wal.concat(S.fx).forEach(w => w.pk.forEach(p => { if (p.m == id) delete p.m; })); S.acc = S.acc.filter(x => x.id != id); S.sv = S.sv.filter(x => x.a != id); save(); }); }
 function archAcc(id) { const a = S.acc.find(x => x.id == id); a.f = a.f ? 0 : 1; save(); draw(); }
 // Meter plata a una meta = apartarla en un bolsillo, y solo sale de plata libre de una cuenta (así Ahorro nunca tiene más de lo que hay en Cuentas).
 // Sacar = el bolsillo suelta la plata y vuelve a quedar libre en su cuenta. all = 1: «Sacar todo» (campo vacío = todo el bolsillo elegido).
 function mov(id, s, all) {
     const a = S.acc.find(x => x.id == id); if (!a) return;
     if (s > 0) return pkGoal(id);
-    const L = goalPks(a).filter(x => x.p.v > 0), lab = x => x.w.n + " › " + x.p.n + " · " + fmt(x.p.v);
+    const L = goalPks(a).filter(x => x.p.v > 0), lab = x => x.w.n + " › " + x.p.n + " · " + acF(x.w, x.p.v);
     if (!L.length) return goalLegacy(a) && goalTotal(a) > 0 ? movLegacy(id, -1, all) : showToast("Esta meta no tiene plata para sacar.", true);
     openCustomModal((all ? "Sacar todo de " : "Sacar de ") + esc(a.n), [
         { l: "¿De qué bolsillo? (la plata queda libre en su cuenta)", o: L.map(x => esc(lab(x))) },
-        { l: all ? "Monto (vacío = todo el bolsillo)" : "Monto", v: all && L.length == 1 ? L[0].p.v : "", m: "numeric" },
+        { l: L.some(x => isFxA(x.w)) ? (all ? "Monto en la moneda de la cuenta (vacío = todo el bolsillo)" : "Monto (en la moneda de la cuenta del bolsillo)") : (all ? "Monto (vacío = todo el bolsillo)" : "Monto"), v: all && L.length == 1 ? L[0].p.v : "", m: L.some(x => isFxA(x.w)) ? "decimal" : "numeric" },
         { l: "Fecha", t: "date", v: today() }
     ], v => {
         const x = L.find(q => lab(q) == v[0]), d = v[2] || today(); if (!x) return "Elige un bolsillo.";
-        const m = v[1] === "" && all ? x.p.v : num(v[1]);
+        let m = v[1] === "" && all ? x.p.v : pkAmt(x.w, v[1]);
         if (!(m > 0)) return "Escribe un monto válido.";
         if (d > today()) return "La fecha no puede ser futura.";
-        if (m > x.p.v) return "Ese bolsillo solo tiene " + fmt(x.p.v) + ".";
+        if (m > x.p.v + acEps(x.w)) return "Ese bolsillo solo tiene " + acF(x.w, x.p.v) + ".";
+        m = Math.min(m, x.p.v);
         pkApply(x.p, -m, d); save();
     });
 }
