@@ -1093,51 +1093,34 @@ function vTar() {
         const pop = cu.ok && lastOk[c.id] === false; lastOk[c.id] = cu.ok;
         if (c.c) { tc += c.c; tu += cu.used; }
         const cn = cardNext(c), owe = cu.cq + cu.atr + cu.ext - cu.ab, late = !cu.ok && owe > 0 && (d < 0 || cu.atrLeft > 0), nd = cn.due > 0 ? daysTo(payDateIn(c.p, cn.m)) : nextPay(c.p), over = cu.ab - (cu.cq + cu.atr + cu.ext), nextOnly = !cu.ok && owe <= 0.5 && cn.m != n && cn.due > 0, sx = nextOnly ? stmt(c, mIdx(cn.m)) : null; // nextOnly: este mes no hay cuota, pero sí una en el extracto que viene
+        const dueAmt = nextOnly ? cn.due : Math.max(0, owe), dueDate = dmy(payDateIn(c.p, cn.m)).slice(0, 5);
+        const dueTxt = cu.ok ? `<span class="${pop ? "pop" : ""} text-emerald-500"><i class="fa-solid fa-circle-check mr-1"></i>Pagada</span>`
+            : late ? `<span class="text-rose-500">${d < 0 ? "Venció hace " + (-d) + " d" : "Saldo vencido"} · <b>${fmt(dueAmt)}</b></span>`
+            : dueAmt > 0.5 ? `<span>Pago <b>${fmt(dueAmt)}</b> · <span class="${nd <= 5 ? "text-rose-500" : ""}">${nd <= 5 ? "vence en " + nd + " d" : dueDate}</span></span>`
+            : `<span>Al día</span>`;
         return `
-            <div class="tc-wrap mb-6">
-                ${cardFace(c, c.c ? fmt(cu.avail) : fmt(u), c.c ? "Disponible" : "Compras este mes")}
-                ${cardPerksStrip(c)}
-                <div class="${CARD} p-5 mt-3">
-                <div class="flex justify-between items-center mb-3">
-                    <h4 class="text-sm font-bold text-slate-800 dark:text-white">Próximos pagos</h4>
-                    <span class="text-xs font-semibold ${cu.ok ? "text-emerald-500" : late || (cn.due > 0 && nd <= 5) ? "text-rose-500" : "text-slate-400"}">${cu.ok ? `<span class="${pop ? "pop" : ""}">Pagada ✓</span>` : late ? (d < 0 ? "Venció hace " + (-d) + " d" : "Con saldo vencido") : cn.due > 0 ? "Vence en " + nd + " d" : "Sin cuota pendiente"}</span>
-                </div>
-                <div class="tc-pay">
-                    <span class="tc-pi"><i class="fa-regular fa-calendar"></i></span>
-                    <div class="min-w-0 flex-1"><small>${nextOnly ? "Próxima cuota" : "Pago mínimo"}</small><b>${nextOnly ? fmt(cn.due) : fmt(cu.ok ? 0 : Math.max(0, owe))}</b><small>${cn.due > 0 || owe > 0.5 ? "Vence " + dmy(payDateIn(c.p, cn.m)) : "Al día"}</small></div>
-                    ${cu.ok ? "" : `<button onclick="payCard(${c.id})" class="tc-btn">Pagar</button>`}
-                </div>
-                <div class="h-px bg-slate-100 dark:bg-white/5 my-4"></div>
-                ${sdet("Ver detalle del mes", `<div class="grid grid-cols-2 gap-2 text-xs mb-4">
+            <div class="tc-wrap mb-5 ${tcOpen.has(c.id) ? "tc-open" : ""}" data-tcw="${c.id}">
+                ${cardFace(c, { amount: c.c ? fmt(cu.avail) : fmt(u), cupo: c.c, pct: cu.pct, raw: cu.raw, from: fn, fb, tone: tn.txt })}
+                <div class="tc-due">${dueTxt}${!cu.ok && dueAmt > 0.5 ? `<button onclick="payCard(${c.id})" class="tc-btn">Pagar</button>` : ""}</div>
+                <div class="tc-x"><div class="tc-xi"><div class="${CARD} p-5 mt-2">
+                <div class="grid grid-cols-2 gap-3 text-xs mb-4">
                     <div><span class="text-slate-400 block">Compras este mes</span><b>${fmt(u)}</b></div>
-                    <div><span class="text-slate-400 block">${nextOnly ? "Próxima cuota · " + dmy(payDateIn(c.p, cn.m)).slice(0, 5) : "Cuota a pagar"}</span><b class="text-indigo-600">${nextOnly ? fmt(cn.due) : fmt(cu.ok ? 0 : Math.max(0, owe))}</b></div>
                     <div><span class="text-slate-400 block">Abonado este mes</span><b class="text-emerald-600">${fmt(cu.ab)}</b></div>
                     <div><span class="text-slate-400 block">Intereses en la cuota</span><b class="${it > 0 ? "text-amber-500" : ""}">${fmt(it)}</b></div>
-                </div>
-                ${c.mf > 0 || c.mr > 0 ? `<div class="grid grid-cols-2 gap-2 text-xs mb-4 -mt-1">
+                    ${c.c ? `<div><span class="text-slate-400 block">Usado del cupo</span><b>${fmt(cu.used)}</b></div>` : ""}
                     ${c.mf > 0 ? `<div><span class="text-slate-400 block">Cuota de manejo (${c.mt == "a" ? "anual" : "mensual"})</span><b>${fmt(c.mf)}</b>${cu.fee > 0 ? `<span class="text-[10px] text-amber-500 ml-1.5">va en esta cuota</span>` : ""}</div>` : ""}
-                    ${c.mr > 0 ? `<div><span class="text-slate-400 block">Interés de mora (${tf(c.mr)}% mensual)</span><b class="${cu.mora > 0 ? "text-rose-500" : ""}">${fmt(cu.mora)}</b>${cu.mora > 0 ? `<span class="text-[10px] text-rose-400 ml-1.5">estimado</span>` : ""}</div>` : ""}
-                </div>` : ""}`)}
-                ${(cu.ext > 0 || cu.atrLeft > 0) && !cu.ok ? `<p class="text-[11px] ${cu.atrLeft > 0 ? "text-rose-500" : "text-slate-400"} -mt-2 mb-3">La cuota a pagar incluye ${[cu.atrLeft > 0 ? fmt(cu.atrLeft) + " vencidos de meses anteriores" : "", cu.fee > 0 ? fmt(cu.fee) + " de cuota de manejo" : "", cu.mora > 0 ? fmt(cu.mora) + " de mora" : ""].filter(Boolean).join(", ").replace(/, ([^,]*)$/, " y $1")}.</p>` : ""}
-                ${over > 0.5 && !c.paid[n] ? `<p class="text-[11px] text-emerald-600 dark:text-emerald-400 -mt-2 mb-3"><i class="fa-solid fa-circle-check mr-1"></i>Pagaste ${fmt(over)} por encima de la cuota de este mes: se aplica a la cuota siguiente (y lo que sobre, a capital).</p>` : ""}
-                ${nextOnly ? `<p class="text-[11px] text-slate-500 dark:text-slate-400 -mt-2 mb-3"><i class="fa-regular fa-calendar mr-1"></i>Este mes no tienes cuota por pagar: tus compras entran en el extracto que cierra el <b class="text-slate-600 dark:text-slate-300">${dmy(sx.close).slice(0, 5)}</b> y se paga el <b class="text-slate-600 dark:text-slate-300">${dmy(sx.pay)}</b>.</p>` : cn.m != n && cn.due > 0 ? `<p class="text-[11px] text-slate-400 -mt-2 mb-3"><i class="fa-regular fa-calendar mr-1"></i>Próximo pago: <b class="text-slate-600 dark:text-slate-300">${dmy(payDateIn(c.p, cn.m))}</b> · ${fmt(cn.due)}</p>` : ""}
-                ${c.c ? `
-                <h4 class="text-sm font-bold text-slate-800 dark:text-white mb-2">Límites y cupos</h4>
-                <div class="flex items-end justify-between mb-1.5">
-                    <div><span class="cupo-pct text-2xl font-extrabold ${tn.txt}" data-from="${fn}" data-to="${cu.raw}">${Math.round(fn)}%</span><span class="text-xs text-slate-400 ml-1.5">del cupo utilizado</span></div>
-                    <span class="text-[11px] font-semibold ${tn.txt}">${tn.lbl}</span>
+                    ${c.mr > 0 ? `<div><span class="text-slate-400 block">Mora (${tf(c.mr)}% mensual)</span><b class="${cu.mora > 0 ? "text-rose-500" : ""}">${fmt(cu.mora)}</b></div>` : ""}
                 </div>
-                <div class="relative w-full bg-slate-100 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden mb-2"><div class="cupo-bar ${tn.bar} h-full rounded-full" data-to="${cu.pct}" style="width:${fb}%"></div><div class="absolute top-0 bottom-0 w-px bg-slate-400/70" style="left:30%" title="Ideal: menos del 30%"></div></div>
-                <div class="flex justify-between text-[11px] text-slate-400 mb-3">
-                    <span>Usado ${fmt(cu.used)}</span><span>Disponible <b class="text-emerald-500">${fmt(cu.avail)}</b></span><span>Cupo ${fmt(c.c)}</span>
-                </div>` : `<p class="text-[11px] text-slate-400 mb-3">Esta tarjeta no tiene cupo registrado.</p>`}
-                <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                ${(cu.ext > 0 || cu.atrLeft > 0) && !cu.ok ? `<p class="text-[11px] ${cu.atrLeft > 0 ? "text-rose-500" : "text-slate-400"} mb-3">Incluye ${[cu.atrLeft > 0 ? fmt(cu.atrLeft) + " vencidos" : "", cu.fee > 0 ? fmt(cu.fee) + " de cuota de manejo" : "", cu.mora > 0 ? fmt(cu.mora) + " de mora" : ""].filter(Boolean).join(", ").replace(/, ([^,]*)$/, " y $1")}.</p>` : ""}
+                ${over > 0.5 && !c.paid[n] ? `<p class="text-[11px] text-emerald-600 dark:text-emerald-400 mb-3"><i class="fa-solid fa-circle-check mr-1"></i>${fmt(over)} de más: van a la próxima cuota.</p>` : ""}
+                ${nextOnly ? `<p class="text-[11px] text-slate-400 mb-3"><i class="fa-regular fa-calendar mr-1"></i>Tus compras cierran el ${dmy(sx.close).slice(0, 5)} y se pagan el ${dmy(sx.pay).slice(0, 5)}.</p>` : ""}
+                <div class="flex flex-wrap gap-2">
                     <button onclick="payCard(${c.id})" class="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-xl text-xs font-semibold">Abonar</button>
                     <button onclick="paidCard(${c.id})" class="px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-xl text-xs font-semibold">${cu.ok ? "Desmarcar pago" : "Marcar pagada"}</button>
-                    ${mxMenu(`<button onclick="openExtract(${c.id})" class="px-3 py-1.5 bg-violet-50 text-violet-600 rounded-xl text-xs font-semibold"><i class="fa-solid fa-receipt mr-1"></i>Extracto</button><button onclick="editPerks(${c.id})" class="px-3 py-1.5 bg-amber-50 text-amber-600 rounded-xl text-xs font-semibold"><i class="fa-solid fa-star mr-1"></i>Beneficios</button><button onclick="editCard(${c.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold">Editar</button><button onclick="delCard(${c.id})" class="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-xl text-xs font-semibold">Borrar</button>`)}
+                    ${mxMenu(`<button onclick="openExtract(${c.id})" class="px-3 py-1.5 bg-violet-50 text-violet-600 rounded-xl text-xs font-semibold"><i class="fa-solid fa-receipt mr-1"></i>Extracto</button><button onclick="openPerks(${c.id})" class="px-3 py-1.5 bg-amber-50 text-amber-600 rounded-xl text-xs font-semibold"><i class="fa-solid fa-star mr-1"></i>Beneficios</button><button onclick="editCard(${c.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold">Editar</button><button onclick="delCard(${c.id})" class="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-xl text-xs font-semibold">Borrar</button>`)}
                 </div>
                 ${(() => { const gm = {}; m.filter(x => x.k == c.n && x.t == "g").forEach(x => gm[x.c] = (gm[x.c] || 0) + x.a); const L = Object.entries(gm).sort((p, q) => q[1] - p[1]).slice(0, 5), T = L.reduce((t, z) => t + z[1], 0); if (!T) return ""; return `<h4 class="text-sm font-bold text-slate-800 dark:text-white mt-5 mb-2">Gastos por categoría</h4><div class="tc-seg">${L.map(([k, v]) => `<i style="width:${v / T * 100}%;background:${catIc(k)[1]}"></i>`).join("")}</div>${L.map(([k, v]) => `<div class="tc-cat"><span class="tc-dot" style="background:${catIc(k)[1]}"></span><span class="flex-1 truncate">${esc(k)}</span><span class="text-slate-400">${Math.round(v / T * 100)}%</span><b>${fmt(v)}</b></div>`).join("")}`; })()}
-                </div>
+                </div></div></div>
             </div>`;
     }).join("");
 
@@ -1157,6 +1140,7 @@ function vTar() {
 
     return `
         <div class="flex justify-between items-center mb-4"><h3 class="text-base font-bold">Mis Tarjetas de Crédito</h3><button onclick="newCard()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold shadow-md">+ Agregar tarjeta</button></div>
+        ${bestCardUI()}
         ${summary}
         ${cardsList || emptyUI("fa-credit-card", "#FF9500", "Aún no tienes tarjetas", "Agrega tu tarjeta de crédito para ver tu cupo, tus cuotas y cuándo toca pagar.", "Agregar tarjeta", "newCard()")}
     `;
