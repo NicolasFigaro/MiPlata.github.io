@@ -1095,11 +1095,8 @@ function vTar() {
         const cn = cardNext(c), owe = cu.cq + cu.atr + cu.ext - cu.ab, late = !cu.ok && owe > 0 && (d < 0 || cu.atrLeft > 0), nd = cn.due > 0 ? daysTo(payDateIn(c.p, cn.m)) : nextPay(c.p), over = cu.ab - (cu.cq + cu.atr + cu.ext), nextOnly = !cu.ok && owe <= 0.5 && cn.m != n && cn.due > 0, sx = nextOnly ? stmt(c, mIdx(cn.m)) : null; // nextOnly: este mes no hay cuota, pero sí una en el extracto que viene
         return `
             <div class="tc-wrap mb-6">
-                <div class="tc-card" onclick="editCard(${c.id})" role="button" aria-label="Ver detalles de ${esc(c.n)}">
-                    <div class="tc-top"><span class="tc-chip"><i class="fa-solid fa-credit-card"></i></span><div class="min-w-0 flex-1"><b class="block truncate">${esc(c.n)}</b><small>Tarjeta de crédito${c.ir > 0 ? " · " + tf(c.ir) + "% mensual" : ""}</small></div><span class="tc-det">Ver detalles <i class="fa-solid fa-chevron-right"></i></span></div>
-                    <div class="tc-amt" data-cu="tc${c.id}">${c.c ? fmt(cu.avail) : fmt(u)}</div>
-                    <div class="tc-bot"><span>${c.c ? "Disponible" : "Compras este mes"}</span><span class="tc-logo"><i></i><i></i></span></div>
-                </div>
+                ${cardFace(c, c.c ? fmt(cu.avail) : fmt(u), c.c ? "Disponible" : "Compras este mes")}
+                ${cardPerksStrip(c)}
                 <div class="${CARD} p-5 mt-3">
                 <div class="flex justify-between items-center mb-3">
                     <h4 class="text-sm font-bold text-slate-800 dark:text-white">Próximos pagos</h4>
@@ -1137,7 +1134,7 @@ function vTar() {
                 <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
                     <button onclick="payCard(${c.id})" class="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-xl text-xs font-semibold">Abonar</button>
                     <button onclick="paidCard(${c.id})" class="px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-xl text-xs font-semibold">${cu.ok ? "Desmarcar pago" : "Marcar pagada"}</button>
-                    ${mxMenu(`<button onclick="openExtract(${c.id})" class="px-3 py-1.5 bg-violet-50 text-violet-600 rounded-xl text-xs font-semibold"><i class="fa-solid fa-receipt mr-1"></i>Extracto</button><button onclick="editCard(${c.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold">Editar</button><button onclick="delCard(${c.id})" class="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-xl text-xs font-semibold">Borrar</button>`)}
+                    ${mxMenu(`<button onclick="openExtract(${c.id})" class="px-3 py-1.5 bg-violet-50 text-violet-600 rounded-xl text-xs font-semibold"><i class="fa-solid fa-receipt mr-1"></i>Extracto</button><button onclick="editPerks(${c.id})" class="px-3 py-1.5 bg-amber-50 text-amber-600 rounded-xl text-xs font-semibold"><i class="fa-solid fa-star mr-1"></i>Beneficios</button><button onclick="editCard(${c.id})" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold">Editar</button><button onclick="delCard(${c.id})" class="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-xl text-xs font-semibold">Borrar</button>`)}
                 </div>
                 ${(() => { const gm = {}; m.filter(x => x.k == c.n && x.t == "g").forEach(x => gm[x.c] = (gm[x.c] || 0) + x.a); const L = Object.entries(gm).sort((p, q) => q[1] - p[1]).slice(0, 5), T = L.reduce((t, z) => t + z[1], 0); if (!T) return ""; return `<h4 class="text-sm font-bold text-slate-800 dark:text-white mt-5 mb-2">Gastos por categoría</h4><div class="tc-seg">${L.map(([k, v]) => `<i style="width:${v / T * 100}%;background:${catIc(k)[1]}"></i>`).join("")}</div>${L.map(([k, v]) => `<div class="tc-cat"><span class="tc-dot" style="background:${catIc(k)[1]}"></span><span class="flex-1 truncate">${esc(k)}</span><span class="text-slate-400">${Math.round(v / T * 100)}%</span><b>${fmt(v)}</b></div>`).join("")}`; })()}
                 </div>

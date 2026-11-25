@@ -1280,8 +1280,10 @@ function setFee(c, amt, kind, mon) {
     if (!c.mfs) c.mfs = nextPayYm(c.p);
 }
 function newCard() {
+    // Los 4 primeros campos son de identidad (banco, tipo, franquicia, últimos 4): ver tarjetas.js
     openCustomModal("Nueva Tarjeta", [
-        { l: "Nombre" },
+        { l: "Nombre (opcional si eliges banco)" },
+        ...cardIdFields(),
         { l: "Cupo total", m: "numeric" },
         { l: "Día de corte (1-31)", v: "15", m: "numeric" },
         { l: "Día límite pago (1-31)", v: "30", m: "numeric" },
@@ -1291,11 +1293,16 @@ function newCard() {
         { l: "La cuota de manejo se cobra", o: FEE_KINDS },
         { l: "Mes del cobro anual, 1-12 (solo si es anual)", m: "numeric" }
     ], v => {
-        if (!v[0]) return "Escribe un nombre.";
-        if (WH.some(w => w.toLowerCase() == v[0].toLowerCase())) return "Ya tienes una cuenta con ese nombre.";
-        const e = feeErr(v[6], v[7], v[8]); if (e) return e;
-        const c = { id: Date.now(), n: v[0], c: num(v[1]), k: +v[2] || 15, p: +v[3] || 30, ir: pr(v[4]) || 0, mr: pr(v[5]) || 0, paid: {} };
-        setFee(c, v[6], v[7], v[8]);
+        const id = v.slice(1, 5), r = v.slice(5);
+        let name = v[0];
+        if (!name && id[0] != "Otro") { name = id[0] + (id[1] != CARD_TIERS.cl.n ? " " + id[1].split(" /")[0] : ""); let k = 2, b = name; while (S.cards.some(c => c.n.toLowerCase() == name.toLowerCase())) name = b + " " + k++; }
+        if (!name) return "Escribe un nombre o elige el banco.";
+        if (WH.some(w => w.toLowerCase() == name.toLowerCase())) return "Ya tienes una cuenta con ese nombre.";
+        if (S.cards.some(c => c.n.toLowerCase() == name.toLowerCase())) return "Ya tienes una tarjeta con ese nombre.";
+        const e = feeErr(r[5], r[6], r[7]); if (e) return e;
+        const c = { id: Date.now(), n: name, c: num(r[0]), k: +r[1] || 15, p: +r[2] || 30, ir: pr(r[3]) || 0, mr: pr(r[4]) || 0, paid: {} };
+        const ie = setCardId(c, id); if (ie) return ie;
+        setFee(c, r[5], r[6], r[7]);
         S.cards.push(c);
         save();
     });
@@ -1303,6 +1310,7 @@ function newCard() {
 function editCard(id) {
     const c = S.cards.find(x => x.id == id);
     openCustomModal("Editar " + esc(c.n), [
+        ...cardIdFields(c),
         { l: "Cupo total", v: c.c || "", m: "numeric" },
         { l: "Día de corte (1-31)", v: c.k, m: "numeric" },
         { l: "Día límite pago (1-31)", v: c.p, m: "numeric" },
@@ -1311,8 +1319,10 @@ function editCard(id) {
         { l: "Cuota de manejo en pesos (vacío = sin cuota)", v: c.mf || "", m: "numeric" },
         { l: "La cuota de manejo se cobra", o: FEE_KINDS, v: FEE_KINDS[c.mt == "a" ? 1 : 0] },
         { l: "Mes del cobro anual, 1-12 (solo si es anual)", v: c.mm || "", m: "numeric" }
-    ], v => {
+    ], w => {
+        const id = w.slice(0, 4), v = w.slice(4);
         const e = feeErr(v[5], v[6], v[7]); if (e) return e;
+        const ie = setCardId(c, id); if (ie) return ie;
         c.c = num(v[0]); c.k = +v[1] || c.k; c.p = +v[2] || c.p; c.ir = pr(v[3]) || 0; c.mr = pr(v[4]) || 0;
         setFee(c, v[5], v[6], v[7]);
         save();

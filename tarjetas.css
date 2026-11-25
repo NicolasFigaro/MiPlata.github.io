@@ -1,0 +1,102 @@
+/* ===== Tarjetas por tipo: plástico con acabado (Clásica, Gold, Platinum, Signature, Black) =====
+   Va DESPUÉS de capas.css: los temas pintan .tc-card con !important, por eso aquí los selectores son más específicos. */
+
+html .tc-card.tc-face {
+  --ink: #fff; --ink-2: rgb(255 255 255 / .72); --edge: rgb(255 255 255 / .22);
+  position: relative; overflow: hidden; isolation: isolate;
+  aspect-ratio: 1.586; min-height: 0; max-width: 460px; margin-inline: auto;
+  padding: 20px 22px 18px !important; border-radius: 22px !important;
+  display: flex; flex-direction: column; color: var(--ink);
+  -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+  border: 1px solid var(--edge) !important;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .28), inset 0 -1px 0 rgb(0 0 0 / .25), 0 24px 40px -22px rgb(0 0 0 / .75) !important;
+  transition: transform .5s cubic-bezier(.2,.8,.2,1), box-shadow .5s;
+  -webkit-tap-highlight-color: transparent;
+}
+html .tc-card.tc-face:active { transform: scale(.985) rotateX(2deg); }
+html .tc-card.tc-face::after { display: none; }
+
+/* Textura fina (líneas cepilladas) sobre todos los acabados */
+html .tc-card.tc-face::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; opacity: .5; mix-blend-mode: overlay;
+  background: repeating-linear-gradient(100deg, rgb(255 255 255 / .05) 0 1px, transparent 1px 3px);
+}
+/* Destello que cruza una vez al aparecer */
+.tc-sheen { position: absolute; inset: -40% -60%; z-index: 0; pointer-events: none;
+  background: linear-gradient(115deg, transparent 42%, rgb(255 255 255 / .16) 50%, transparent 58%);
+  transform: translateX(-60%); animation: tcSheen 1.6s .25s cubic-bezier(.3,.7,.2,1) both; }
+@keyframes tcSheen { to { transform: translateX(60%); } }
+@media (prefers-reduced-motion: reduce) { .tc-sheen { animation: none; opacity: 0; } html .tc-card.tc-face { transition: none; } }
+
+.tc-face > :not(.tc-sheen) { position: relative; z-index: 1; }
+.tc-row { display: flex; align-items: center; gap: 10px; }
+.tc-bank { display: flex; align-items: center; gap: 7px; font-size: 15px; font-weight: 500 !important; letter-spacing: -.01em !important; min-width: 0; }
+.tc-bdot { width: 9px; height: 9px; border-radius: 9999px; flex-shrink: 0; background: var(--bank); box-shadow: 0 0 0 2px rgb(255 255 255 / .55); }
+.tc-sub { display: block; font-size: 11px; color: var(--ink-2); margin-top: 1px; }
+.tc-tier { font-size: 10px; font-weight: 600; letter-spacing: .22em; padding: 4px 9px 4px 11px; border-radius: 9999px; border: 1px solid currentColor; opacity: .9; white-space: nowrap; align-self: flex-start; }
+.tc-mid { margin-top: 14px; }
+.tc-emv { width: 40px; height: 30px; border-radius: 7px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 2px; padding: 4px;
+  background: linear-gradient(135deg, #f3dc9a, #c9a24c 45%, #f0d78f 60%, #b08a38);
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / .18), inset 0 1px 0 rgb(255 255 255 / .5); }
+.tc-emv i { border-radius: 2px; border: 1px solid rgb(90 60 10 / .28); }
+.tc-nfc { transform: rotate(90deg); font-size: 18px; color: var(--ink-2); }
+.tc-lbl { margin-top: auto; font-size: 12px; color: var(--ink-2); }
+html .tc-face .tc-amt { margin: 0 !important; padding: 0 !important; font-size: clamp(30px, 9.5vw, 42px) !important; font-weight: 300 !important; letter-spacing: -.04em !important; line-height: 1.08; text-shadow: 0 1px 1px rgb(0 0 0 / .18); }
+.tc-foot { justify-content: space-between; margin-top: 6px; font-size: 12px; color: var(--ink-2); }
+.tc-num { letter-spacing: .14em; font-variant-numeric: tabular-nums; }
+.tc-num i { font-size: 8px; margin-left: 2px; }
+.tc-fr { font-size: 12px; font-weight: 600; letter-spacing: .04em; color: var(--ink); opacity: .9; }
+
+/* ---------- Acabados ---------- */
+/* Clásica: color del banco; si no hay banco, el acento del tema */
+html .tc-card.tc-face.tc-t-cl {
+  background: radial-gradient(120% 100% at 100% 0%, rgb(255 255 255 / .2), transparent 55%),
+              linear-gradient(145deg, color-mix(in srgb, var(--bank, rgb(var(--p-600))) 92%, #fff), color-mix(in srgb, var(--bank, rgb(var(--p-800))) 70%, #000)) !important;
+}
+/* Gold: dorado cepillado */
+html .tc-card.tc-face.tc-t-go {
+  --ink: #fffaf0; --ink-2: rgb(255 248 230 / .8); --edge: rgb(255 230 170 / .45);
+  background: radial-gradient(90% 80% at 85% 10%, rgb(255 240 200 / .45), transparent 60%),
+              linear-gradient(135deg, #5a3f0e 0%, #a87a26 32%, #d9b45e 50%, #a47524 68%, #4d360c 100%) !important;
+}
+html .tc-t-go .tc-amt, html .tc-t-go .tc-bank { text-shadow: 0 1px 2px rgb(60 35 0 / .45); }
+/* Platinum: plata fría */
+html .tc-card.tc-face.tc-t-pl {
+  --ink: #fff; --ink-2: rgb(255 255 255 / .78); --edge: rgb(230 235 245 / .45);
+  background: radial-gradient(90% 80% at 85% 5%, rgb(255 255 255 / .5), transparent 60%),
+              linear-gradient(135deg, #3b4049 0%, #7c828d 35%, #b9bec7 52%, #737984 70%, #2f333a 100%) !important;
+}
+html .tc-t-pl .tc-amt, html .tc-t-pl .tc-bank { text-shadow: 0 1px 2px rgb(10 15 25 / .45); }
+html .tc-t-pl .tc-emv { background: linear-gradient(135deg, #eef0f3, #a9aeb6 45%, #e3e6ea 60%, #8d939c); }
+html .tc-t-pl .tc-emv i { border-color: rgb(40 45 55 / .25); }
+/* Signature: azul medianoche metalizado */
+html .tc-card.tc-face.tc-t-si {
+  --ink: #f2f4ff; --ink-2: rgb(220 226 255 / .72); --edge: rgb(170 185 255 / .3);
+  background: radial-gradient(100% 90% at 90% 0%, rgb(140 160 255 / .35), transparent 60%),
+              linear-gradient(140deg, #1b2346 0%, #2c3770 45%, #141a36 100%) !important;
+}
+/* Black: negro mate con filo plateado */
+html .tc-card.tc-face.tc-t-bk {
+  --ink: #ececec; --ink-2: rgb(236 236 236 / .6); --edge: rgb(255 255 255 / .16);
+  background: radial-gradient(120% 90% at 100% 0%, rgb(255 255 255 / .1), transparent 55%),
+              linear-gradient(150deg, #1d1d1f 0%, #0b0b0c 60%, #050505 100%) !important;
+}
+html .tc-t-bk .tc-tier { color: #d8d8d8; border-color: rgb(255 255 255 / .35); }
+html .tc-t-bk::before { opacity: .9; background: repeating-linear-gradient(45deg, rgb(255 255 255 / .025) 0 2px, transparent 2px 4px) !important; }
+
+/* ---------- Franja de beneficios ---------- */
+.tc-perks { display: flex; gap: 8px; overflow-x: auto; padding: 12px 2px 2px; margin-inline: auto; max-width: 460px; scroll-snap-type: x proximity; }
+.tc-perk { flex-shrink: 0; scroll-snap-align: start; display: inline-flex; align-items: center; gap: 7px; padding: 7px 12px; border-radius: 9999px; font-size: 12px; white-space: nowrap;
+  color: rgb(var(--n-700)); background: rgb(255 255 255 / .55); border: 1px solid rgb(var(--n-900) / .08);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+.tc-perk i { font-size: 11px; color: rgb(var(--p-500)); }
+html.dark .tc-perk { color: rgb(255 255 255 / .85); background: rgb(255 255 255 / .07); border-color: rgb(255 255 255 / .1); }
+html.dark .tc-perk i { color: rgb(var(--p-300)); }
+.tc-perk-ed, .tc-perk-add { font-weight: 600; color: rgb(var(--p-600)) !important; }
+html.dark .tc-perk-ed, html.dark .tc-perk-add { color: rgb(var(--p-300)) !important; }
+.tc-perk-add { margin-top: 12px; }
+.tc-perk-note { max-width: 460px; margin: 6px auto 0; padding-inline: 4px; font-size: 11px; line-height: 1.45; color: rgb(var(--n-400)); }
+.tc-perk-note b { font-weight: 600; color: rgb(var(--n-600)); }
+html.dark .tc-perk-note b { color: rgb(255 255 255 / .75); }
+/* La etiqueta del tipo sobre metales claros: fondo oscuro translúcido para que se lea */
+html .tc-t-go .tc-tier, html .tc-t-pl .tc-tier { background: rgb(0 0 0 / .2); border-color: rgb(255 255 255 / .55); }
